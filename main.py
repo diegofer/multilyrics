@@ -1,14 +1,16 @@
-from PySide6.QtWidgets import QApplication, QMainWindow, QVBoxLayout, QHBoxLayout, QPushButton, QLabel, QWidget
+from PySide6.QtWidgets import QApplication, QMainWindow, QLayout, QVBoxLayout, QHBoxLayout, QPushButton, QLabel, QWidget, QFrame
 from PySide6.QtCore import Qt
 from shell import Ui_MainWindow
 from waveform import WaveformWidget
+from controls_widget import ControlsWidget
+from qt_utils import add_widget_to_frame
 
 class MainWindow(QMainWindow):
     def __init__(self):
         super().__init__()
         self.ui = Ui_MainWindow()
         self.ui.setupUi(self)
-        
+
         # Estilo para los QLabel de tiempo
         # Ajustar el formato inicial del label
         self.time_label_style = "QLabel { color: white; font-size: 14px; font-weight: bold; background: transparent; padding: 5px; }"
@@ -34,28 +36,20 @@ class MainWindow(QMainWindow):
         # Etiqueta para mostrar el tiempo
         self.time_label = QLabel("00:00 / 00:00") # Etiqueta inicial simplificada
         self.time_label.setStyleSheet(self.time_label_style)
-        self.time_label.setAlignment(Qt.AlignCenter)
+        self.time_label.setAlignment(Qt.AlignCenter)        
 
-        self.btn_play = QPushButton("Play")
-        self.btn_stop = QPushButton("Stop")
-        
-        # Estilo simple para los botones
-        button_style = "QPushButton { padding: 5px 15px; border-radius: 5px; background-color: rgb(0, 150, 200); color: white; }"
-        self.btn_play.setStyleSheet(button_style)
-        self.btn_stop.setStyleSheet(button_style)
-
-        controls_layout.addWidget(self.btn_play)
-        controls_layout.addWidget(self.btn_stop)
         controls_layout.addWidget(self.time_label) # Añadir el label
 
         wave_container.layout().addLayout(controls_layout)
 
-        # Conectar botones
-        self.btn_play.clicked.connect(self.on_play)
-        self.btn_stop.clicked.connect(self.on_stop)
+        # load ControlsWidget en Frame de la UI
+        self.controls = add_widget_to_frame(ControlsWidget, self.ui.frame_4, QHBoxLayout)
+        self.controls.play_clicked.connect(self.on_play)
+        self.controls.stop_clicked.connect(self.on_stop)
         
         # CONEXIÓN CRUCIAL: Conectar la señal de tiempo del widget a la función de actualización
         self.waveform.time_updated.connect(self.update_time_label)
+
 
     def _format_time(self, seconds):
         """Convierte segundos a formato MM:SS."""
