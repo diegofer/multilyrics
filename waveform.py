@@ -1,82 +1,108 @@
-# waveform.py
+# Waveform Widget with Zoom, Scroll, and Animated Playhead
+
 import numpy as np
 from PySide6.QtWidgets import QWidget
 from PySide6.QtGui import QPainter, QColor, QPen
-from PySide6.QtCore import Qt
+from PySide6.QtCore import Qt, QTimer
 import soundfile as sf
 
 class WaveformWidget(QWidget):
     def __init__(self, audio_path, parent=None):
         super().__init__(parent)
-        # --- cargar audio ---
+        # --- Load audio ---
         data, sr = sf.read(audio_path)
         if data.ndim > 1:
-            data = data.mean(axis=1)  # convertir a mono
+            data = data.mean(axis=1)
         self.samples = np.asarray(data, dtype=np.float32)
         self.sr = sr
 
-        # --- vista / zoom / pan ---
-        # zoom_factor: 1.0 = toda la pista cabe en el ancho del widget
-        # zoom_factor > 1 = acercar (menos duración visible)
+        # --- View parameters ---
         self.zoom_factor = 1.0
-
-        # center_sample es el índice de muestra que está centrado en la vista
         self.center_sample = len(self.samples) // 2
 
-        # flags para arrastre (panning)
+        # --- Playhead ---
+        self.playhead_sample = 0
+        self.playing = False
+
+        # --- Interaction ---
         self._dragging = False
         self._last_mouse_x = None
 
         self.setMinimumHeight(120)
         self.setFocusPolicy(Qt.StrongFocus)
 
-    # -------------------------
-    # API pública
-    # -------------------------
+        # --- Timer for playhead animation ---
+        self.timer = QTimer(self)
+        self.timer.timeout.connect(self._on_tick)
+        self.timer.start(16)  # ~60 FPS
+
+    # ==============================================================
+    # PLAYBACK CONTROL
+    # ==============================================================
+    def start_play(self):
+        self.playing = True
+
+    def stop_play(self):
+        self.playing = False
+
+    def set_playhead_sample(self, sample):
+        self.playhead_sample = int(max(0, min(sample, len(self.samples)-1)))
+        self.update()
+
+    def step_playhead(self, samples):
+        self.set_playhead_sample(self.playhead_sample + samples)
+
+    def _on_tick(self):
+        if not self.playing:
+            return
+
+        # samples per frame
+        samples_per_frame = int(self.sr / 60)  # 60 FPS
+
+        self.playhead_sample += samples_per_frame
+
+        # stop if end reached
+        if self.playhead_sample >= len(self.samples):
+            self.playhead_sample = len(self.samples) - 1
+            self.playing = False
+
+        # auto-scroll: keep playhead visible
+        w = max(1, self.width())
+        spp = self._samples_per_pixel(self.zoom_factor, w)
+        half_visible = (w * spp) / 2.0
+
+        if self.playhead_sample > self.center_sample + half_visible * 0.8:
+            self.center_sample = int(self.playhead_sample - half_visible * 0.2)
+
+        self.update()
+
+    # ==============================================================
+    # ZOOM
+    # ==============================================================
     def set_zoom(self, factor: float):
-        """Factor de zoom absoluto (>=1.0). 1.0 = ver toda la pista."""
-        if factor < 1.0:
-            factor = 1.0
+        factor = max(1.0, factor)
         self.zoom_factor = factor
-        # mantener center_sample dentro de rango
         self.center_sample = int(np.clip(self.center_sample, 0, len(self.samples)-1))
         self.update()
 
     def zoom_by(self, ratio: float, cursor_x: int = None):
-        """
-        Cambia zoom multiplicativamente (ej: ratio=1.1 -> 10% más zoom).
-        Si cursor_x se provee, intenta mantener el punto bajo el cursor en la misma muestra.
-        """
         old_zoom = self.zoom_factor
         new_zoom = max(1.0, old_zoom * ratio)
 
         if cursor_x is None:
-            # simplemente ajustar zoom manteniendo center_sample
             self.zoom_factor = new_zoom
         else:
             w = max(1, self.width())
-            # muestra actualmente bajo el cursor
-            old_samples_per_pixel = self._samples_per_pixel(old_zoom, w)
-            cursor_rel = cursor_x / (w - 1) if w > 1 else 0.5
-            sample_at_cursor = int(self.center_sample - (w/2 - cursor_x) * old_samples_per_pixel)
-
-            # después del zoom, calcular nuevo center para que sample_at_cursor permanezca en cursor_x
-            new_samples_per_pixel = self._samples_per_pixel(new_zoom, w)
-            new_center = int(sample_at_cursor + (w/2 - cursor_x) * new_samples_per_pixel)
+            old_spp = self._samples_per_pixel(old_zoom, w)
+            sample_at_cursor = int(self.center_sample - (w/2 - cursor_x) * old_spp)
+            new_spp = self._samples_per_pixel(new_zoom, w)
+            new_center = int(sample_at_cursor + (w/2 - cursor_x) * new_spp)
             self.center_sample = int(np.clip(new_center, 0, len(self.samples)-1))
             self.zoom_factor = new_zoom
 
         self.update()
 
-    # -------------------------
-    # util: muestras por pixel
-    # -------------------------
     def _samples_per_pixel(self, zoom_factor, width_pixels):
-        """
-        Calcula cuántas muestras corresponden a cada píxel horizontal según zoom.
-        zoom_factor=1.0 => todo el buffer en width_pixels.
-        zoom_factor>1 => menos muestras por píxel (acercamiento).
-        """
         if width_pixels <= 0:
             return 1.0
         total_samples = len(self.samples)
@@ -84,22 +110,30 @@ class WaveformWidget(QWidget):
         spp = visible_samples / width_pixels
         return max(1e-6, spp)
 
-    # -------------------------
-    # eventos del mouse (wheel -> zoom; drag -> pan)
-    # -------------------------
+    # ==============================================================
+    # SCROLL (Mouse + Keyboard)
+    # ==============================================================
     def wheelEvent(self, event):
-        """
-        Rueda del mouse: zoom in/out.
-        Qt::angleDelta().y() da el delta. Usamos factor exponencial suave.
-        """
+        modifiers = event.modifiers()
+
+        # SHIFT + wheel = horizontal scroll
+        if modifiers & Qt.ShiftModifier:
+            delta = event.angleDelta().y()
+            if delta != 0:
+                direction = -1 if delta > 0 else 1
+                w = max(1, self.width())
+                spp = self._samples_per_pixel(self.zoom_factor, w)
+                shift = int(direction * w * 0.1 * spp)
+                self.center_sample = int(np.clip(self.center_sample + shift, 0, len(self.samples)-1))
+                self.update()
+            return
+
+        # normal wheel = zoom
         delta = event.angleDelta().y()
         if delta == 0:
             return
-        # cada paso de rueda (120) -> zoom 1.15x
         steps = delta / 120.0
-        factor_per_step = 1.15
-        ratio = factor_per_step ** steps
-
+        ratio = 1.15 ** steps
         cursor_x = event.position().x() if hasattr(event, "position") else event.x()
         self.zoom_by(ratio, int(cursor_x))
 
@@ -112,13 +146,11 @@ class WaveformWidget(QWidget):
     def mouseMoveEvent(self, event):
         if not self._dragging:
             return
-        x = event.x()
-        dx = x - self._last_mouse_x
-        self._last_mouse_x = x
+        dx = event.x() - self._last_mouse_x
+        self._last_mouse_x = event.x()
 
         w = max(1, self.width())
         spp = self._samples_per_pixel(self.zoom_factor, w)
-        # mover el centro en sentido inverso al movimiento del mouse
         self.center_sample = int(np.clip(self.center_sample - dx * spp, 0, len(self.samples)-1))
         self.update()
 
@@ -128,14 +160,37 @@ class WaveformWidget(QWidget):
             self._last_mouse_x = None
             self.unsetCursor()
 
-    # -------------------------
-    # dibujado adaptativo
-    # -------------------------
+    def keyPressEvent(self, event):
+        w = max(1, self.width())
+        spp = self._samples_per_pixel(self.zoom_factor, w)
+        page = int(w * spp * 0.8)
+        small = int(w * spp * 0.1)
+
+        if event.key() in (Qt.Key_Left, Qt.Key_A):
+            self.center_sample = int(np.clip(self.center_sample - small, 0, len(self.samples)-1))
+            self.update()
+        elif event.key() in (Qt.Key_Right, Qt.Key_D):
+            self.center_sample = int(np.clip(self.center_sample + small, 0, len(self.samples)-1))
+            self.update()
+        elif event.key() == Qt.Key_PageUp:
+            self.center_sample = int(np.clip(self.center_sample - page, 0, len(self.samples)-1))
+            self.update()
+        elif event.key() == Qt.Key_PageDown:
+            self.center_sample = int(np.clip(self.center_sample + page, 0, len(self.samples)-1))
+            self.update()
+        elif event.key() in (Qt.Key_Plus, Qt.Key_Equal):
+            self.zoom_by(1.2)
+        elif event.key() in (Qt.Key_Minus, Qt.Key_Underscore):
+            self.zoom_by(1/1.2)
+        else:
+            super().keyPressEvent(event)
+
+    # ==============================================================
+    # PAINT EVENT (waveform + playhead)
+    # ==============================================================
     def paintEvent(self, event):
         painter = QPainter(self)
         painter.fillRect(self.rect(), QColor(30, 30, 30))
-        pen = QPen(QColor(0, 200, 255), 1)
-        painter.setPen(pen)
 
         w = max(1, self.width())
         h = max(2, self.height())
@@ -143,18 +198,20 @@ class WaveformWidget(QWidget):
 
         total_samples = len(self.samples)
         spp = self._samples_per_pixel(self.zoom_factor, w)
-        # rango visible
         half_visible = (w * spp) / 2.0
+
         start = int(np.clip(self.center_sample - half_visible, 0, total_samples - 1))
         end = int(np.clip(self.center_sample + half_visible, 0, total_samples - 1))
+
         if end <= start:
             return
 
         window = self.samples[start:end+1]
-        # dividir la ventana en 'w' segmentos y calcular min/max por píxel para representación más correcta
-        # si hay menos muestras que pixels, hacemos interpolación simple (pad con ceros)
+
+        pen = QPen(QColor(0, 200, 255), 1)
+        painter.setPen(pen)
+
         if len(window) < w:
-            # interpolar la señal a exactamente w puntos (más suave)
             indices = np.linspace(0, len(window) - 1, num=w)
             interp = np.interp(indices, np.arange(len(window)), window)
             for x in range(w):
@@ -162,29 +219,30 @@ class WaveformWidget(QWidget):
                 y = int(val * (h/2 - 2))
                 painter.drawLine(x, mid - y, x, mid + y)
         else:
-            # por cada píxel, tomar min y max del bloque de muestras que cubre ese pixel
             samples_per_bucket = len(window) / w
             for x in range(w):
                 b_start = int(x * samples_per_bucket)
                 b_end = int((x + 1) * samples_per_bucket)
+
                 if b_end <= b_start:
                     val = float(window[min(b_start, len(window)-1)])
                     y = int(val * (h/2 - 2))
                     painter.drawLine(x, mid - y, x, mid + y)
                 else:
                     block = window[b_start:b_end]
-                    # dibujar línea desde min hasta max para visualizar amplitud del bloque
                     min_v = float(np.min(block))
                     max_v = float(np.max(block))
                     y1 = int(min_v * (h/2 - 2))
                     y2 = int(max_v * (h/2 - 2))
                     painter.drawLine(x, mid - y2, x, mid - y1)
 
-    # opcional: tecla +/- para zoom
-    def keyPressEvent(self, event):
-        if event.key() == Qt.Key_Plus or event.key() == Qt.Key_Equal:
-            self.zoom_by(1.2)
-        elif event.key() == Qt.Key_Minus or event.key() == Qt.Key_Underscore:
-            self.zoom_by(1/1.2)
-        else:
-            super().keyPressEvent(event)
+        # ----------------------------------------------------------
+        # DRAW PLAYHEAD
+        # ----------------------------------------------------------
+        if start <= self.playhead_sample <= end:
+            rel = (self.playhead_sample - start) / (end - start)
+            x_pos = int(rel * w)
+
+            play_pen = QPen(QColor(255, 50, 50), 2)
+            painter.setPen(play_pen)
+            painter.drawLine(x_pos, 0, x_pos, h)
