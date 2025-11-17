@@ -230,6 +230,48 @@ class WaveformWidget(QWidget):
         else:
             super().keyPressEvent(event)
 
+    def mousePressEvent(self, event):
+        # Left-click scrubbing: move playhead to clicked position
+        if event.button() == Qt.LeftButton:
+            w = max(1, self.width())
+            h = self.height()
+
+
+            # detect click inside waveform area
+            x = event.x()
+            rel = x / w
+
+
+            total_samples = len(self.samples)
+            spp = self._samples_per_pixel(self.zoom_factor, w)
+            half_visible = (w * spp) / 2.0
+            start = int(np.clip(self.center_sample - half_visible, 0, total_samples - 1))
+            end = int(np.clip(self.center_sample + half_visible, 0, total_samples - 1))
+
+
+            # new playhead
+            new_sample = int(start + rel * (end - start))
+            self.set_playhead_sample(new_sample)
+
+
+            # if playing, reposition playback stream
+            if self.playing:
+                try:
+                    self.stream.stop()
+                    self.stream.close()
+                except:
+                    pass
+            #self.start_play()
+
+
+            # prepare dragging for scroll
+            self._dragging = True
+            self._last_mouse_x = x
+            self.setCursor(Qt.ClosedHandCursor)
+        else:
+            super().mousePressEvent(event)
+
+
     # ==============================================================
     # PAINT EVENT (waveform + playhead)
     # ==============================================================
