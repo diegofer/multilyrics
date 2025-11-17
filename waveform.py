@@ -5,6 +5,7 @@ from PySide6.QtWidgets import QWidget
 from PySide6.QtGui import QPainter, QColor, QPen
 from PySide6.QtCore import Qt, QTimer
 import soundfile as sf
+import sounddevice as sd
 
 class WaveformWidget(QWidget):
     def __init__(self, audio_path, parent=None):
@@ -31,10 +32,7 @@ class WaveformWidget(QWidget):
         self.setMinimumHeight(120)
         self.setFocusPolicy(Qt.StrongFocus)
 
-        # --- Timer for playhead animation ---
-        self.timer = QTimer(self)
-        self.timer.timeout.connect(self._on_tick)
-        self.timer.start(16)  # ~60 FPS
+
 
     # ==============================================================
     # PLAYBACK CONTROL
@@ -52,29 +50,76 @@ class WaveformWidget(QWidget):
     def step_playhead(self, samples):
         self.set_playhead_sample(self.playhead_sample + samples)
 
-    def _on_tick(self):
-        if not self.playing:
+    # ================================
+    # REAL AUDIO PLAYBACK
+    # ================================
+    def start_play(self):
+        if self.playing:
             return
 
-        # samples per frame
-        samples_per_frame = int(self.sr / 60)  # 60 FPS
+        self.playing = True
 
-        self.playhead_sample += samples_per_frame
+        # reiniciar playhead al comienzo si está al final
+        if self.playhead_sample >= len(self.samples) - 1:
+            self.playhead_sample = 0
 
-        # stop if end reached
-        if self.playhead_sample >= len(self.samples):
-            self.playhead_sample = len(self.samples) - 1
+        # abrir stream de audio REAL
+        self.stream = sd.OutputStream(
+            samplerate=self.sr,
+            channels=1,
+            callback=self._audio_callback,
+            finished_callback=self._on_finished
+        )
+        self.stream.start()
+
+
+    def stop_play(self):
+        self.playing = False
+        try:
+            self.stream.stop()
+            self.stream.close()
+        except:
+            pass
+
+
+    def _on_finished(self):
+        """Called automatically when audio ends."""
+        self.playing = False
+        self.update()
+
+
+    def _audio_callback(self, outdata, frames, time, status):
+        """
+        Este callback es llamado por sounddevice para llenar el buffer de audio.
+        También es donde sincronizamos el playhead con el audio real.
+        """
+        if not self.playing:
+            outdata.fill(0)
+            return
+
+        start = self.playhead_sample
+        end = start + frames
+
+        # si llegamos al final
+        if end >= len(self.samples):
+            end = len(self.samples)
             self.playing = False
 
-        # auto-scroll: keep playhead visible
-        w = max(1, self.width())
-        spp = self._samples_per_pixel(self.zoom_factor, w)
-        half_visible = (w * spp) / 2.0
+        chunk = self.samples[start:end]
 
-        if self.playhead_sample > self.center_sample + half_visible * 0.8:
-            self.center_sample = int(self.playhead_sample - half_visible * 0.2)
+        # copiar al buffer de audio
+        outdata[:len(chunk), 0] = chunk
 
+        # si faltan muestras, llenar con cero
+        if len(chunk) < frames:
+            outdata[len(chunk):, 0] = 0
+
+        # Avanzar playhead EXACTAMENTE según el audio real
+        self.playhead_sample = end
+
+        # Forzar repintado para mover el playhead en pantalla
         self.update()
+    
 
     # ==============================================================
     # ZOOM
