@@ -2,12 +2,16 @@
 
 import numpy as np
 from PySide6.QtWidgets import QWidget
-from PySide6.QtGui import QPainter, QColor, QPen
-from PySide6.QtCore import Qt, QTimer
+from PySide6.QtGui import QPainter, QColor, QPen, QFont
+from PySide6.QtCore import Qt, Signal
 import soundfile as sf
 import sounddevice as sd
 
 class WaveformWidget(QWidget):
+    # Señal para notificar a la ventana principal sobre el tiempo transcurrido
+    # Envía (tiempo_actual_segundos, duracion_total_segundos)
+    time_updated = Signal(float, float)
+
     def __init__(self, audio_path, parent=None):
         super().__init__(parent)
         # --- Load audio ---
@@ -16,14 +20,19 @@ class WaveformWidget(QWidget):
             data = data.mean(axis=1)
         self.samples = np.asarray(data, dtype=np.float32)
         self.sr = sr
+        self.total_samples = len(self.samples)
+        self.duration_seconds = self.total_samples / self.sr # Nueva propiedad: duración total en segundos
 
         # --- View parameters ---
         self.zoom_factor = 1.0
-        self.center_sample = len(self.samples) // 2
+        self.center_sample = self.total_samples // 2
 
         # --- Playhead ---
         self.playhead_sample = 0
         self.playing = False
+        
+        # Emitir la duración inicial
+        self.time_updated.emit(0.0, self.duration_seconds)
 
         # --- Interaction ---
         self._dragging = False
@@ -33,26 +42,23 @@ class WaveformWidget(QWidget):
         self.setFocusPolicy(Qt.StrongFocus)
 
 
+    def _format_time(self, seconds):
+        """Convierte segundos a formato MM:SS."""
+        if seconds is None or seconds < 0:
+            return "00:00"
+        
+        # Redondear al segundo más cercano para un formato simple
+        total_seconds = int(round(seconds))
+        
+        minutes = total_seconds // 60
+        secs = total_seconds % 60
+        
+        return f"{minutes:02d}:{secs:02d}"
+    
 
     # ==============================================================
     # PLAYBACK CONTROL
     # ==============================================================
-    def start_play(self):
-        self.playing = True
-
-    def stop_play(self):
-        self.playing = False
-
-    def set_playhead_sample(self, sample):
-        self.playhead_sample = int(max(0, min(sample, len(self.samples)-1)))
-        self.update()
-
-    def step_playhead(self, samples):
-        self.set_playhead_sample(self.playhead_sample + samples)
-
-    # ================================
-    # REAL AUDIO PLAYBACK
-    # ================================
     def start_play(self):
         if self.playing:
             return
@@ -86,6 +92,8 @@ class WaveformWidget(QWidget):
         """Called automatically when audio ends."""
         self.playing = False
         self.update()
+        # Emitir el tiempo final
+        self.time_updated.emit(self.duration_seconds, self.duration_seconds)
 
 
     def _audio_callback(self, outdata, frames, time, status):
@@ -116,6 +124,10 @@ class WaveformWidget(QWidget):
 
         # Avanzar playhead EXACTAMENTE según el audio real
         self.playhead_sample = end
+        
+        # Emitir la posición actual
+        current_time = self.playhead_sample / self.sr
+        self.time_updated.emit(current_time, self.duration_seconds)
 
         # Forzar repintado para mover el playhead en pantalla
         self.update()
@@ -183,10 +195,54 @@ class WaveformWidget(QWidget):
         self.zoom_by(ratio, int(cursor_x))
 
     def mousePressEvent(self, event):
+        # Left-click scrubbing: move playhead to clicked position
         if event.button() == Qt.LeftButton:
+            w = max(1, self.width())
+            h = self.height()
+
+
+            # detect click inside waveform area
+            x = event.x()
+            rel = x / w
+
+
+            total_samples = len(self.samples)
+            spp = self._samples_per_pixel(self.zoom_factor, w)
+            half_visible = (w * spp) / 2.0
+            start = int(np.clip(self.center_sample - half_visible, 0, total_samples - 1))
+            end = int(np.clip(self.center_sample + half_visible, 0, total_samples - 1))
+
+
+            # new playhead
+            new_sample = int(start + rel * (end - start))
+            self.set_playhead_sample(new_sample)
+            
+            # Emitir la nueva posición
+            current_time = self.playhead_sample / self.sr
+            self.time_updated.emit(current_time, self.duration_seconds)
+
+
+            # if playing, reposition playback stream
+            if self.playing:
+                try:
+                    self.stream.stop()
+                    self.stream.close()
+                except:
+                    pass
+
+            # prepare dragging for scroll
             self._dragging = True
-            self._last_mouse_x = event.x()
+            self._last_mouse_x = x
             self.setCursor(Qt.ClosedHandCursor)
+        else:
+            super().mousePressEvent(event)
+            
+    def set_playhead_sample(self, sample):
+        # Mantiene la función de seteo de la muestra de reproducción, 
+        # usada por mousePressEvent
+        self.playhead_sample = int(max(0, min(sample, len(self.samples)-1)))
+        self.update()
+
 
     def mouseMoveEvent(self, event):
         if not self._dragging:
@@ -196,6 +252,7 @@ class WaveformWidget(QWidget):
 
         w = max(1, self.width())
         spp = self._samples_per_pixel(self.zoom_factor, w)
+        # Scroll horizontal
         self.center_sample = int(np.clip(self.center_sample - dx * spp, 0, len(self.samples)-1))
         self.update()
 
@@ -230,48 +287,6 @@ class WaveformWidget(QWidget):
         else:
             super().keyPressEvent(event)
 
-    def mousePressEvent(self, event):
-        # Left-click scrubbing: move playhead to clicked position
-        if event.button() == Qt.LeftButton:
-            w = max(1, self.width())
-            h = self.height()
-
-
-            # detect click inside waveform area
-            x = event.x()
-            rel = x / w
-
-
-            total_samples = len(self.samples)
-            spp = self._samples_per_pixel(self.zoom_factor, w)
-            half_visible = (w * spp) / 2.0
-            start = int(np.clip(self.center_sample - half_visible, 0, total_samples - 1))
-            end = int(np.clip(self.center_sample + half_visible, 0, total_samples - 1))
-
-
-            # new playhead
-            new_sample = int(start + rel * (end - start))
-            self.set_playhead_sample(new_sample)
-
-
-            # if playing, reposition playback stream
-            if self.playing:
-                try:
-                    self.stream.stop()
-                    self.stream.close()
-                except:
-                    pass
-            #self.start_play()
-
-
-            # prepare dragging for scroll
-            self._dragging = True
-            self._last_mouse_x = x
-            self.setCursor(Qt.ClosedHandCursor)
-        else:
-            super().mousePressEvent(event)
-
-
     # ==============================================================
     # PAINT EVENT (waveform + playhead)
     # ==============================================================
@@ -298,6 +313,9 @@ class WaveformWidget(QWidget):
         pen = QPen(QColor(0, 200, 255), 1)
         painter.setPen(pen)
 
+        # ----------------------------------------------------------
+        # DIBUJAR ONDA
+        # ----------------------------------------------------------
         if len(window) < w:
             indices = np.linspace(0, len(window) - 1, num=w)
             interp = np.interp(indices, np.arange(len(window)), window)
@@ -324,7 +342,7 @@ class WaveformWidget(QWidget):
                     painter.drawLine(x, mid - y2, x, mid - y1)
 
         # ----------------------------------------------------------
-        # DRAW PLAYHEAD
+        # DIBUJAR PLAYHEAD
         # ----------------------------------------------------------
         if start <= self.playhead_sample <= end:
             rel = (self.playhead_sample - start) / (end - start)
@@ -333,3 +351,33 @@ class WaveformWidget(QWidget):
             play_pen = QPen(QColor(255, 50, 50), 2)
             painter.setPen(play_pen)
             painter.drawLine(x_pos, 0, x_pos, h)
+
+        # ----------------------------------------------------------
+        # DIBUJAR TIEMPO TOTAL (Opcional, pero útil)
+        # ----------------------------------------------------------
+        painter.setFont(QFont("Arial", 8))
+        painter.setPen(QColor(200, 200, 200)) # Color gris claro
+        
+        total_time_str = self._format_time(self.duration_seconds)
+        # Dibujar en la esquina superior derecha
+        painter.drawText(w - 150, 20, 140, 20, Qt.AlignRight, total_time_str)
+
+        # ----------------------------------------------------------
+        # DIBUJAR TIEMPO TRANSCURRIDO (En la posición del playhead si es visible)
+        # ----------------------------------------------------------
+        if start <= self.playhead_sample <= end:
+            current_time = self.playhead_sample / self.sr
+            current_time_str = self._format_time(current_time)
+            
+            # Usar un color diferente y fuente un poco más grande
+            painter.setPen(QColor(255, 255, 255))
+            painter.setFont(QFont("Arial", 9, QFont.Bold))
+            
+            # Posición x: justo a la derecha del playhead
+            text_x = x_pos + 5 
+            
+            # Asegurar que el texto no se salga del borde derecho
+            if text_x + 100 > w:
+                text_x = x_pos - 105 # Dibujar a la izquierda si no hay espacio
+                
+            painter.drawText(text_x, 20, 100, 20, Qt.AlignLeft, current_time_str)
