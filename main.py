@@ -2,6 +2,7 @@ from PySide6.QtWidgets import QApplication, QMainWindow, QVBoxLayout, QHBoxLayou
 from shell import Ui_MainWindow
 from waveform import WaveformWidget
 from controls_widget import ControlsWidget
+from track_widget import TrackWidget
 
 class MainWindow(QMainWindow):
     def __init__(self):
@@ -16,6 +17,11 @@ class MainWindow(QMainWindow):
         wave_layout = QVBoxLayout(self.ui.frame_2)
         wave_layout.setContentsMargins(4,1,1,1)
         wave_layout.addWidget(self.waveform)
+
+        #Agregar tracks widgets
+        self.master_track = TrackWidget("Master", True)
+        tracks_layout = QHBoxLayout(self.ui.frame_3)
+        tracks_layout.addWidget(self.master_track)
 
         #Agregar controls widget
         self.controls = ControlsWidget()
