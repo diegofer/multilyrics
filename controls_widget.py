@@ -1,11 +1,11 @@
-from PySide6.QtWidgets import QWidget, QHBoxLayout, QFrame, QLabel, QSlider, QPushButton
+from PySide6.QtWidgets import QWidget, QHBoxLayout, QFrame, QLabel,QPushButton
 from PySide6.QtCore import Qt, QSize, Signal, Slot
 from PySide6.QtGui import QIcon
 
 class ControlsWidget(QWidget):
 
     play_clicked = Signal() 
-    stop_clicked = Signal()
+    pause_clicked = Signal()
 
     def __init__(self,  control_name="ControlsWidget", parent=None):
         super().__init__(parent)
@@ -16,7 +16,7 @@ class ControlsWidget(QWidget):
     def initUi(self):
         self.main_layout = QHBoxLayout(self)
         self.main_layout.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        self.main_layout.setSpacing(20)
+        self.main_layout.setSpacing(5)
         self.main_layout.setContentsMargins(0, 0, 0, 0)
         self.main_layout.setObjectName(u"horizontallLayout")
 
@@ -65,7 +65,7 @@ class ControlsWidget(QWidget):
         self.stop_btn.setIcon(QIcon("assets/img/pause.svg"))
         self.stop_btn.setIconSize(QSize(50, 50))
         self.stop_btn.setStyleSheet(button_style)
-        self.stop_btn.clicked.connect(self._emit_stop)
+        self.stop_btn.clicked.connect(self._emit_pause)
 
         # agregar botones a frames
         self.frame_1.layout().addWidget(self.time_label)
@@ -89,8 +89,8 @@ class ControlsWidget(QWidget):
     def _emit_play(self):
         self.play_clicked.emit()
 
-    def _emit_stop(self):
-        self.stop_clicked.emit()
+    def _emit_pause(self):
+        self.pause_clicked.emit()
     
     @Slot(str)
     def update_time_label(self, current_time_sec: float, total_duration_sec: float):

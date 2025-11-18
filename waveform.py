@@ -30,11 +30,14 @@ class WaveformWidget(QWidget):
         # --- Playhead ---
         self.playhead_sample = 0
         self.playing = False
+        self.stream = None # Añadir el stream como None inicialmente
         
         # Emitir la duración inicial
         self.time_updated.emit(0.0, self.duration_seconds)
 
         # --- Interaction ---
+        # NOTE: El arrastre (dragging) ya no se usa para el scroll horizontal
+        # con el clic izquierdo, solo para la lógica interna si fuera necesario.
         self._dragging = False
         self._last_mouse_x = None
 
@@ -60,37 +63,53 @@ class WaveformWidget(QWidget):
     # PLAYBACK CONTROL
     # ==============================================================
     def start_play(self):
+        # 1. Si ya está reproduciendo, no hacer nada.
         if self.playing:
             return
 
         self.playing = True
 
-        # reiniciar playhead al comienzo si está al final
-        if self.playhead_sample >= len(self.samples) - 1:
-            self.playhead_sample = 0
+        # 2. Si el stream no existe o está cerrado, crearlo e iniciarlo.
+        if self.stream is None or not self.stream.active:
+            # reiniciar playhead al comienzo si está al final (solo si no hay stream activo)
+            if self.playhead_sample >= len(self.samples) - 1:
+                self.playhead_sample = 0
 
-        # abrir stream de audio REAL
-        self.stream = sd.OutputStream(
-            samplerate=self.sr,
-            channels=1,
-            callback=self._audio_callback,
-            finished_callback=self._on_finished
-        )
-        self.stream.start()
+            # abrir stream de audio REAL
+            self.stream = sd.OutputStream(
+                samplerate=self.sr,
+                channels=1,
+                callback=self._audio_callback,
+                finished_callback=self._on_finished
+            )
+            self.stream.start()
+        
+        # 3. Si el stream existe, pero está pausado, reanudarlo (si sounddevice lo permite)
+        # En sounddevice, si el stream no se detuvo, solo tenemos que cambiar self.playing.
+
+    def pause_play(self): # Renombrado de stop_play a pause_play
+        # Simplemente establecemos el estado de reproducción en False.
+        # El callback de audio dejará de escribir datos, logrando la pausa.
+        self.playing = False
+        self.update()
 
 
-    def stop_play(self):
+    def stop_stream(self):
+        """Función para detener y cerrar el stream completamente (detener, no pausar)."""
         self.playing = False
         try:
-            self.stream.stop()
-            self.stream.close()
-        except:
+            if self.stream and self.stream.active:
+                self.stream.stop()
+                self.stream.close()
+            self.stream = None
+        except Exception:
+            # Manejar excepción si el stream ya está detenido/cerrado
             pass
 
 
     def _on_finished(self):
         """Called automatically when audio ends."""
-        self.playing = False
+        self.stop_stream() # Usamos la función de detener/cerrar
         self.update()
         # Emitir el tiempo final
         self.time_updated.emit(self.duration_seconds, self.duration_seconds)
@@ -101,6 +120,7 @@ class WaveformWidget(QWidget):
         Este callback es llamado por sounddevice para llenar el buffer de audio.
         También es donde sincronizamos el playhead con el audio real.
         """
+        # Si no está reproduciendo (pausado), llenamos con ceros y salimos.
         if not self.playing:
             outdata.fill(0)
             return
@@ -111,7 +131,8 @@ class WaveformWidget(QWidget):
         # si llegamos al final
         if end >= len(self.samples):
             end = len(self.samples)
-            self.playing = False
+            # No cambiamos self.playing a False aquí, solo ajustamos el final.
+            # El stream se detendrá al terminar la reproducción.
 
         chunk = self.samples[start:end]
 
@@ -121,6 +142,14 @@ class WaveformWidget(QWidget):
         # si faltan muestras, llenar con cero
         if len(chunk) < frames:
             outdata[len(chunk):, 0] = 0
+
+            # Si llenamos con ceros porque se acabó el audio, 
+            # sounddevice llama a _on_finished
+            if end == len(self.samples):
+                self.stop_stream()
+                # Salimos para evitar actualizar el playhead después del final
+                return
+
 
         # Avanzar playhead EXACTAMENTE según el audio real
         self.playhead_sample = end
@@ -136,12 +165,6 @@ class WaveformWidget(QWidget):
     # ==============================================================
     # ZOOM
     # ==============================================================
-    def set_zoom(self, factor: float):
-        factor = max(1.0, factor)
-        self.zoom_factor = factor
-        self.center_sample = int(np.clip(self.center_sample, 0, len(self.samples)-1))
-        self.update()
-
     def zoom_by(self, ratio: float, cursor_x: int = None):
         old_zoom = self.zoom_factor
         new_zoom = max(1.0, old_zoom * ratio)
@@ -198,20 +221,17 @@ class WaveformWidget(QWidget):
         # Left-click scrubbing: move playhead to clicked position
         if event.button() == Qt.LeftButton:
             w = max(1, self.width())
-            h = self.height()
-
+            # h = self.height() # Variable no usada
 
             # detect click inside waveform area
             x = event.x()
             rel = x / w
-
 
             total_samples = len(self.samples)
             spp = self._samples_per_pixel(self.zoom_factor, w)
             half_visible = (w * spp) / 2.0
             start = int(np.clip(self.center_sample - half_visible, 0, total_samples - 1))
             end = int(np.clip(self.center_sample + half_visible, 0, total_samples - 1))
-
 
             # new playhead
             new_sample = int(start + rel * (end - start))
@@ -221,19 +241,14 @@ class WaveformWidget(QWidget):
             current_time = self.playhead_sample / self.sr
             self.time_updated.emit(current_time, self.duration_seconds)
 
-
             # if playing, reposition playback stream
             if self.playing:
-                try:
-                    self.stream.stop()
-                    self.stream.close()
-                except:
-                    pass
+                # Si el audio está sonando, lo pausamos primero para luego reanudar
+                # desde la nueva posición al volver a presionar play.
+                self.pause_play() 
+                
+            # NOTE: El arrastre con clic izquierdo (panning) está deshabilitado.
 
-            # prepare dragging for scroll
-            self._dragging = True
-            self._last_mouse_x = x
-            self.setCursor(Qt.ClosedHandCursor)
         else:
             super().mousePressEvent(event)
             
@@ -258,9 +273,7 @@ class WaveformWidget(QWidget):
 
     def mouseReleaseEvent(self, event):
         if event.button() == Qt.LeftButton:
-            self._dragging = False
-            self._last_mouse_x = None
-            self.unsetCursor()
+            pass # No hace nada para el LeftButton ahora.
 
     def keyPressEvent(self, event):
         w = max(1, self.width())
