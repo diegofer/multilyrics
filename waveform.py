@@ -165,6 +165,12 @@ class WaveformWidget(QWidget):
     # ==============================================================
     # ZOOM
     # ==============================================================
+    def set_zoom(self, factor: float):
+        factor = max(1.0, factor)
+        self.zoom_factor = factor
+        self.center_sample = int(np.clip(self.center_sample, 0, len(self.samples)-1))
+        self.update()
+
     def zoom_by(self, ratio: float, cursor_x: int = None):
         old_zoom = self.zoom_factor
         new_zoom = max(1.0, old_zoom * ratio)
@@ -216,14 +222,16 @@ class WaveformWidget(QWidget):
         ratio = 1.15 ** steps
         cursor_x = event.position().x() if hasattr(event, "position") else event.x()
         self.zoom_by(ratio, int(cursor_x))
-
-    def mousePressEvent(self, event):
-        # Left-click scrubbing: move playhead to clicked position
+    
+    # --------------------------------------------------------------
+    # NUEVO: mouseDoubleClickEvent para mover el playhead (scrubbing)
+    # --------------------------------------------------------------
+    def mouseDoubleClickEvent(self, event):
+        # Mover playhead solo con doble clic izquierdo
         if event.button() == Qt.LeftButton:
             w = max(1, self.width())
-            # h = self.height() # Variable no usada
 
-            # detect click inside waveform area
+            # Detectar click dentro del área de la forma de onda
             x = event.x()
             rel = x / w
 
@@ -233,7 +241,7 @@ class WaveformWidget(QWidget):
             start = int(np.clip(self.center_sample - half_visible, 0, total_samples - 1))
             end = int(np.clip(self.center_sample + half_visible, 0, total_samples - 1))
 
-            # new playhead
+            # Nueva posición del playhead
             new_sample = int(start + rel * (end - start))
             self.set_playhead_sample(new_sample)
             
@@ -241,16 +249,19 @@ class WaveformWidget(QWidget):
             current_time = self.playhead_sample / self.sr
             self.time_updated.emit(current_time, self.duration_seconds)
 
-            # if playing, reposition playback stream
+            # Si está reproduciendo, pausamos para que la reanudación sea desde la nueva posición
             if self.playing:
-                # Si el audio está sonando, lo pausamos primero para luego reanudar
-                # desde la nueva posición al volver a presionar play.
-                self.pause_play() 
-                
-            # NOTE: El arrastre con clic izquierdo (panning) está deshabilitado.
-
+                self.pause_play()
         else:
-            super().mousePressEvent(event)
+            super().mouseDoubleClickEvent(event)
+
+
+    def mousePressEvent(self, event):
+        # Dejar esta función vacía o solo llamar al super para evitar el movimiento con un solo clic.
+        # Si queremos que el clic izquierdo aún tenga el foco:
+        if event.button() == Qt.LeftButton:
+            self.setFocus() # Asegura que el widget mantenga el foco
+        super().mousePressEvent(event)
             
     def set_playhead_sample(self, sample):
         # Mantiene la función de seteo de la muestra de reproducción, 
