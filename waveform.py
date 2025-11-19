@@ -6,6 +6,7 @@ from PySide6.QtGui import QPainter, QColor, QPen, QFont
 from PySide6.QtCore import Qt, Signal
 import soundfile as sf
 import sounddevice as sd
+import math # Importar para logaritmo
 
 class WaveformWidget(QWidget):
     # Señal para notificar a la ventana principal sobre el tiempo transcurrido
@@ -20,7 +21,7 @@ class WaveformWidget(QWidget):
         self.sr = 44100
         self.total_samples = 0
         self.duration_seconds = 0.0
-        self.volume = 1.0  # [NUEVO] Factor de volumen, 1.0 es el máximo
+        self.volume = 1.0  # Factor de amplitud de volumen (0.0 a 1.0)
 
         # --- View parameters ---
         self.zoom_factor = 1.0
@@ -98,17 +99,47 @@ class WaveformWidget(QWidget):
 
     
     # ==============================================================
-    # VOLUME CONTROL [NUEVO]
+    # VOLUME CONTROL (LOGARÍTMICO) [MODIFICADO]
     # ==============================================================
-    def set_volume(self, value):
+    def set_volume(self, slider_value: int):
         """
-        Establece el factor de volumen. 
-        Asume que 'value' viene de un QSlider (ej: 0 a 100) y lo normaliza a 0.0 a 1.0.
-        Si 'value' ya viene normalizado, se puede omitir la división.
+        Establece el factor de volumen usando una curva logarítmica (dB).
+        
+        slider_value: Valor entero del QSlider (asumido: 0 a 100).
+        0 (min) -> -60 dB (silencio)
+        100 (max) -> 0 dB (volumen máximo/unidad)
         """
-        # Asumiendo que el QSlider envía un valor entero entre 0 y 100 (ajustar si es diferente)
-        self.volume = max(0.0, min(1.0, value / 100.0))
-        # No necesita actualizar la UI, solo la próxima reproducción de audio
+        # Normalizar el valor de 0-100 a 0.0-1.0
+        linear_val = max(0.0, min(1.0, slider_value / 100.0))
+        
+        # El volumen de 0 dB a -60 dB se usa para simular un fader de consola.
+        # Rango en dB: de -60 dB a 0 dB (aprox. -60.0, 0.0)
+        DB_RANGE = 60
+        
+        if linear_val <= 0.001: 
+            # Si está cerca de cero, establecer a silencio total para evitar log(0)
+            self.volume = 0.0
+        else:
+            # Mapear el valor lineal (0-1) a un valor de decibelios (-60 a 0).
+            # Se usa una función exponencial (10**(dB/20)) para obtener el factor de amplitud.
+            
+            # El factor de decibelios (dB) varía de -DB_RANGE a 0.
+            # Usamos log(linear_val) para crear la curva logarítmica
+            
+            # 1. Aplicar curva logarítmica:
+            # Esto produce un valor que imita la posición de un fader logarítmico.
+            dB = linear_val * DB_RANGE - DB_RANGE 
+            
+            # 2. Convertir dB a factor de amplitud (lineal):
+            # Amplitud = 10^(dB/20)
+            self.volume = math.pow(10, dB / 20.0)
+            
+            # Asegurar que el volumen esté entre 0.0 y 1.0 (máximo)
+            self.volume = max(0.0, min(1.0, self.volume))
+            
+        # Opcional: imprimir el factor para depuración
+        #print(f"Slider: {slider_value} -> dB: {dB:.2f} -> Factor: {self.volume:.4f}")
+
 
     # ==============================================================
     # UTILS
@@ -203,7 +234,7 @@ class WaveformWidget(QWidget):
 
         chunk = self.samples[start:end]
 
-        # aplicar volumen al chunk de audio [MODIFICADO]
+        # aplicar volumen al chunk de audio (self.volume ahora es logarítmico)
         chunk_volumed = chunk * self.volume
 
         # copiar al buffer de audio
