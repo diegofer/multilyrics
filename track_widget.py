@@ -1,8 +1,11 @@
 from PySide6.QtWidgets import QWidget, QVBoxLayout, QLabel, QSlider, QPushButton
-from PySide6.QtCore import Qt
+from PySide6.QtCore import Qt, Signal
 
 
 class TrackWidget(QWidget):
+
+    volume_changed = Signal(int)
+
     def __init__(self, track_name="Track 0", master_type=None, parent=None):
         super().__init__(parent)
         self.track_name = track_name
@@ -28,9 +31,8 @@ class TrackWidget(QWidget):
         
         # Slider vertical
         self.slider = QSlider(Qt.Vertical)
-        self.slider.setMinimum(0)
-        self.slider.setMaximum(100)
-        self.slider.setValue(50)
+        self.slider.setRange(0, 100)
+        self.slider.setValue(100)
         self.slider.setStyleSheet("QSlider::handle { width: 50px; height: 20px; }")
         layout.addWidget(self.slider, alignment=Qt.AlignmentFlag.AlignHCenter)
 
@@ -40,3 +42,10 @@ class TrackWidget(QWidget):
         layout.addWidget(self.label)
         
         self.setLayout(layout)
+
+
+        #Signals
+        self.slider.valueChanged.connect(self._emit_volume_change)
+
+    def _emit_volume_change(self, value):
+        self.volume_changed.emit(value)

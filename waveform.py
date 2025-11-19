@@ -20,6 +20,7 @@ class WaveformWidget(QWidget):
         self.sr = 44100
         self.total_samples = 0
         self.duration_seconds = 0.0
+        self.volume = 1.0  # [NUEVO] Factor de volumen, 1.0 es el máximo
 
         # --- View parameters ---
         self.zoom_factor = 1.0
@@ -95,7 +96,23 @@ class WaveformWidget(QWidget):
             self._set_empty_state()
             return False
 
+    
+    # ==============================================================
+    # VOLUME CONTROL [NUEVO]
+    # ==============================================================
+    def set_volume(self, value):
+        """
+        Establece el factor de volumen. 
+        Asume que 'value' viene de un QSlider (ej: 0 a 100) y lo normaliza a 0.0 a 1.0.
+        Si 'value' ya viene normalizado, se puede omitir la división.
+        """
+        # Asumiendo que el QSlider envía un valor entero entre 0 y 100 (ajustar si es diferente)
+        self.volume = max(0.0, min(1.0, value / 100.0))
+        # No necesita actualizar la UI, solo la próxima reproducción de audio
 
+    # ==============================================================
+    # UTILS
+    # ==============================================================
     def _format_time(self, seconds):
         """Convierte segundos a formato MM:SS."""
         if seconds is None or seconds < 0:
@@ -186,12 +203,15 @@ class WaveformWidget(QWidget):
 
         chunk = self.samples[start:end]
 
+        # aplicar volumen al chunk de audio [MODIFICADO]
+        chunk_volumed = chunk * self.volume
+
         # copiar al buffer de audio
-        outdata[:len(chunk), 0] = chunk
+        outdata[:len(chunk_volumed), 0] = chunk_volumed
 
         # si faltan muestras, llenar con cero
-        if len(chunk) < frames:
-            outdata[len(chunk):, 0] = 0
+        if len(chunk_volumed) < frames:
+            outdata[len(chunk_volumed):, 0] = 0
 
             # Si llenamos con ceros porque se acabó el audio, 
             # sounddevice llama a _on_finished

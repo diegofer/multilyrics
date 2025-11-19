@@ -34,6 +34,8 @@ class MainWindow(QMainWindow):
         self.controls.play_clicked.connect(self.waveform.start_play)
         self.controls.pause_clicked.connect(self.waveform.pause_play)
 
+        self.master_track.volume_changed.connect(self.waveform.set_volume)
+
 if __name__ == "__main__":
     import sys
     # Se necesita un archivo de audio WAV llamado "example.wav" en el mismo directorio.
