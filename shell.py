@@ -15,8 +15,8 @@ from PySide6.QtGui import (QBrush, QColor, QConicalGradient, QCursor,
     QFont, QFontDatabase, QGradient, QIcon,
     QImage, QKeySequence, QLinearGradient, QPainter,
     QPalette, QPixmap, QRadialGradient, QTransform)
-from PySide6.QtWidgets import (QApplication, QFrame, QMainWindow, QSizePolicy,
-    QVBoxLayout, QWidget)
+from PySide6.QtWidgets import (QApplication, QFrame, QHBoxLayout, QMainWindow,
+    QSizePolicy, QVBoxLayout, QWidget)
 
 class Ui_MainWindow(object):
     def setupUi(self, MainWindow):
@@ -56,6 +56,35 @@ class Ui_MainWindow(object):
 "}")
         self.frame_3.setFrameShape(QFrame.Shape.StyledPanel)
         self.frame_3.setFrameShadow(QFrame.Shadow.Raised)
+        self.horizontalLayout = QHBoxLayout(self.frame_3)
+        self.horizontalLayout.setObjectName(u"horizontalLayout")
+        self.frame_5_tracks = QFrame(self.frame_3)
+        self.frame_5_tracks.setObjectName(u"frame_5_tracks")
+        sizePolicy = QSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Preferred)
+        sizePolicy.setHorizontalStretch(1)
+        sizePolicy.setVerticalStretch(0)
+        sizePolicy.setHeightForWidth(self.frame_5_tracks.sizePolicy().hasHeightForWidth())
+        self.frame_5_tracks.setSizePolicy(sizePolicy)
+        self.frame_5_tracks.setFrameShape(QFrame.Shape.StyledPanel)
+        self.frame_5_tracks.setFrameShadow(QFrame.Shadow.Raised)
+
+        self.horizontalLayout.addWidget(self.frame_5_tracks)
+
+        self.frame_6_master = QFrame(self.frame_3)
+        self.frame_6_master.setObjectName(u"frame_6_master")
+        sizePolicy1 = QSizePolicy(QSizePolicy.Policy.Minimum, QSizePolicy.Policy.Preferred)
+        sizePolicy1.setHorizontalStretch(0)
+        sizePolicy1.setVerticalStretch(0)
+        sizePolicy1.setHeightForWidth(self.frame_6_master.sizePolicy().hasHeightForWidth())
+        self.frame_6_master.setSizePolicy(sizePolicy1)
+        self.frame_6_master.setStyleSheet(u"QFrame{\n"
+"	background-color: rgb(43,52,95);\n"
+"}")
+        self.frame_6_master.setFrameShape(QFrame.Shape.StyledPanel)
+        self.frame_6_master.setFrameShadow(QFrame.Shadow.Raised)
+
+        self.horizontalLayout.addWidget(self.frame_6_master)
+
 
         self.verticalLayout.addWidget(self.frame_3)
 

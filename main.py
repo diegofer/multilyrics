@@ -20,7 +20,7 @@ class MainWindow(QMainWindow):
 
         #Agregar tracks widgets
         self.master_track = TrackWidget("Master", True)
-        tracks_layout = QHBoxLayout(self.ui.frame_3)
+        tracks_layout = QHBoxLayout(self.ui.frame_6_master)
         tracks_layout.addWidget(self.master_track)
 
         #Agregar controls widget
