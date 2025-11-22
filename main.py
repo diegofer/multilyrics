@@ -1,8 +1,11 @@
-from PySide6.QtWidgets import QApplication, QMainWindow, QVBoxLayout, QHBoxLayout
+from PySide6.QtWidgets import QApplication, QMainWindow, QVBoxLayout, QHBoxLayout, QPushButton
 from shell import Ui_MainWindow
 from waveform import WaveformWidget
 from controls_widget import ControlsWidget
 from track_widget import TrackWidget
+from drop_dialog import DropDialog
+from PySide6.QtGui import QIcon
+from PySide6.QtCore import Qt
 
 class MainWindow(QMainWindow):
     def __init__(self):
@@ -11,6 +14,17 @@ class MainWindow(QMainWindow):
         # Agregar Ui principal
         self.ui = Ui_MainWindow()
         self.ui.setupUi(self)
+
+        #Agregar plus buttom
+        self.plus_btn = QPushButton()
+        self.plus_btn.setFixedSize(50, 100)
+        self.plus_btn.setIcon(QIcon("assets/img/plus-circle.svg"))
+        self.plus_btn.setIconSize(self.plus_btn.size()  * 0.7)
+
+        playlist_layout = QHBoxLayout(self.ui.frame)
+        playlist_layout.setContentsMargins(1,1,1,1)
+        playlist_layout.setAlignment(Qt.AlignmentFlag.AlignLeft)
+        playlist_layout.addWidget(self.plus_btn)
         
         #Agregar waveform widget
         self.waveform = WaveformWidget("example.wav")
@@ -28,13 +42,22 @@ class MainWindow(QMainWindow):
         control_layout = QHBoxLayout(self.ui.frame_4)
         control_layout.setContentsMargins(4,4,4,4)
         control_layout.addWidget(self.controls)
+
+        #drop dialog
+        self.drop_dialog = None
         
         #Conectar Signals
+        self.plus_btn.clicked.connect(self.open_drop_dialog)
         self.waveform.time_updated.connect(self.controls.update_time_label)
         self.controls.play_clicked.connect(self.waveform.start_play)
         self.controls.pause_clicked.connect(self.waveform.pause_play)
 
         self.master_track.volume_changed.connect(self.waveform.set_volume)
+
+    def open_drop_dialog(self):
+        if self.drop_dialog is None:
+            self.drop_dialog = DropDialog() 
+        self.drop_dialog.exec()
 
 if __name__ == "__main__":
     import sys

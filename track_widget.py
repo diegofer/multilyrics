@@ -31,9 +31,25 @@ class TrackWidget(QWidget):
         
         # Slider vertical
         self.slider = QSlider(Qt.Vertical)
+        self.slider.setStyleSheet("""
+            QSlider::groove:vertical {
+                background: #444;
+                width: 6px;
+                border-radius: 3px;
+            }
+
+            QSlider::handle:vertical {
+                image: url(assets/img/cash-solid.svg); 
+                height: 32px;
+                width: 32px;
+                margin: -14px;  /* centra el knob sobre el groove */
+            }
+
+        """)
+        
         self.slider.setRange(0, 100)
-        self.slider.setValue(100)
-        self.slider.setStyleSheet("QSlider::handle { width: 50px; height: 20px; }")
+        self.slider.setValue(50)
+        #self.slider.setStyleSheet("QSlider::handle { width: 50px; height: 20px; }")
         layout.addWidget(self.slider, alignment=Qt.AlignmentFlag.AlignHCenter)
 
         # Título del instrumento

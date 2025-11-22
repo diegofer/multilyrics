@@ -1,11 +1,14 @@
-from PySide6.QtWidgets import QWidget, QHBoxLayout, QFrame, QLabel,QPushButton
-from PySide6.QtCore import Qt, QSize, Signal, Slot
+from PySide6.QtWidgets import QWidget, QHBoxLayout, QVBoxLayout, QFrame, QLabel,QPushButton, QMenu
+from PySide6.QtCore import Qt, QSize, Signal, Slot, QPoint
 from PySide6.QtGui import QIcon
+from utils import clamp_menu_to_window
 
 class ControlsWidget(QWidget):
 
     play_clicked = Signal() 
     pause_clicked = Signal()
+    action_1_clicked = Signal()
+
 
     def __init__(self,  control_name="ControlsWidget", parent=None):
         super().__init__(parent)
@@ -21,7 +24,7 @@ class ControlsWidget(QWidget):
         self.main_layout.setObjectName(u"horizontallLayout")
 
         self.frame_1 = QFrame(self)
-        self.frame_1.setLayout(QHBoxLayout())
+        self.frame_1.setLayout(QVBoxLayout())
         self.frame_1.setObjectName(u"frame_1")
 
         self.frame_2 = QFrame(self)
@@ -46,10 +49,14 @@ class ControlsWidget(QWidget):
 
 
         # Etiqueta para mostrar el tiempo
-        self.time_label_style = "QLabel { color: white; font-size: 14px; font-weight: bold; background: transparent; padding: 5px; }"
-        self.time_label = QLabel("00:00 / 00:00") # Etiqueta inicial simplificada
-        self.time_label.setStyleSheet(self.time_label_style)
-        self.time_label.setAlignment(Qt.AlignCenter)  
+        self.current_time_label_style = "QLabel { color: white; font-size: 20px; font-weight: bold; background: transparent; padding: 5px; }"
+        self.total_duration_label_style = "QLabel { color: white; font-size: 30px; font-weight: bold; background: transparent; padding: 5px; }"
+        self.total_duration_label = QLabel("00:00") 
+        self.current_time_label = QLabel("00:00")
+        self.total_duration_label.setStyleSheet(self.total_duration_label_style)
+        self.total_duration_label.setAlignment(Qt.AlignCenter) 
+        self.current_time_label.setStyleSheet(self.current_time_label_style)
+        self.current_time_label.setAlignment(Qt.AlignCenter) 
 
         button_style = """
                 QPushButton { margin:0px; border-radius: 5px; background-color: rgb(29,35,67); color: white; } 
@@ -67,10 +74,26 @@ class ControlsWidget(QWidget):
         self.stop_btn.setStyleSheet(button_style)
         self.stop_btn.clicked.connect(self._emit_pause)
 
+        self.menu_btn = QPushButton()
+        self.menu_btn.setIcon(QIcon("assets/img/settings.svg"))
+        self.menu_btn.setIconSize(QSize(50, 50))
+        self.menu_btn.setStyleSheet(button_style)
+
+        self.menu = QMenu()
+        action_1 = self.menu.addAction("Crear")
+        accion2 = self.menu.addAction("Opción 2")
+        accion3 = self.menu.addAction("Opción 3")
+
+        action_1.triggered.connect(self._emit_action_1)
+
+        self.menu_btn.clicked.connect(self.show_settings_menu)
+
         # agregar botones a frames
-        self.frame_1.layout().addWidget(self.time_label)
+        self.frame_1.layout().addWidget(self.total_duration_label)
+        self.frame_1.layout().addWidget(self.current_time_label)
         self.frame_3.layout().addWidget(self.play_btn)
         self.frame_4.layout().addWidget(self.stop_btn)
+        self.frame_6.layout().addWidget(self.menu_btn)
 
         self.main_layout.addWidget(self.frame_1)
         self.main_layout.addWidget(self.frame_2)
@@ -91,13 +114,17 @@ class ControlsWidget(QWidget):
 
     def _emit_pause(self):
         self.pause_clicked.emit()
+
+    def _emit_action_1(self):
+        self.action_1_clicked.emit()
     
     @Slot(str)
     def update_time_label(self, current_time_sec: float, total_duration_sec: float):
         """Actualiza el QLabel con el tiempo transcurrido y la duración total."""
         current_time_str = self._format_time(current_time_sec)
         total_duration_str = self._format_time(total_duration_sec)
-        self.time_label.setText(f"{current_time_str} / {total_duration_str}")
+        self.total_duration_label.setText(f"{total_duration_str}")
+        self.current_time_label.setText(f"{current_time_str}")
 
     def _format_time(self, seconds):
         """Convierte segundos a formato MM:SS."""
@@ -111,3 +138,19 @@ class ControlsWidget(QWidget):
         secs = total_seconds % 60
         
         return f"{minutes:02d}:{secs:02d}"
+    
+    def show_settings_menu(self):
+        # Sacamos la esquina superior derecha del botón
+        global_top_right = self.menu_btn.mapToGlobal(self.menu_btn.rect().topRight())
+        menu_size = self.menu.sizeHint()
+
+        # Queremos mostrarlo ARRIBA y pegado a la derecha
+        desired_pos = QPoint(
+            global_top_right.x() - menu_size.width(),
+            global_top_right.y() - menu_size.height()
+        )
+
+        # Ajustar para que no se salga de la ventana principal
+        final_pos = clamp_menu_to_window(self.menu, desired_pos, self.window())
+
+        self.menu.popup(final_pos)
