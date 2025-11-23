@@ -1,11 +1,12 @@
 from PySide6.QtWidgets import QApplication, QMainWindow, QVBoxLayout, QHBoxLayout, QPushButton
 from shell import Ui_MainWindow
+from PySide6.QtGui import QIcon
+from PySide6.QtCore import Qt
 from waveform import WaveformWidget
 from controls_widget import ControlsWidget
 from track_widget import TrackWidget
 from drop_dialog import DropDialog
-from PySide6.QtGui import QIcon
-from PySide6.QtCore import Qt
+
 
 class MainWindow(QMainWindow):
     def __init__(self):
@@ -43,8 +44,6 @@ class MainWindow(QMainWindow):
         control_layout.setContentsMargins(4,4,4,4)
         control_layout.addWidget(self.controls)
 
-        #drop dialog
-        self.drop_dialog = None
         
         #Conectar Signals
         self.plus_btn.clicked.connect(self.open_drop_dialog)
@@ -55,9 +54,13 @@ class MainWindow(QMainWindow):
         self.master_track.volume_changed.connect(self.waveform.set_volume)
 
     def open_drop_dialog(self):
-        if self.drop_dialog is None:
-            self.drop_dialog = DropDialog() 
+        self.drop_dialog = DropDialog() 
+        self.drop_dialog.file_imported.connect(self.extract_audio)
         self.drop_dialog.exec()
+        
+    
+    def extract_audio(self,  file_path: str):
+        print("Procesando archivo:", file_path)
 
 if __name__ == "__main__":
     import sys

@@ -1,12 +1,15 @@
 import os
 import shutil
 from pathlib import Path
-from PySide6.QtWidgets import QDialog, QVBoxLayout, QLabel, QApplication
-from PySide6.QtCore import Qt, QPoint
+from PySide6.QtWidgets import QDialog, QVBoxLayout, QLabel
+from PySide6.QtCore import Qt, QPoint, Signal
 from PySide6.QtGui import QPixmap, QDragEnterEvent, QDropEvent
 
 
 class DropDialog(QDialog):
+
+    file_imported = Signal(str)
+
     def __init__(self):
         super().__init__()
         self.setWindowTitle("Drop Zone")
@@ -76,13 +79,24 @@ class DropDialog(QDialog):
         copied = 0
 
         for url in event.mimeData().urls():
-            file_path = Path(url.toLocalFile())
+            file_path = Path(url.toLocalFile())      
+
             if file_path.suffix.lower() in valid_ext:
-                shutil.copy(file_path, library_folder / file_path.name)
+
+                folder_name = file_path.stem
+                target_folder = library_folder / folder_name
+
+                target_folder.mkdir(exist_ok=True)
+
+                final_path = target_folder / file_path.name
+                shutil.copy(file_path, target_folder / file_path.name)
                 copied += 1
+
+                self.file_imported.emit(str(final_path))
 
         if copied > 0:
             self.text_label.setText(f"¡{copied} archivo(s) copiado(s)!")
+            self.accept()
         else:
             self.text_label.setText("Formato no permitido")
 
