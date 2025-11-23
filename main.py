@@ -6,6 +6,7 @@ from waveform import WaveformWidget
 from controls_widget import ControlsWidget
 from track_widget import TrackWidget
 from drop_dialog import DropDialog
+from spinner_dialog import SpinnerDialog
 
 
 class MainWindow(QMainWindow):
@@ -44,6 +45,9 @@ class MainWindow(QMainWindow):
         control_layout.setContentsMargins(4,4,4,4)
         control_layout.addWidget(self.controls)
 
+        #Agregar modals
+        self.loader = SpinnerDialog(self)
+        self.loader.show()
         
         #Conectar Signals
         self.plus_btn.clicked.connect(self.open_drop_dialog)
