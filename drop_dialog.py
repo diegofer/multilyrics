@@ -36,7 +36,7 @@ class DropDialog(QDialog):
         self.icon_label.setAlignment(Qt.AlignCenter)
 
         # --- TEXTO ---
-        self.text_label = QLabel("Arrastra aquí\nMP4 o WAV", self)
+        self.text_label = QLabel("Arrastra aquí\nMP4", self)
         self.text_label.setAlignment(Qt.AlignCenter)
         self.text_label.setStyleSheet("font-size: 18px; color: white;")
 
@@ -75,7 +75,7 @@ class DropDialog(QDialog):
         library_folder = Path("library")
         library_folder.mkdir(exist_ok=True)
 
-        valid_ext = {".mp4", ".wav"}
+        valid_ext = {".mp4"}
         copied = 0
 
         for url in event.mimeData().urls():

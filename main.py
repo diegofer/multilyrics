@@ -1,13 +1,13 @@
 from PySide6.QtWidgets import QApplication, QMainWindow, QVBoxLayout, QHBoxLayout, QPushButton
 from shell import Ui_MainWindow
 from PySide6.QtGui import QIcon
-from PySide6.QtCore import Qt
+from PySide6.QtCore import Qt, QThread
 from waveform import WaveformWidget
 from controls_widget import ControlsWidget
 from track_widget import TrackWidget
 from drop_dialog import DropDialog
 from spinner_dialog import SpinnerDialog
-from extract import ExtractAudioThread
+from extract import AudioExtractWorker
 
 
 class MainWindow(QMainWindow):
@@ -65,15 +65,37 @@ class MainWindow(QMainWindow):
     
     def extract_audio(self,  file_path: str):
         self.loader.show()
-        print("Procesando archivo:", file_path)
-        #verificar que sea video. Si es audio, no extraer.
+        print("Archivo importado y empezando extraccion de audio:", file_path)
 
-        self.extract_thread = ExtractAudioThread(file_path)
-        self.extract_thread.result.connect(self.on_extract_audio)
-        self.extract_thread.start()
+        self.extract_worker = AudioExtractWorker(file_path, None)
+        self.thread = QThread()
+        self.extract_worker.moveToThread(self.thread)
+        self.thread.started.connect(self.extract_worker.run)
 
-    def on_extract_audio(self):
+        self.extract_worker.signals.result.connect(self.on_extract_audio)
+        self.extract_worker.signals.error.connect(self.handle_error)
+
+        self.extract_worker.signals.finished.connect(self.thread.quit)
+        self.extract_worker.signals.finished.connect(self.extract_worker.deleteLater)
+        # Cuando el QThread ha parado su bucle, llama a thread_finished (para lógica de UI)
+        self.thread.finished.connect(self.thread_finished)
+  
+        # Cuando el QThread ha terminado, se marca para ser eliminado de forma segura
+        self.thread.finished.connect(self.thread.deleteLater)
+
+        self.thread.start()
+
+    def on_extract_audio(self, msg):
+        print(f"RESULTADO: {msg}")
         self.loader.hide()
+
+    def handle_error(self, msg):
+        print(f"ERROR: {msg}")
+
+    def thread_finished(self):
+        print("El hilo ha finalizado la ejecución.")
+
+
 
 if __name__ == "__main__":
     import sys
