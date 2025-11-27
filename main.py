@@ -7,6 +7,7 @@ from controls_widget import ControlsWidget
 from track_widget import TrackWidget
 from drop_dialog import DropDialog
 from spinner_dialog import SpinnerDialog
+from extract import ExtractAudioThread
 
 
 class MainWindow(QMainWindow):
@@ -47,7 +48,6 @@ class MainWindow(QMainWindow):
 
         #Agregar modals
         self.loader = SpinnerDialog(self)
-        self.loader.show()
         
         #Conectar Signals
         self.plus_btn.clicked.connect(self.open_drop_dialog)
@@ -64,7 +64,16 @@ class MainWindow(QMainWindow):
         
     
     def extract_audio(self,  file_path: str):
+        self.loader.show()
         print("Procesando archivo:", file_path)
+        #verificar que sea video. Si es audio, no extraer.
+
+        self.extract_thread = ExtractAudioThread(file_path)
+        self.extract_thread.result.connect(self.on_extract_audio)
+        self.extract_thread.start()
+
+    def on_extract_audio(self):
+        self.loader.hide()
 
 if __name__ == "__main__":
     import sys
