@@ -5,7 +5,7 @@ import os
 class WorkerSignals(QObject):
     finished = Signal()
     error = Signal(str)
-    result = Signal(str)
+    result = Signal(str, str)
 
 class AudioExtractWorker(QObject):
     """
@@ -75,7 +75,7 @@ class AudioExtractWorker(QObject):
             )
             
             mensaje_exito = f"✅ Extracción de audio completada con éxito. Archivo guardado en: {ruta_audio_final}"
-            self.signals.result.emit(mensaje_exito)
+            self.signals.result.emit(mensaje_exito, ruta_audio_final)
 
         except ffmpeg.Error as e:
             # Manejar errores específicos de FFmpeg y mostrar su salida de error

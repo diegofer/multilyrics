@@ -63,37 +63,40 @@ class MainWindow(QMainWindow):
         self.drop_dialog.exec()
         
     
-    def extract_audio(self,  file_path: str):
+    def extract_audio(self,  video_path: str):
         self.loader.show()
-        print("Archivo importado y empezando extraccion de audio:", file_path)
-
-        self.extract_worker = AudioExtractWorker(file_path, None)
+        print("Archivo importado y empezando extraccion de audio:", video_path)
+        
+        # Crear hilo y worker
         self.thread = QThread()
+        self.extract_worker = AudioExtractWorker(video_path, None)
         self.extract_worker.moveToThread(self.thread)
+        
+        # Conectar señales
         self.thread.started.connect(self.extract_worker.run)
-
         self.extract_worker.signals.result.connect(self.on_extract_audio)
         self.extract_worker.signals.error.connect(self.handle_error)
-
+        
+        # Para destruir el thread correctamente
         self.extract_worker.signals.finished.connect(self.thread.quit)
-        self.extract_worker.signals.finished.connect(self.extract_worker.deleteLater)
-        # Cuando el QThread ha parado su bucle, llama a thread_finished (para lógica de UI)
-        self.thread.finished.connect(self.thread_finished)
-  
-        # Cuando el QThread ha terminado, se marca para ser eliminado de forma segura
         self.thread.finished.connect(self.thread.deleteLater)
+        self.extract_worker.signals.finished.connect(self.extract_worker.deleteLater)
 
         self.thread.start()
 
-    def on_extract_audio(self, msg):
+    def on_extract_audio(self, msg, audio_path):
         print(f"RESULTADO: {msg}")
+        self.set_active_song(audio_path)
         self.loader.hide()
 
     def handle_error(self, msg):
         print(f"ERROR: {msg}")
 
-    def thread_finished(self):
-        print("El hilo ha finalizado la ejecución.")
+    # ----------------------------
+    # Zona de carga de multis
+    # ----------------------------
+    def set_active_song(self, audio_path):
+        self.waveform.load_audio(audio_path)
 
 
 

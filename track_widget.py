@@ -48,7 +48,7 @@ class TrackWidget(QWidget):
         """)
         
         self.slider.setRange(0, 100)
-        self.slider.setValue(50)
+        self.slider.setValue(100)
         #self.slider.setStyleSheet("QSlider::handle { width: 50px; height: 20px; }")
         layout.addWidget(self.slider, alignment=Qt.AlignmentFlag.AlignHCenter)
 
