@@ -8,6 +8,9 @@ from track_widget import TrackWidget
 from drop_dialog import DropDialog
 from spinner_dialog import SpinnerDialog
 from extract import AudioExtractWorker
+from pathlib import Path
+
+import global_state
 
 
 class MainWindow(QMainWindow):
@@ -86,17 +89,27 @@ class MainWindow(QMainWindow):
 
     def on_extract_audio(self, msg, audio_path):
         print(f"RESULTADO: {msg}")
-        self.set_active_song(audio_path)
+        muti_path = Path(audio_path).parent
+        self.set_active_song(muti_path)
         self.loader.hide()
 
     def handle_error(self, msg):
         print(f"ERROR: {msg}")
 
+
     # ----------------------------
     # Zona de carga de multis
     # ----------------------------
-    def set_active_song(self, audio_path):
-        self.waveform.load_audio(audio_path)
+
+    def set_active_song(self, multi_path):
+        # si hay multitrack en el folder silenciar waveform
+        #sino, cargar master.wav
+        master_path = Path(multi_path) / global_state.MASTER_TRACK
+        self.waveform.load_audio(master_path)
+
+        print(multi_path)
+
+
 
 
 

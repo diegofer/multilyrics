@@ -1,6 +1,7 @@
 from PySide6.QtCore import QObject, Signal, Slot
 import ffmpeg
 import os
+import global_state
 
 class WorkerSignals(QObject):
     finished = Signal()
@@ -53,7 +54,7 @@ class AudioExtractWorker(QObject):
 
             # Construir la ruta final usando "master.wav" como nombre de archivo
             # Usamos WAV porque el codec 'pcm_s16le' es de audio sin comprimir.
-            ruta_audio_final = os.path.join(directorio_video, "master.wav")
+            ruta_audio_final = os.path.join(directorio_video, global_state.MASTER_TRACK)
             
             print(f"Ruta de salida no provista. Usando la ruta por defecto: {ruta_audio_final}")
 
