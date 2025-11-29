@@ -55,3 +55,12 @@ class VideoLyrics(QWidget):
     def start_playback(self):
         print("⏯ Reproduciendo video...")
         self.player.play()
+
+    def closeEvent(self, event):
+        try:
+            self.stop()
+            self.player.release()
+            self.instance.release()
+        except:
+            pass
+        super().closeEvent(event)

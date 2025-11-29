@@ -11,6 +11,9 @@ from drop_dialog import DropDialog
 from spinner_dialog import SpinnerDialog
 from extract import AudioExtractWorker
 from video import VideoLyrics
+from add import AddDialog
+import global_state
+from utils import get_multis_list
 import global_state
 
 class MainWindow(QMainWindow):
@@ -53,13 +56,18 @@ class MainWindow(QMainWindow):
         self.loader = SpinnerDialog(self)
         
         #Conectar Signals
-        self.plus_btn.clicked.connect(self.open_drop_dialog)
+        self.plus_btn.clicked.connect(self.open_add_multi_dialog)
         self.waveform.time_updated.connect(self.controls.update_time_label)
         self.controls.play_clicked.connect(self.waveform.start_play)
         self.controls.pause_clicked.connect(self.waveform.pause_play)
 
         self.master_track.volume_changed.connect(self.waveform.set_volume)
-        self.set_active_song("library/Bajo tu control - Rojo")
+        
+        #self.set_active_song("library/Bajo tu control - Rojo")
+    def open_add_multi_dialog(self):
+        self.add_dialog = AddDialog()
+        self.add_dialog.exec()
+
 
     def open_drop_dialog(self):
         self.drop_dialog = DropDialog() 
@@ -113,6 +121,15 @@ class MainWindow(QMainWindow):
         
         self.player = VideoLyrics(VIDEO_PATH, screen_index=1)
 
+
+# ----------------------------
+# Valores iniciales
+# ----------------------------
+
+multis_list = get_multis_list(global_state.LIBRARY_PATH)
+print(multis_list)
+
+
 if __name__ == "__main__":
     import sys
     # Se necesita un archivo de audio WAV llamado "example.wav" en el mismo directorio.
@@ -122,6 +139,7 @@ if __name__ == "__main__":
     # sf.write('example.wav', np.random.uniform(-1, 1, 44100 * 5), 44100) # 5 segundos de ruido
 
     app = QApplication(sys.argv)
+    app.setProperty("multis_list", multis_list)
     window = MainWindow()
     window.show()
     sys.exit(app.exec())
