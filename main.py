@@ -2,16 +2,16 @@ from PySide6.QtWidgets import QApplication, QMainWindow, QVBoxLayout, QHBoxLayou
 from shell import Ui_MainWindow
 from PySide6.QtGui import QIcon
 from PySide6.QtCore import Qt, QThread
+from pathlib import Path
+
 from waveform import WaveformWidget
 from controls_widget import ControlsWidget
 from track_widget import TrackWidget
 from drop_dialog import DropDialog
 from spinner_dialog import SpinnerDialog
 from extract import AudioExtractWorker
-from pathlib import Path
-
+from video import VideoLyrics
 import global_state
-
 
 class MainWindow(QMainWindow):
     def __init__(self):
@@ -59,6 +59,7 @@ class MainWindow(QMainWindow):
         self.controls.pause_clicked.connect(self.waveform.pause_play)
 
         self.master_track.volume_changed.connect(self.waveform.set_volume)
+        self.set_active_song("library/Bajo tu control - Rojo")
 
     def open_drop_dialog(self):
         self.drop_dialog = DropDialog() 
@@ -107,11 +108,10 @@ class MainWindow(QMainWindow):
         master_path = Path(multi_path) / global_state.MASTER_TRACK
         self.waveform.load_audio(master_path)
 
-        print(multi_path)
 
-
-
-
+        VIDEO_PATH = Path(multi_path) / 'Bajo tu control - Rojo.mp4'
+        
+        self.player = VideoLyrics(VIDEO_PATH, screen_index=1)
 
 if __name__ == "__main__":
     import sys
