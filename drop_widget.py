@@ -1,20 +1,17 @@
 import os
 import shutil
 from pathlib import Path
-from PySide6.QtWidgets import QDialog, QVBoxLayout, QLabel
+from PySide6.QtWidgets import QWidget, QVBoxLayout, QLabel
 from PySide6.QtCore import Qt, QPoint, Signal
 from PySide6.QtGui import QPixmap, QDragEnterEvent, QDropEvent
 
 
-class DropDialog(QDialog):
+class DropWidget(QWidget):
 
     file_imported = Signal(str)
 
     def __init__(self):
         super().__init__()
-        self.setWindowTitle("Drop Zone")
-        self.setFixedSize(320, 260)
-        self.setModal(True)
 
         # QDialog sin bordes y draggable
         #self.setWindowFlags(Qt.FramelessWindowHint | Qt.Dialog)
@@ -96,7 +93,6 @@ class DropDialog(QDialog):
 
         if copied > 0:
             self.text_label.setText(f"¡{copied} archivo(s) copiado(s)!")
-            self.accept()
         else:
             self.text_label.setText("Formato no permitido")
 

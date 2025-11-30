@@ -1,13 +1,12 @@
 from PySide6.QtWidgets import QApplication, QMainWindow, QVBoxLayout, QHBoxLayout, QPushButton
 from shell import Ui_MainWindow
 from PySide6.QtGui import QIcon
-from PySide6.QtCore import Qt, QThread
+from PySide6.QtCore import Qt, QThread, Slot
 from pathlib import Path
 
 from waveform import WaveformWidget
 from controls_widget import ControlsWidget
 from track_widget import TrackWidget
-from drop_dialog import DropDialog
 from spinner_dialog import SpinnerDialog
 from extract import AudioExtractWorker
 from video import VideoLyrics
@@ -54,27 +53,30 @@ class MainWindow(QMainWindow):
 
         #Agregar modals
         self.loader = SpinnerDialog(self)
+        self.add_dialog = AddDialog()
         
         #Conectar Signals
-        self.plus_btn.clicked.connect(self.open_add_multi_dialog)
+        self.plus_btn.clicked.connect(self.open_add_dialog)
         self.waveform.time_updated.connect(self.controls.update_time_label)
         self.controls.play_clicked.connect(self.waveform.start_play)
         self.controls.pause_clicked.connect(self.waveform.pause_play)
-
         self.master_track.volume_changed.connect(self.waveform.set_volume)
+
+        self.add_dialog.search_widget.multi_selected.connect(self.on_multi_selected)
+        self.add_dialog.drop_widget.file_imported.connect(self.extract_audio)
         
         #self.set_active_song("library/Bajo tu control - Rojo")
-    def open_add_multi_dialog(self):
-        self.add_dialog = AddDialog()
+   
+    @Slot()
+    def open_add_dialog(self):
         self.add_dialog.exec()
 
+    @Slot()
+    def on_multi_selected(self, path):
+        print(path)
+        self.set_active_song(path)
 
-    def open_drop_dialog(self):
-        self.drop_dialog = DropDialog() 
-        self.drop_dialog.file_imported.connect(self.extract_audio)
-        self.drop_dialog.exec()
-        
-    
+    @Slot()
     def extract_audio(self,  video_path: str):
         self.loader.show()
         print("Archivo importado y empezando extraccion de audio:", video_path)
@@ -96,12 +98,14 @@ class MainWindow(QMainWindow):
 
         self.thread.start()
 
+    @Slot()
     def on_extract_audio(self, msg, audio_path):
         print(f"RESULTADO: {msg}")
         muti_path = Path(audio_path).parent
         self.set_active_song(muti_path)
         self.loader.hide()
-
+    
+    @Slot()
     def handle_error(self, msg):
         print(f"ERROR: {msg}")
 
