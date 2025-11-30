@@ -1,6 +1,8 @@
 from PySide6.QtCore import Qt, Signal
-from PySide6.QtWidgets import (QApplication, QVBoxLayout, QListWidgetItem, QLineEdit, 
+from PySide6.QtWidgets import (QVBoxLayout, QListWidgetItem, QLineEdit, 
                                QWidget, QListWidget)
+import global_state
+from utils import get_multis_list
 
 class SearchWidget(QWidget):
 
@@ -9,9 +11,8 @@ class SearchWidget(QWidget):
     def __init__(self):
         super().__init__()
 
-
         # Lista completa de canciones
-        self.multis_list = QApplication.instance().property("multis_list")
+        self.multis_list = []
 
         layout = QVBoxLayout()
 
@@ -27,8 +28,11 @@ class SearchWidget(QWidget):
         layout.addWidget(self.resultados_lista)
         self.setLayout(layout)
 
-        self.actualizar_lista(self.multis_list)  # Mostrar todas las canciones al inicio
+        self.get_fresh_multis_list()
 
+    def get_fresh_multis_list(self):
+        self.multis_list = get_multis_list(global_state.LIBRARY_PATH)
+        self.actualizar_lista(self.multis_list) # actualizar QListWidget
 
     def filtrar_canciones(self, texto):
         """Filtra las canciones según el texto ingresado en la caja de búsqueda."""

@@ -1,6 +1,6 @@
 from PySide6.QtWidgets import QApplication, QMainWindow, QVBoxLayout, QHBoxLayout, QPushButton
 from shell import Ui_MainWindow
-from PySide6.QtGui import QIcon
+from PySide6.QtGui import QIcon, QCloseEvent
 from PySide6.QtCore import Qt, QThread, Slot
 from pathlib import Path
 
@@ -11,7 +11,6 @@ from spinner_dialog import SpinnerDialog
 from extract import AudioExtractWorker
 from video import VideoLyrics
 from add import AddDialog
-import global_state
 from utils import get_multis_list, get_mp4
 import global_state
 
@@ -89,7 +88,7 @@ class MainWindow(QMainWindow):
         self.video_player.pause()
 
     @Slot()
-    def extract_audio(self,  video_path: str):
+    def extract_audio(self, video_path: str):
         self.loader.show()
         print("Archivo importado y empezando extraccion de audio:", video_path)
         
@@ -116,6 +115,8 @@ class MainWindow(QMainWindow):
         muti_path = Path(audio_path).parent
         self.set_active_song(muti_path)
         self.loader.hide()
+        #actualizar lista de multis en el buscador. Se puede optimizar solo agregrando este multi a la lista en vez de llamar todos de nuevo
+        self.add_dialog.search_widget.get_fresh_multis_list()
     
     @Slot()
     def handle_error(self, msg):
@@ -136,13 +137,18 @@ class MainWindow(QMainWindow):
         VIDEO_PATH = Path(multi_path) / mp4_path
         self.video_player.set_media(VIDEO_PATH)
 
+    def closeEvent(self, event: QCloseEvent):
+        # cerrar ventana videoplayer
+        if self.video_player:
+             self.video_player.close()
+        # cerrar ventana principal
+        event.accept()
+
 
 # ----------------------------
 # Valores iniciales
 # ----------------------------
 
-multis_list = get_multis_list(global_state.LIBRARY_PATH)
-print(multis_list)
 
 
 if __name__ == "__main__":
@@ -154,6 +160,7 @@ if __name__ == "__main__":
     # sf.write('example.wav', np.random.uniform(-1, 1, 44100 * 5), 44100) # 5 segundos de ruido
 
     app = QApplication(sys.argv)
+    multis_list = get_multis_list(global_state.LIBRARY_PATH)
     app.setProperty("multis_list", multis_list)
     window = MainWindow()
     window.show()

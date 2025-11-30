@@ -1,3 +1,3 @@
 LIBRARY_PATH = 'library'
 MASTER_TRACK = 'master.wav'
-VIDEO_FILE = 'video.mp4'
+VIDEO_FILE = 'video'

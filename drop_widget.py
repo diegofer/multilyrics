@@ -1,9 +1,9 @@
-import os
 import shutil
 from pathlib import Path
 from PySide6.QtWidgets import QWidget, QVBoxLayout, QLabel
 from PySide6.QtCore import Qt, QPoint, Signal
 from PySide6.QtGui import QPixmap, QDragEnterEvent, QDropEvent
+import global_state
 
 
 class DropWidget(QWidget):
@@ -69,7 +69,7 @@ class DropWidget(QWidget):
             event.acceptProposedAction()
 
     def dropEvent(self, event: QDropEvent):
-        library_folder = Path("library")
+        library_folder = Path(global_state.LIBRARY_PATH)
         library_folder.mkdir(exist_ok=True)
 
         valid_ext = {".mp4"}
@@ -80,13 +80,13 @@ class DropWidget(QWidget):
 
             if file_path.suffix.lower() in valid_ext:
 
-                folder_name = file_path.stem
+                folder_name = file_path.stem  #tomamos el nombre del archivo y se lo ponemos al folder
                 target_folder = library_folder / folder_name
 
                 target_folder.mkdir(exist_ok=True)
-
-                final_path = target_folder / file_path.name
-                shutil.copy(file_path, target_folder / file_path.name)
+                NEW_FILE_NAME = global_state.VIDEO_FILE + file_path.suffix.lower() # ej.video.mp4
+                final_path = target_folder / NEW_FILE_NAME
+                shutil.copy(file_path, final_path)
                 copied += 1
 
                 self.file_imported.emit(str(final_path))

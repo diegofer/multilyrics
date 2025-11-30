@@ -4,10 +4,9 @@ from PySide6.QtCore import QTimer
 import time
 
 class VideoLyrics(QWidget):
-    def __init__(self, video_path=None, screen_index=1):
+    def __init__(self, screen_index=1):
         super().__init__()
         
-        #self.video_path = video_path
         self.screen_index = screen_index
         self.setWindowTitle("VideoLyrics")
         self.resize(800, 600)
@@ -34,11 +33,11 @@ class VideoLyrics(QWidget):
             self.player.pause()
             time.sleep(0.5)
             self.player.stop()
-            print("[INFO] Reproductor detenido.")
-        
+            print("[INFO] Reproductor detenido.") 
         
         media = self.instance.media_new(video_path)
         self.player.set_media(media)
+        media.release()
 
     def move_to_screen(self):
         screens = QApplication.screens()
@@ -61,8 +60,6 @@ class VideoLyrics(QWidget):
         print("✔ HWND obtenido:", hwnd)
 
         self.player.set_hwnd(hwnd)
-
-        #QTimer.singleShot(300, self.start_playback)
 
     def start_playback(self):
         print("⏯ Reproduciendo video...")
