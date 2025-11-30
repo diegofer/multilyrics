@@ -1,22 +1,23 @@
 import vlc
 from PySide6.QtWidgets import QApplication, QWidget, QVBoxLayout
 from PySide6.QtCore import QTimer
+import time
 
 class VideoLyrics(QWidget):
-    def __init__(self, video_path, screen_index=1):
+    def __init__(self, video_path=None, screen_index=1):
         super().__init__()
         
-        self.video_path = video_path
+        #self.video_path = video_path
         self.screen_index = screen_index
-        self.setWindowTitle("Fullscreen Video Test")
+        self.setWindowTitle("VideoLyrics")
         self.resize(800, 600)
 
         # VLC
         self.instance = vlc.Instance()
         self.player = self.instance.media_player_new()
 
-        media = self.instance.media_new(self.video_path)
-        self.player.set_media(media)
+        #media = self.instance.media_new(self.video_path)
+        #self.player.set_media(media)
 
         # Layout obligatorio en una QWidget
         layout = QVBoxLayout(self)
@@ -27,6 +28,17 @@ class VideoLyrics(QWidget):
 
         # Luego movemos la ventana a la pantalla correcta
         QTimer.singleShot(50, self.move_to_screen)
+
+    def set_media(self, video_path):
+        if self.player.is_playing():
+            self.player.pause()
+            time.sleep(0.5)
+            self.player.stop()
+            print("[INFO] Reproductor detenido.")
+        
+        
+        media = self.instance.media_new(video_path)
+        self.player.set_media(media)
 
     def move_to_screen(self):
         screens = QApplication.screens()
@@ -55,6 +67,12 @@ class VideoLyrics(QWidget):
     def start_playback(self):
         print("⏯ Reproduciendo video...")
         self.player.play()
+    
+    def stop(self):
+        self.player.stop()
+    
+    def pause(self):
+        self.player.pause()
 
     def closeEvent(self, event):
         try:

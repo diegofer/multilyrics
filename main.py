@@ -12,7 +12,7 @@ from extract import AudioExtractWorker
 from video import VideoLyrics
 from add import AddDialog
 import global_state
-from utils import get_multis_list
+from utils import get_multis_list, get_mp4
 import global_state
 
 class MainWindow(QMainWindow):
@@ -54,18 +54,18 @@ class MainWindow(QMainWindow):
         #Agregar modals
         self.loader = SpinnerDialog(self)
         self.add_dialog = AddDialog()
+
+        #Agregar video player
+        self.video_player = VideoLyrics()
         
         #Conectar Signals
         self.plus_btn.clicked.connect(self.open_add_dialog)
-        self.waveform.time_updated.connect(self.controls.update_time_label)
-        self.controls.play_clicked.connect(self.waveform.start_play)
-        self.controls.pause_clicked.connect(self.waveform.pause_play)
-        self.master_track.volume_changed.connect(self.waveform.set_volume)
-
         self.add_dialog.search_widget.multi_selected.connect(self.on_multi_selected)
         self.add_dialog.drop_widget.file_imported.connect(self.extract_audio)
-        
-        #self.set_active_song("library/Bajo tu control - Rojo")
+        self.waveform.time_updated.connect(self.controls.update_time_label)
+        self.master_track.volume_changed.connect(self.waveform.set_volume)
+        self.controls.play_clicked.connect(self.on_play_clicked)
+        self.controls.pause_clicked.connect(self.on_pause_clicked)
    
     @Slot()
     def open_add_dialog(self):
@@ -75,6 +75,18 @@ class MainWindow(QMainWindow):
     def on_multi_selected(self, path):
         print(path)
         self.set_active_song(path)
+
+    @Slot()
+    def on_play_clicked(self):
+
+        # waveform debe correr silenciado si hay stems
+        self.waveform.start_play()
+        self.video_player.start_playback()
+    
+    @Slot()
+    def on_pause_clicked(self):
+        self.waveform.pause_play()
+        self.video_player.pause()
 
     @Slot()
     def extract_audio(self,  video_path: str):
@@ -119,11 +131,10 @@ class MainWindow(QMainWindow):
         #sino, cargar master.wav
         master_path = Path(multi_path) / global_state.MASTER_TRACK
         self.waveform.load_audio(master_path)
-
-
-        VIDEO_PATH = Path(multi_path) / 'Bajo tu control - Rojo.mp4'
         
-        self.player = VideoLyrics(VIDEO_PATH, screen_index=1)
+        mp4_path = get_mp4(multi_path)
+        VIDEO_PATH = Path(multi_path) / mp4_path
+        self.video_player.set_media(VIDEO_PATH)
 
 
 # ----------------------------
