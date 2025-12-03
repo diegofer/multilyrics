@@ -69,8 +69,8 @@ class DropWidget(QWidget):
             event.acceptProposedAction()
 
     def dropEvent(self, event: QDropEvent):
-        library_folder = Path(global_state.LIBRARY_PATH)
-        library_folder.mkdir(exist_ok=True)
+        multis_folder = Path(global_state.MULTIS_PATH)
+        multis_folder.mkdir(exist_ok=True)
 
         valid_ext = {".mp4"}
         copied = 0
@@ -81,7 +81,7 @@ class DropWidget(QWidget):
             if file_path.suffix.lower() in valid_ext:
 
                 folder_name = file_path.stem  #tomamos el nombre del archivo y se lo ponemos al folder
-                target_folder = library_folder / folder_name
+                target_folder = multis_folder / folder_name
 
                 target_folder.mkdir(exist_ok=True)
                 NEW_FILE_NAME = global_state.VIDEO_FILE + file_path.suffix.lower() # ej.video.mp4

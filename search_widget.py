@@ -31,7 +31,7 @@ class SearchWidget(QWidget):
         self.get_fresh_multis_list()
 
     def get_fresh_multis_list(self):
-        self.multis_list = get_multis_list(global_state.LIBRARY_PATH)
+        self.multis_list = get_multis_list(global_state.MULTIS_PATH)
         self.actualizar_lista(self.multis_list) # actualizar QListWidget
 
     def filtrar_canciones(self, texto):

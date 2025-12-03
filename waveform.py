@@ -3,15 +3,20 @@
 import numpy as np
 from PySide6.QtWidgets import QWidget
 from PySide6.QtGui import QPainter, QColor, QPen, QFont
-from PySide6.QtCore import Qt, Signal
+from PySide6.QtCore import Qt, Signal, QTimer
 import soundfile as sf
 import sounddevice as sd
-import math # Importar para logaritmo
+
+from clock import AudioClock
+from global_state import app_state
+from utils import format_time, get_logarithmic_volume
 
 class WaveformWidget(QWidget):
     # Señal para notificar a la ventana principal sobre el tiempo transcurrido
     # Envía (tiempo_actual_segundos, duracion_total_segundos)
     time_updated = Signal(float, float)
+    position_changed = Signal()
+    sync_player = Signal(float)
 
     def __init__(self, audio_path=None, parent=None): # audio_path ahora es opcional
         super().__init__(parent)
@@ -22,7 +27,7 @@ class WaveformWidget(QWidget):
         self.total_samples = 0
         self.duration_seconds = 0.0
         self.volume = 1.0  # Factor de amplitud de volumen (0.0 a 1.0)
-
+        
         # --- View parameters ---
         self.zoom_factor = 1.0
         self.center_sample = 0 # Centro inicial (se ajustará si se carga audio)
@@ -46,6 +51,46 @@ class WaveformWidget(QWidget):
         # Emitir la duración inicial (0.0 si no se cargó nada)
         self.time_updated.emit(0.0, self.duration_seconds)
 
+        # ==============================================================
+        # RELOJ DE SINCRONIZACION
+        # ============================================================== 
+        self.audio_clock = AudioClock(self.sr)
+            # reloj suavizado (EMA)
+        self.audio_smooth = 0.0
+        self.smooth_initialized = False
+        self.alpha = 0.10        # peso del EMA (10%)
+
+        self.timer = QTimer()
+        self.timer.setInterval(15)
+        self.timer.timeout.connect(self.update_sync)
+    
+    # --------------------------------------------------------------------
+    #   FUNCIONES PRINCIPALES DEL SINCRONIZADOR
+    # --------------------------------------------------------------------
+    def update_sync(self):
+        """Se ejecuta ~60 veces por segundo desde QTimer."""
+        if not self.playing:
+            return
+        # verificamos que el videoplayer esta corriendo
+        if not app_state.video_is_playing:
+            return
+
+        # === 1. Leer reloj exacto del audio (sample-based) ===
+        audio_time = self.audio_clock.get_time()
+
+        # === 2. Inicializar suavizado la primera vez ===
+        if not self.smooth_initialized:
+            self.audio_smooth = audio_time
+            self.smooth_initialized = True
+
+        # === 3. Aplicar suavizado EMA ===
+        self.audio_smooth = (
+            (1 - self.alpha) * self.audio_smooth +
+            self.alpha * audio_time
+        )
+
+        # === 4. Notificar al sincronizador en videoplayer con el valor suavizado ===
+        self.sync_player.emit(self.audio_smooth)
 
     def _set_empty_state(self):
         """Establece las variables internas en un estado seguro sin audio."""
@@ -99,64 +144,11 @@ class WaveformWidget(QWidget):
 
     
     # ==============================================================
-    # VOLUME CONTROL (LOGARÍTMICO) [MODIFICADO]
+    # VOLUME CONTROL (LOGARÍTMICO) 
     # ==============================================================
     def set_volume(self, slider_value: int):
-        """
-        Establece el factor de volumen usando una curva logarítmica (dB).
-        
-        slider_value: Valor entero del QSlider (asumido: 0 a 100).
-        0 (min) -> -60 dB (silencio)
-        100 (max) -> 0 dB (volumen máximo/unidad)
-        """
-        # Normalizar el valor de 0-100 a 0.0-1.0
-        linear_val = max(0.0, min(1.0, slider_value / 100.0))
-        
-        # El volumen de 0 dB a -60 dB se usa para simular un fader de consola.
-        # Rango en dB: de -60 dB a 0 dB (aprox. -60.0, 0.0)
-        DB_RANGE = 60
-        
-        if linear_val <= 0.001: 
-            # Si está cerca de cero, establecer a silencio total para evitar log(0)
-            self.volume = 0.0
-        else:
-            # Mapear el valor lineal (0-1) a un valor de decibelios (-60 a 0).
-            # Se usa una función exponencial (10**(dB/20)) para obtener el factor de amplitud.
-            
-            # El factor de decibelios (dB) varía de -DB_RANGE a 0.
-            # Usamos log(linear_val) para crear la curva logarítmica
-            
-            # 1. Aplicar curva logarítmica:
-            # Esto produce un valor que imita la posición de un fader logarítmico.
-            dB = linear_val * DB_RANGE - DB_RANGE 
-            
-            # 2. Convertir dB a factor de amplitud (lineal):
-            # Amplitud = 10^(dB/20)
-            self.volume = math.pow(10, dB / 20.0)
-            
-            # Asegurar que el volumen esté entre 0.0 y 1.0 (máximo)
-            self.volume = max(0.0, min(1.0, self.volume))
-            
-        # Opcional: imprimir el factor para depuración
-        #print(f"Slider: {slider_value} -> dB: {dB:.2f} -> Factor: {self.volume:.4f}")
+        self.volume = get_logarithmic_volume(slider_value)
 
-
-    # ==============================================================
-    # UTILS
-    # ==============================================================
-    def _format_time(self, seconds):
-        """Convierte segundos a formato MM:SS."""
-        if seconds is None or seconds < 0:
-            return "00:00"
-        
-        # Redondear al segundo más cercano para un formato simple
-        total_seconds = int(round(seconds))
-        
-        minutes = total_seconds // 60
-        secs = total_seconds % 60
-        
-        return f"{minutes:02d}:{secs:02d}"
-    
 
     # ==============================================================
     # PLAYBACK CONTROL
@@ -186,6 +178,7 @@ class WaveformWidget(QWidget):
                 finished_callback=self._on_finished
             )
             self.stream.start()
+            self.timer.start()
         
         # 4. Si el stream existe, pero está pausado, reanudarlo (solo cambiando self.playing)
 
@@ -257,6 +250,9 @@ class WaveformWidget(QWidget):
         # Emitir la posición actual
         current_time = self.playhead_sample / self.sr
         self.time_updated.emit(current_time, self.duration_seconds)
+
+        # Actualizar del reloj
+        self.audio_clock.update(frames)
 
         # Forzar repintado para mover el playhead en pantalla
         self.update()
@@ -544,7 +540,7 @@ class WaveformWidget(QWidget):
         painter.setFont(QFont("Arial", 8))
         painter.setPen(QColor(200, 200, 200)) # Color gris claro
         
-        total_time_str = self._format_time(self.duration_seconds)
+        total_time_str = format_time(self.duration_seconds)
         # Dibujar en la esquina superior derecha
         painter.drawText(w - 150, 20, 140, 20, Qt.AlignRight, total_time_str)
 
@@ -553,7 +549,7 @@ class WaveformWidget(QWidget):
         # ----------------------------------------------------------
         if start <= self.playhead_sample <= end:
             current_time = self.playhead_sample / self.sr
-            current_time_str = self._format_time(current_time)
+            current_time_str = format_time(current_time)
             
             # Usar un color diferente y fuente un poco más grande
             painter.setPen(QColor(255, 255, 255))

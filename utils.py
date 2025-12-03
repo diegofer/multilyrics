@@ -1,6 +1,7 @@
 from PySide6.QtCore import QPoint
 from pathlib import Path
 import os
+import math 
 
 
 def clamp_menu_to_window(menu, desired_pos, window):
@@ -66,3 +67,105 @@ def get_mp4(folder_path: str) -> str:
         print(f"❌ Se encontraron {len(mp4_files)} archivos .mp4. Se esperaba solo uno.")
         # Opcionalmente, puedes devolver la lista para inspección
         return ""
+
+
+def find_file_by_name(folder_path: str, file_base_name: str) -> Path | None:
+    """
+    Busca un único archivo dentro de la carpeta especificada que coincida 
+    con el nombre base dado, ignorando la extensión.
+
+    Args:
+        folder_path: La ruta de la carpeta a inspeccionar.
+        file_base_name: El nombre del archivo a buscar (sin extensión).
+
+    Returns:
+        El objeto Path del archivo encontrado si es único, o None si hay 
+        cero o más de uno, o si la carpeta no existe.
+    """
+    # 1. Crear un objeto Path para la carpeta
+    p = Path(folder_path)
+
+    if not p.is_dir():
+        print(f"❌ Error: La carpeta '{folder_path}' no existe o no es un directorio.")
+        return None
+    
+    # 2. Definir el patrón de búsqueda: 'nombre_base.*'
+    # Esto busca cualquier archivo que comience con 'file_base_name' seguido de una extensión
+    search_pattern = f"{file_base_name}.*"
+    
+    # 3. Usar .glob() para encontrar todos los archivos que coincidan
+    matching_files = list(p.glob(search_pattern))
+    
+    # 4. Comprobar la cantidad de archivos encontrados
+    if len(matching_files) == 1:
+        # Si solo hay uno, devolver el objeto Path completo
+        # Ahora devuelve el Path object, que es más útil
+        return matching_files[0]
+    
+    elif len(matching_files) == 0:
+        print(f"❌ No se encontró ningún archivo con el nombre base '{file_base_name}' en: {folder_path}")
+        return None
+        
+    else:
+        print(f"❌ Se encontraron {len(matching_files)} archivos con el nombre base '{file_base_name}'. Se esperaba solo uno.")
+        # Opcionalmente, puedes imprimir la lista de conflictos
+        # for file in matching_files:
+        #     print(f"   - {file.name}")
+        return None
+
+# ==============================================================
+# VOLUME(LOGARÍTMICO)
+# ==============================================================
+def get_logarithmic_volume(slider_value: int):
+    """
+    Establece el factor de volumen usando una curva logarítmica (dB).
+    
+    slider_value: Valor entero del QSlider (asumido: 0 a 100).
+    0 (min) -> -60 dB (silencio)
+    100 (max) -> 0 dB (volumen máximo/unidad)
+    """
+    volume = 0.0
+    # Normalizar el valor de 0-100 a 0.0-1.0
+    linear_val = max(0.0, min(1.0, slider_value / 100.0))
+    
+    # El volumen de 0 dB a -60 dB se usa para simular un fader de consola.
+    # Rango en dB: de -60 dB a 0 dB (aprox. -60.0, 0.0)
+    DB_RANGE = 60
+    
+    if linear_val <= 0.001: 
+        # Si está cerca de cero, establecer a silencio total para evitar log(0)
+        volume = 0.0
+    else:
+        # Mapear el valor lineal (0-1) a un valor de decibelios (-60 a 0).
+        # Se usa una función exponencial (10**(dB/20)) para obtener el factor de amplitud.
+        
+        # El factor de decibelios (dB) varía de -DB_RANGE a 0.
+        # Usamos log(linear_val) para crear la curva logarítmica
+        
+        # 1. Aplicar curva logarítmica:
+        # Esto produce un valor que imita la posición de un fader logarítmico.
+        dB = linear_val * DB_RANGE - DB_RANGE 
+        
+        # 2. Convertir dB a factor de amplitud (lineal):
+        # Amplitud = 10^(dB/20)
+        volume = math.pow(10, dB / 20.0)
+        
+        # Asegurar que el volumen esté entre 0.0 y 1.0 (máximo)
+        volume = max(0.0, min(1.0, volume))
+
+    # Opcional: imprimir el factor para depuración
+    #print(f"Slider: {slider_value} -> dB: {dB:.2f} -> Factor: {self.volume:.4f}")
+    return volume
+
+def format_time(seconds):
+    """Convierte segundos a formato MM:SS."""
+    if seconds is None or seconds < 0:
+        return "00:00"
+    
+    # Redondear al segundo más cercano para un formato simple
+    total_seconds = int(round(seconds))
+    
+    minutes = total_seconds // 60
+    secs = total_seconds % 60
+    
+    return f"{minutes:02d}:{secs:02d}"

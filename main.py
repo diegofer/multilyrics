@@ -11,7 +11,7 @@ from spinner_dialog import SpinnerDialog
 from extract import AudioExtractWorker
 from video import VideoLyrics
 from add import AddDialog
-from utils import get_multis_list, get_mp4
+from utils import get_mp4, find_file_by_name
 import global_state
 
 class MainWindow(QMainWindow):
@@ -62,10 +62,15 @@ class MainWindow(QMainWindow):
         self.add_dialog.search_widget.multi_selected.connect(self.on_multi_selected)
         self.add_dialog.drop_widget.file_imported.connect(self.extract_audio)
         self.waveform.time_updated.connect(self.controls.update_time_label)
+        self.waveform.sync_player.connect(self.on_sync_player)
         self.master_track.volume_changed.connect(self.waveform.set_volume)
         self.controls.play_clicked.connect(self.on_play_clicked)
         self.controls.pause_clicked.connect(self.on_pause_clicked)
    
+    @Slot()
+    def on_sync_player(self, audio_time_seconds):
+        self.video_player.sync_player(audio_time_seconds)
+
     @Slot()
     def open_add_dialog(self):
         self.add_dialog.exec()
@@ -160,8 +165,6 @@ if __name__ == "__main__":
     # sf.write('example.wav', np.random.uniform(-1, 1, 44100 * 5), 44100) # 5 segundos de ruido
 
     app = QApplication(sys.argv)
-    multis_list = get_multis_list(global_state.LIBRARY_PATH)
-    app.setProperty("multis_list", multis_list)
     window = MainWindow()
     window.show()
     sys.exit(app.exec())
