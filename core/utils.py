@@ -2,6 +2,7 @@ from PySide6.QtCore import QPoint
 from pathlib import Path
 import os
 import math 
+from typing import List
 
 
 def clamp_menu_to_window(menu, desired_pos, window):
@@ -67,6 +68,44 @@ def get_mp4(folder_path: str) -> str:
         print(f"❌ Se encontraron {len(mp4_files)} archivos .mp4. Se esperaba solo uno.")
         # Opcionalmente, puedes devolver la lista para inspección
         return ""
+
+
+def get_tracks(
+    folder_path: str | Path, 
+    extensiones: List[str] = ['.wav', '.ogg', '.flac']
+    ) -> List[str]:
+    """
+    Busca archivos de audio con extensiones específicas en un directorio dado
+    y sus subdirectorios de forma recursiva.
+
+    Args:
+        folder_path: La ruta al directorio donde se buscarán los archivos.
+        extensiones: Una lista de extensiones de archivo a buscar 
+                     (debe incluir el punto, ej: '.wav').
+
+    Returns:
+        Una lista de strings (paths) con las rutas absolutas a los archivos de audio encontrados.
+    """
+    tracks_folder = Path(folder_path)
+
+    if not tracks_folder.is_dir():
+        # Puedes cambiar esto a raise FileNotFoundError si prefieres que falle
+        # en lugar de devolver una lista vacía.
+        print(f"⚠️ Error: La ruta '{folder_path}' no es un directorio válido o no existe.")
+        return []
+
+    extensiones_normalizadas = {
+        ext.lower() if ext.startswith('.') else f'.{ext}'.lower()
+        for ext in extensiones
+    }
+
+    archivos_encontrados: List[str] = []
+    
+    for archivo in tracks_folder.rglob('*'):
+        if archivo.is_file() and archivo.suffix.lower() in extensiones_normalizadas:
+            archivos_encontrados.append(str(archivo.resolve())) # resolve() da la ruta absoluta
+
+    return archivos_encontrados
 
 
 def find_file_by_name(folder_path: str, file_base_name: str) -> Path | None:
@@ -156,6 +195,7 @@ def get_logarithmic_volume(slider_value: int):
     # Opcional: imprimir el factor para depuración
     #print(f"Slider: {slider_value} -> dB: {dB:.2f} -> Factor: {self.volume:.4f}")
     return volume
+
 
 def format_time(seconds):
     """Convierte segundos a formato MM:SS."""

@@ -5,6 +5,7 @@ MULTIS_PATH = 'library/multis'
 LOOPS_PATH = 'library/loops'
 MASTER_TRACK = 'master.wav'
 VIDEO_FILE = 'video'
+TRACKS_PATH = 'tracks'
 
 class AppState(QObject):
     video_is_playing_changed = Signal(bool)

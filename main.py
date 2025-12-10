@@ -3,8 +3,9 @@ from ui.shell import Ui_MainWindow
 from PySide6.QtGui import QIcon, QCloseEvent
 from PySide6.QtCore import Qt, QThread, Slot
 from pathlib import Path
+from typing import List
 
-from core.utils import get_mp4
+from core.utils import get_mp4, get_tracks
 from core import global_state
 from ui.widgets.controls_widget import ControlsWidget
 from ui.widgets.track_widget import TrackWidget
@@ -13,9 +14,8 @@ from ui.widgets.add import AddDialog
 
 from audio.waveform import WaveformWidget
 from audio.extract import AudioExtractWorker
+from audio.multitrack_player import MultiTrackPlayer
 from video.video import VideoLyrics
-
-
 
 class MainWindow(QMainWindow):
     def __init__(self):
@@ -36,6 +36,8 @@ class MainWindow(QMainWindow):
         playlist_layout.setAlignment(Qt.AlignmentFlag.AlignLeft)
         playlist_layout.addWidget(self.plus_btn)
         
+        self.multi_player = MultiTrackPlayer()
+
         #Agregar waveform widget
         self.waveform = WaveformWidget("example.wav")
         wave_layout = QVBoxLayout(self.ui.frame_2)
@@ -87,12 +89,14 @@ class MainWindow(QMainWindow):
     def on_play_clicked(self):
 
         # waveform debe correr silenciado si hay stems
-        self.waveform.start_play()
+        self.multi_player.play()
+        #self.waveform.start_play()
         self.video_player.start_playback()
     
     @Slot()
     def on_pause_clicked(self):
-        self.waveform.pause_play()
+        self.multi_player.pause()
+        #self.waveform.pause_play()
         self.video_player.pause()
 
     @Slot()
@@ -138,8 +142,13 @@ class MainWindow(QMainWindow):
     def set_active_song(self, multi_path):
         # si hay multitrack en el folder silenciar waveform
         #sino, cargar master.wav
-        master_path = Path(multi_path) / global_state.MASTER_TRACK
-        self.waveform.load_audio(master_path)
+        tracks_path = Path(multi_path) / global_state.TRACKS_PATH
+        tracks = get_tracks(tracks_path)
+        self.multi_player.load_tracks(tracks)
+
+
+        #master_path = Path(multi_path) / global_state.MASTER_TRACK
+        #self.waveform.load_audio(master_path)
         
         mp4_path = get_mp4(multi_path)
         VIDEO_PATH = Path(multi_path) / mp4_path
