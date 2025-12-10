@@ -3,7 +3,7 @@ from pathlib import Path
 from PySide6.QtWidgets import QWidget, QVBoxLayout, QLabel
 from PySide6.QtCore import Qt, QPoint, Signal
 from PySide6.QtGui import QPixmap, QDragEnterEvent, QDropEvent
-import global_state
+from core import global_state
 
 
 class DropWidget(QWidget):

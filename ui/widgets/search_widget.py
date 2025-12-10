@@ -1,8 +1,8 @@
 from PySide6.QtCore import Qt, Signal
 from PySide6.QtWidgets import (QVBoxLayout, QListWidgetItem, QLineEdit, 
                                QWidget, QListWidget)
-import global_state
-from utils import get_multis_list
+from core import global_state
+from core.utils import get_multis_list
 
 class SearchWidget(QWidget):
 

@@ -2,7 +2,7 @@ import vlc
 from PySide6.QtWidgets import QApplication, QWidget, QVBoxLayout
 from PySide6.QtCore import QTimer
 
-from global_state import app_state
+from core.global_state import app_state
 
 class VideoLyrics(QWidget):
     def __init__(self, screen_index=1):

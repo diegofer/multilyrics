@@ -1,18 +1,21 @@
 from PySide6.QtWidgets import QApplication, QMainWindow, QVBoxLayout, QHBoxLayout, QPushButton
-from shell import Ui_MainWindow
+from ui.shell import Ui_MainWindow
 from PySide6.QtGui import QIcon, QCloseEvent
 from PySide6.QtCore import Qt, QThread, Slot
 from pathlib import Path
 
-from waveform import WaveformWidget
-from controls_widget import ControlsWidget
-from track_widget import TrackWidget
-from spinner_dialog import SpinnerDialog
-from extract import AudioExtractWorker
-from video import VideoLyrics
-from add import AddDialog
-from utils import get_mp4, find_file_by_name
-import global_state
+from core.utils import get_mp4
+from core import global_state
+from ui.widgets.controls_widget import ControlsWidget
+from ui.widgets.track_widget import TrackWidget
+from ui.widgets.spinner_dialog import SpinnerDialog
+from ui.widgets.add import AddDialog
+
+from audio.waveform import WaveformWidget
+from audio.extract import AudioExtractWorker
+from video.video import VideoLyrics
+
+
 
 class MainWindow(QMainWindow):
     def __init__(self):

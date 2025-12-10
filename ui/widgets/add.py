@@ -2,8 +2,8 @@ from PySide6.QtWidgets import (QStackedWidget, QVBoxLayout,QHBoxLayout,
                                QDialog, QPushButton)
 from PySide6.QtCore import Slot
 
-from search_widget import SearchWidget
-from drop_widget import DropWidget
+from .search_widget import SearchWidget
+from .drop_widget import DropWidget
 
 class AddDialog(QDialog):
 

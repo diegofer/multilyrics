@@ -7,9 +7,9 @@ from PySide6.QtCore import Qt, Signal, QTimer
 import soundfile as sf
 import sounddevice as sd
 
-from clock import AudioClock
-from global_state import app_state
-from utils import format_time, get_logarithmic_volume
+from core.clock import AudioClock
+from core.global_state import app_state
+from core.utils import format_time, get_logarithmic_volume
 
 class WaveformWidget(QWidget):
     # Señal para notificar a la ventana principal sobre el tiempo transcurrido

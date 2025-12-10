@@ -1,7 +1,7 @@
 from PySide6.QtCore import QObject, Signal, Slot
 import ffmpeg
 import os
-import global_state
+from core import global_state
 
 class WorkerSignals(QObject):
     finished = Signal()

@@ -1,7 +1,7 @@
 from PySide6.QtWidgets import QWidget, QHBoxLayout, QVBoxLayout, QFrame, QLabel,QPushButton, QMenu
 from PySide6.QtCore import Qt, QSize, Signal, Slot, QPoint
 from PySide6.QtGui import QIcon
-from utils import clamp_menu_to_window
+from core.utils import clamp_menu_to_window
 
 class ControlsWidget(QWidget):
 
