@@ -52,6 +52,10 @@ class MultiTrackPlayer:
         # Smoothing factor for gain transitions (0..1). Higher -> faster changes.
         self.gain_smoothing = 0.15
 
+        # Sync controller callback opcional
+        self.audioTimeCallback = None  # function to call with current time in seconds
+
+    
     def load_tracks(self, paths: List[str]):
         """
         Load a list of file paths. Files may be mono or stereo.
@@ -168,6 +172,10 @@ class MultiTrackPlayer:
                 except Exception:
                     pass
 
+            # Call audio time callback if set
+            if self.audioTimeCallback is not None:
+                self.audioTimeCallback(frames)
+
     def play(self, start_frame: int = 0):
         """
         Start playback from start_frame (in samples).
@@ -245,6 +253,11 @@ class MultiTrackPlayer:
     def get_position_seconds(self) -> float:
         with self._lock:
             return float(self._pos) / float(self.samplerate)
+
+    def get_duration_seconds(self) -> float:
+        """Return total duration of the loaded tracks in seconds."""
+        with self._lock:
+            return float(self._n_frames) / float(self.samplerate)
 
     def seek_seconds(self, seconds: float):
         frame = int(seconds * self.samplerate)

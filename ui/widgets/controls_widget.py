@@ -1,7 +1,7 @@
 from PySide6.QtWidgets import QWidget, QHBoxLayout, QVBoxLayout, QFrame, QLabel,QPushButton, QMenu
 from PySide6.QtCore import Qt, QSize, Signal, Slot, QPoint
 from PySide6.QtGui import QIcon
-from core.utils import clamp_menu_to_window
+from core.utils import clamp_menu_to_window, format_time
 
 class ControlsWidget(QWidget):
 
@@ -117,28 +117,19 @@ class ControlsWidget(QWidget):
 
     def _emit_action_1(self):
         self.action_1_clicked.emit()
-    
-    @Slot(str)
-    def update_time_label(self, current_time_sec: float, total_duration_sec: float):
-        """Actualiza el QLabel con el tiempo transcurrido y la duración total."""
-        current_time_str = self._format_time(current_time_sec)
-        total_duration_str = self._format_time(total_duration_sec)
-        self.total_duration_label.setText(f"{total_duration_str}")
+
+    @Slot(float)
+    def update_time_position_label(self, current_time_sec: float):
+        """Actualiza solo el tiempo transcurrido."""
+        current_time_str = format_time(current_time_sec)
         self.current_time_label.setText(f"{current_time_str}")
 
-    def _format_time(self, seconds):
-        """Convierte segundos a formato MM:SS."""
-        if seconds is None or seconds < 0:
-            return "00:00"
-            
-        # Redondear al segundo más cercano
-        total_seconds = int(round(seconds))
-        
-        minutes = total_seconds // 60
-        secs = total_seconds % 60
-        
-        return f"{minutes:02d}:{secs:02d}"
-    
+    @Slot(float)
+    def update_total_duration_label(self, total_duration_sec: float):
+        """Actualiza solo la duración total."""
+        total_duration_str = format_time(total_duration_sec)
+        self.total_duration_label.setText(f"{total_duration_str}")
+
     def show_settings_menu(self):
         # Sacamos la esquina superior derecha del botón
         global_top_right = self.menu_btn.mapToGlobal(self.menu_btn.rect().topRight())

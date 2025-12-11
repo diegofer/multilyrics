@@ -16,6 +16,8 @@ from audio.waveform import WaveformWidget
 from audio.extract import AudioExtractWorker
 from audio.multitrack_player import MultiTrackPlayer
 from video.video import VideoLyrics
+from core.sync import SyncController
+from core.playback_manager import PlaybackManager
 
 class MainWindow(QMainWindow):
     def __init__(self):
@@ -36,8 +38,6 @@ class MainWindow(QMainWindow):
         playlist_layout.setAlignment(Qt.AlignmentFlag.AlignLeft)
         playlist_layout.addWidget(self.plus_btn)
         
-        self.audio_player = MultiTrackPlayer()
-
         #Agregar waveform widget
         self.waveform = WaveformWidget("example.wav")
         wave_layout = QVBoxLayout(self.ui.frame_2)
@@ -61,13 +61,21 @@ class MainWindow(QMainWindow):
 
         #Agregar video player
         self.video_player = VideoLyrics()
+
+        # Instanciar Player y enlazar con SyncController
+        self.audio_player = MultiTrackPlayer()
+        self.sync = SyncController(44100)
+        self.audio_player.audioTimeCallback = self.sync.audio_callback
+        self.playback = PlaybackManager(self.sync)
         
         #Conectar Signals
         self.plus_btn.clicked.connect(self.open_add_dialog)
         self.add_dialog.search_widget.multi_selected.connect(self.on_multi_selected)
         self.add_dialog.drop_widget.file_imported.connect(self.extract_audio)
-        self.waveform.time_updated.connect(self.controls.update_time_label)
-        self.waveform.sync_player.connect(self.on_sync_player)
+        #self.waveform.time_updated.connect(self.controls.update_time_label)
+        #self.waveform.sync_player.connect(self.on_sync_player)
+        self.playback.positionChanged.connect(self.controls.update_time_position_label)
+        self.playback.durationChanged.connect(self.controls.update_total_duration_label)
         self.master_track.volume_changed.connect(self.waveform.set_volume)
         self.controls.play_clicked.connect(self.on_play_clicked)
         self.controls.pause_clicked.connect(self.on_pause_clicked)
@@ -146,6 +154,9 @@ class MainWindow(QMainWindow):
         tracks = get_tracks(tracks_path)
         
         self.audio_player.load_tracks(tracks)
+        
+        # Set duration in PlaybackManager para notificar a UI
+        self.playback.set_duration(self.audio_player.get_duration_seconds())
 
         tracks_layout = QHBoxLayout(self.ui.frame_5_tracks)
         
