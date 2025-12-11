@@ -5,7 +5,7 @@ from PySide6.QtCore import Qt, QThread, Slot
 from pathlib import Path
 from typing import List
 
-from core.utils import get_mp4, get_tracks
+from core.utils import get_mp4, get_tracks, get_logarithmic_volume
 from core import global_state
 from ui.widgets.controls_widget import ControlsWidget
 from ui.widgets.track_widget import TrackWidget
@@ -36,7 +36,7 @@ class MainWindow(QMainWindow):
         playlist_layout.setAlignment(Qt.AlignmentFlag.AlignLeft)
         playlist_layout.addWidget(self.plus_btn)
         
-        self.multi_player = MultiTrackPlayer()
+        self.audio_player = MultiTrackPlayer()
 
         #Agregar waveform widget
         self.waveform = WaveformWidget("example.wav")
@@ -46,8 +46,8 @@ class MainWindow(QMainWindow):
 
         #Agregar tracks widgets
         self.master_track = TrackWidget("Master", True)
-        tracks_layout = QHBoxLayout(self.ui.frame_6_master)
-        tracks_layout.addWidget(self.master_track)
+        master_track_layout = QHBoxLayout(self.ui.frame_6_master)
+        master_track_layout.addWidget(self.master_track)
 
         #Agregar controls widget
         self.controls = ControlsWidget()
@@ -89,13 +89,13 @@ class MainWindow(QMainWindow):
     def on_play_clicked(self):
 
         # waveform debe correr silenciado si hay stems
-        self.multi_player.play()
+        self.audio_player.play()
         #self.waveform.start_play()
         self.video_player.start_playback()
     
     @Slot()
     def on_pause_clicked(self):
-        self.multi_player.pause()
+        self.audio_player.pause()
         #self.waveform.pause_play()
         self.video_player.pause()
 
@@ -139,20 +139,50 @@ class MainWindow(QMainWindow):
     # Zona de carga de multis
     # ----------------------------
 
-    def set_active_song(self, multi_path):
-        # si hay multitrack en el folder silenciar waveform
-        #sino, cargar master.wav
-        tracks_path = Path(multi_path) / global_state.TRACKS_PATH
-        tracks = get_tracks(tracks_path)
-        self.multi_player.load_tracks(tracks)
+    def set_active_song(self, song_path):
+        song_path = Path(song_path)
 
+        tracks_path = song_path / global_state.TRACKS_PATH
+        tracks = get_tracks(tracks_path)
+        
+        self.audio_player.load_tracks(tracks)
+
+        tracks_layout = QHBoxLayout(self.ui.frame_5_tracks)
+        
+        """  if layout_tracks.itemAt(0) is not None:
+
+            for i in reversed(range(layout_tracks.count())):
+                widget_to_remove = layout_tracks.itemAt(i).widget()
+                layout_tracks.removeWidget(widget_to_remove)
+                widget_to_remove.setParent(None) """
+       
+        for i, track in enumerate(tracks):
+            track_widget = TrackWidget(Path(track).stem, False)
+            track_widget.volume_changed.connect(lambda gain, index=i: self.set_gain(index, gain))
+            track_widget.mute_toggled.connect(lambda checked, index=i: self.set_mute(index, checked))
+            track_widget.solo_toggled.connect(lambda checked, index=i: self.set_solo(index, checked))
+            tracks_layout.addWidget(track_widget)
+        tracks_layout.addStretch()
 
         #master_path = Path(multi_path) / global_state.MASTER_TRACK
         #self.waveform.load_audio(master_path)
         
-        mp4_path = get_mp4(multi_path)
-        VIDEO_PATH = Path(multi_path) / mp4_path
+        mp4_path = get_mp4(song_path)
+        VIDEO_PATH = song_path / mp4_path
         self.video_player.set_media(VIDEO_PATH)
+
+    @Slot()
+    def set_mute(self, track_index: int, mute: bool):
+        self.audio_player.mute(track_index, mute)
+
+    @Slot()
+    def set_solo(self, track_index: int, solo: bool):
+        self.audio_player.solo(track_index, solo)
+
+    @Slot()
+    def set_gain(self, track_index: int, gain: float):
+        gain_log = get_logarithmic_volume(gain)
+        self.audio_player.set_gain(track_index, gain_log)
 
     def closeEvent(self, event: QCloseEvent):
         # cerrar ventana videoplayer

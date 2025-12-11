@@ -5,6 +5,8 @@ from PySide6.QtCore import Qt, Signal
 class TrackWidget(QWidget):
 
     volume_changed = Signal(int)
+    mute_toggled = Signal(bool)
+    solo_toggled = Signal(bool)
 
     def __init__(self, track_name="Track 0", master_type=None, parent=None):
         super().__init__(parent)
@@ -24,9 +26,9 @@ class TrackWidget(QWidget):
         layout.addWidget(self.mute_button)
         
         # Botón de solo
+        self.solo_button = QPushButton("Solo")
+        self.solo_button.setCheckable(True)
         if not self.master_type:
-            self.solo_button = QPushButton("Solo")
-            self.solo_button.setCheckable(True)
             layout.addWidget(self.solo_button)
         
         # Slider vertical
@@ -61,7 +63,15 @@ class TrackWidget(QWidget):
 
 
         #Signals
+        self.mute_button.toggled.connect(self._on_mute_toggled)
+        self.solo_button.toggled.connect(lambda checked: self.solo_toggled.emit(checked) if not self.master_type else None)
         self.slider.valueChanged.connect(self._emit_volume_change)
+    
+    def _on_mute_toggled(self, checked):
+        self.mute_toggled.emit(checked)
+
+    def _on_solo_toggled(self, checked):
+        self.solo_toggled.emit(checked)
 
     def _emit_volume_change(self, value):
         self.volume_changed.emit(value)
