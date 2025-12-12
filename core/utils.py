@@ -28,6 +28,10 @@ def clamp_menu_to_window(menu, desired_pos, window):
 def get_multis_list(library_path):
     result = []
     
+    # evitar fallar si no hay carpetas
+    if not os.path.exists(library_path):
+        return result
+
     for item in os.listdir(library_path):
         item_path = os.path.join(library_path, item)
 
