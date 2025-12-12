@@ -62,11 +62,14 @@ class MainWindow(QMainWindow):
         #Agregar video player
         self.video_player = VideoLyrics()
 
-        # Instanciar Player y enlazar con SyncController
+        #Instanciar Player y enlazar con SyncController
         self.audio_player = MultiTrackPlayer()
         self.sync = SyncController(44100)
         self.audio_player.audioTimeCallback = self.sync.audio_callback
         self.playback = PlaybackManager(self.sync)
+        
+        # Asignar SyncController a VideoLyrics para que reporte posición
+        self.video_player.sync_controller = self.sync
         
         #Conectar Signals
         self.plus_btn.clicked.connect(self.open_add_dialog)
@@ -76,14 +79,11 @@ class MainWindow(QMainWindow):
         #self.waveform.sync_player.connect(self.on_sync_player)
         self.playback.positionChanged.connect(self.controls.update_time_position_label)
         self.playback.durationChanged.connect(self.controls.update_total_duration_label)
+        self.sync.videoCorrectionNeeded.connect(self.video_player.apply_correction)
         self.master_track.volume_changed.connect(self.waveform.set_volume)
         self.controls.play_clicked.connect(self.on_play_clicked)
         self.controls.pause_clicked.connect(self.on_pause_clicked)
    
-    @Slot()
-    def on_sync_player(self, audio_time_seconds):
-        self.video_player.sync_player(audio_time_seconds)
-
     @Slot()
     def open_add_dialog(self):
         self.add_dialog.exec()
