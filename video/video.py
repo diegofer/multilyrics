@@ -1,4 +1,5 @@
 import vlc
+import platform
 from PySide6.QtWidgets import QApplication, QWidget, QVBoxLayout
 from PySide6.QtCore import QTimer, Slot
 
@@ -22,6 +23,10 @@ class VideoLyrics(QWidget):
         self.screen_index = screen_index
         self.setWindowTitle("VideoLyrics")
         self.resize(800, 600)
+        
+        # Detectar SO
+        self.system = platform.system()
+        print(f"[INFO] SO detectado: {self.system}")
 
         # VLC
         self.instance = vlc.Instance()
@@ -61,6 +66,8 @@ class VideoLyrics(QWidget):
         """Mover ventana a pantalla secundaria."""
         screens = QApplication.screens()
         print("Pantallas detectadas:", len(screens))
+        for i, screen in enumerate(screens):
+            print(f"  [{i}] {screen.name()}")
 
         if self.screen_index >= len(screens):
             print("❌ La pantalla secundaria no existe.")
@@ -73,11 +80,23 @@ class VideoLyrics(QWidget):
         self.setGeometry(geo)
         self.showFullScreen()
 
-        # Ahora sí: windowHandle() existe
-        hwnd = int(self.winId())
-        print("✔ HWND obtenido:", hwnd)
-
-        self.player.set_hwnd(hwnd)
+        # Obtener window ID según el SO
+        if self.system == "Windows":
+            hwnd = int(self.winId())
+            print("✔ HWND obtenido:", hwnd)
+            self.player.set_hwnd(hwnd)
+        elif self.system == "Linux":
+            xid = int(self.winId())
+            print("✔ XWindow ID obtenido:", xid)
+            self.player.set_xwindow(xid)
+        elif self.system == "Darwin":  # macOS
+            print("⚠ macOS detectado - usando configuración estándar de VLC")
+            try:
+                self.player.set_nsobject(self.winId())
+            except:
+                print("⚠ set_nsobject no disponible, usando configuración por defecto")
+        else:
+            print(f"⚠ SO desconocido: {self.system}, usando configuración por defecto")
 
     def start_playback(self):
         """Iniciar reproducción y sincronización."""
