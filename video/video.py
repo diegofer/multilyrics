@@ -28,8 +28,9 @@ class VideoLyrics(QWidget):
         self.system = platform.system()
         print(f"[INFO] SO detectado: {self.system}")
 
-        # VLC
-        self.instance = vlc.Instance()
+        # VLC  
+        vlc_args = ['--quiet', '--no-video-title-show', '--log-verbose=2']
+        self.instance = vlc.Instance(vlc_args)
         self.player = self.instance.media_player_new()
         self.player.audio_set_mute(True)
 
