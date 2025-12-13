@@ -1,4 +1,4 @@
-from PySide6.QtWidgets import QApplication, QMainWindow, QVBoxLayout, QHBoxLayout, QPushButton
+from PySide6.QtWidgets import QApplication, QMainWindow, QPushButton
 from ui.shell import Ui_MainWindow
 from PySide6.QtGui import QIcon, QCloseEvent
 from PySide6.QtCore import Qt, QThread, Slot
@@ -26,6 +26,7 @@ class MainWindow(QMainWindow):
         self.ui = Ui_MainWindow()
         self.ui.setupUi(self)
         self.ui.tracksLayout.setAlignment(Qt.AlignmentFlag.AlignLeft)
+        self.ui.playlistLayout.setAlignment(Qt.AlignmentFlag.AlignLeft)
 
         #Agregar plus buttom
         self.plus_btn = QPushButton()
@@ -33,27 +34,19 @@ class MainWindow(QMainWindow):
         self.plus_btn.setIcon(QIcon("assets/img/plus-circle.svg"))
         self.plus_btn.setIconSize(self.plus_btn.size()  * 0.7)
 
-        playlist_layout = QHBoxLayout(self.ui.frame)
-        playlist_layout.setContentsMargins(1,1,1,1)
-        playlist_layout.setAlignment(Qt.AlignmentFlag.AlignLeft)
-        playlist_layout.addWidget(self.plus_btn)
+        self.ui.playlistLayout.addWidget(self.plus_btn)
         
         #Agregar waveform widget
         self.waveform = WaveformWidget("example.wav")
-        wave_layout = QVBoxLayout(self.ui.frame_2)
-        wave_layout.setContentsMargins(4,1,1,1)
-        wave_layout.addWidget(self.waveform)
+        self.ui.waveformLayout.addWidget(self.waveform)
 
         #Agregar tracks widgets
         self.master_track = TrackWidget("Master", True)
-        master_track_layout = QHBoxLayout(self.ui.frame_6_master)
-        master_track_layout.addWidget(self.master_track)
+        self.ui.masterLayout.addWidget(self.master_track)
 
         #Agregar controls widget
         self.controls = ControlsWidget()
-        control_layout = QHBoxLayout(self.ui.frame_4)
-        control_layout.setContentsMargins(4,4,4,4)
-        control_layout.addWidget(self.controls)
+        self.ui.controlsLayout.addWidget(self.controls)
 
         #Agregar modals
         self.loader = SpinnerDialog(self)

@@ -22,7 +22,7 @@ class Ui_MainWindow(object):
     def setupUi(self, MainWindow):
         if not MainWindow.objectName():
             MainWindow.setObjectName(u"MainWindow")
-        MainWindow.resize(800, 600)
+        MainWindow.resize(971, 705)
         self.centralwidget = QWidget(MainWindow)
         self.centralwidget.setObjectName(u"centralwidget")
         self.verticalLayout = QVBoxLayout(self.centralwidget)
@@ -36,6 +36,9 @@ class Ui_MainWindow(object):
 "}")
         self.frame.setFrameShape(QFrame.Shape.StyledPanel)
         self.frame.setFrameShadow(QFrame.Shadow.Raised)
+        self.playlistLayout = QHBoxLayout(self.frame)
+        self.playlistLayout.setObjectName(u"playlistLayout")
+        self.playlistLayout.setContentsMargins(2, 2, 2, 2)
 
         self.verticalLayout.addWidget(self.frame)
 
@@ -46,6 +49,9 @@ class Ui_MainWindow(object):
 "}")
         self.frame_2.setFrameShape(QFrame.Shape.StyledPanel)
         self.frame_2.setFrameShadow(QFrame.Shadow.Raised)
+        self.waveformLayout = QVBoxLayout(self.frame_2)
+        self.waveformLayout.setObjectName(u"waveformLayout")
+        self.waveformLayout.setContentsMargins(5, 2, 2, 2)
 
         self.verticalLayout.addWidget(self.frame_2)
 
@@ -84,6 +90,8 @@ class Ui_MainWindow(object):
 "}")
         self.frame_6_master.setFrameShape(QFrame.Shape.StyledPanel)
         self.frame_6_master.setFrameShadow(QFrame.Shadow.Raised)
+        self.masterLayout = QHBoxLayout(self.frame_6_master)
+        self.masterLayout.setObjectName(u"masterLayout")
 
         self.horizontalLayout.addWidget(self.frame_6_master)
 
@@ -97,6 +105,9 @@ class Ui_MainWindow(object):
 "}")
         self.frame_4.setFrameShape(QFrame.Shape.StyledPanel)
         self.frame_4.setFrameShadow(QFrame.Shadow.Raised)
+        self.controlsLayout = QHBoxLayout(self.frame_4)
+        self.controlsLayout.setObjectName(u"controlsLayout")
+        self.controlsLayout.setContentsMargins(4, 4, 4, 4)
 
         self.verticalLayout.addWidget(self.frame_4)
 
