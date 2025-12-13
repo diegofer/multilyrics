@@ -1,8 +1,30 @@
 from PySide6.QtCore import QPoint
+from PySide6.QtWidgets import QLayout
 from pathlib import Path
 import os
 import math 
 from typing import List
+
+
+def clear_layout(layout: QLayout):
+    """Remove all widgets and child layouts from a Qt layout.
+
+    This walks the layout and detaches any child widgets (setParent(None))
+    and removes nested layouts. Safe to call on an empty layout or None.
+    """
+    if layout is None:
+        return
+
+    # Iterate until layout is empty; use takeAt(0) which shifts items down
+    while layout.count():
+        item = layout.takeAt(0)
+        if item is None:
+            break
+        widget = item.widget()
+        if widget is not None:
+            widget.setParent(None)
+        elif item.layout() is not None:
+            clear_layout(item.layout())
 
 
 def clamp_menu_to_window(menu, desired_pos, window):

@@ -67,6 +67,8 @@ class Ui_MainWindow(object):
         self.frame_5_tracks.setSizePolicy(sizePolicy)
         self.frame_5_tracks.setFrameShape(QFrame.Shape.StyledPanel)
         self.frame_5_tracks.setFrameShadow(QFrame.Shadow.Raised)
+        self.tracksLayout = QHBoxLayout(self.frame_5_tracks)
+        self.tracksLayout.setObjectName(u"tracksLayout")
 
         self.horizontalLayout.addWidget(self.frame_5_tracks)
 

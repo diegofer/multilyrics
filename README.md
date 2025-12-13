@@ -57,10 +57,6 @@ python main.py
 - Error relacionado con `libsndfile`: confirma `libsndfile1` instalado.
 - Si faltan paquetes en `requirements.txt`, instálalos con `pip install <paquete>` y considera actualizar `requirements.txt` con `pip freeze > requirements.txt` dentro del entorno.
 
-## Notas
-
-- Si quieres que pruebe los pasos de instalación y ejecute `python main.py` aquí, dime y lo hago (reportaré errores si aparecen).
-
 ---
 
 Archivo creado automáticamente: instrucciones básicas para Ubuntu.

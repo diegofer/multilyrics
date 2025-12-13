@@ -5,7 +5,7 @@ from PySide6.QtCore import Qt, QThread, Slot
 from pathlib import Path
 from typing import List
 
-from core.utils import get_mp4, get_tracks, get_logarithmic_volume
+from core.utils import get_mp4, get_tracks, get_logarithmic_volume, clear_layout
 from core import global_state
 from ui.widgets.controls_widget import ControlsWidget
 from ui.widgets.track_widget import TrackWidget
@@ -23,9 +23,10 @@ class MainWindow(QMainWindow):
     def __init__(self):
         super().__init__()
 
-        # Agregar Ui principal
+        # Agregar y settear Ui principal
         self.ui = Ui_MainWindow()
         self.ui.setupUi(self)
+        self.ui.tracksLayout.setAlignment(Qt.AlignmentFlag.AlignLeft)
 
         #Agregar plus buttom
         self.plus_btn = QPushButton()
@@ -148,32 +149,26 @@ class MainWindow(QMainWindow):
     # ----------------------------
 
     def set_active_song(self, song_path):
+        #obtener rutas de tracks
         song_path = Path(song_path)
-
-        tracks_path = song_path / global_state.TRACKS_PATH
-        tracks = get_tracks(tracks_path)
+        master_path = Path(song_path) / global_state.MASTER_TRACK
+        tracks_folder_path = song_path / global_state.TRACKS_PATH
+        tracks_paths = get_tracks(tracks_folder_path)
         
-        self.audio_player.load_tracks(tracks)
+        self.audio_player.load_tracks(tracks_paths)
         
-        # Set duration in PlaybackManager para notificar a UI
+        # Notificar: Set duration in PlaybackManager para notificar a UI
         self.playback.set_duration(self.audio_player.get_duration_seconds())
 
-        tracks_layout = QHBoxLayout(self.ui.frame_5_tracks)
-        
-        """  if layout_tracks.itemAt(0) is not None:
-
-            for i in reversed(range(layout_tracks.count())):
-                widget_to_remove = layout_tracks.itemAt(i).widget()
-                layout_tracks.removeWidget(widget_to_remove)
-                widget_to_remove.setParent(None) """
+        # remover widgets si existen en self.ui.tracksLayout
+        clear_layout(self.ui.tracksLayout)
        
-        for i, track in enumerate(tracks):
+        for i, track in enumerate(tracks_paths):
             track_widget = TrackWidget(Path(track).stem, False)
             track_widget.volume_changed.connect(lambda gain, index=i: self.set_gain(index, gain))
             track_widget.mute_toggled.connect(lambda checked, index=i: self.set_mute(index, checked))
             track_widget.solo_toggled.connect(lambda checked, index=i: self.set_solo(index, checked))
-            tracks_layout.addWidget(track_widget)
-        tracks_layout.addStretch()
+            self.ui.tracksLayout.addWidget(track_widget)
 
         #master_path = Path(multi_path) / global_state.MASTER_TRACK
         #self.waveform.load_audio(master_path)
