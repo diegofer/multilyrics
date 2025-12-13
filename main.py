@@ -79,9 +79,15 @@ class MainWindow(QMainWindow):
         #self.waveform.time_updated.connect(self.controls.update_time_label)
         #self.waveform.sync_player.connect(self.on_sync_player)
         self.playback.positionChanged.connect(self.controls.update_time_position_label)
+        self.playback.positionChanged.connect(self.waveform.set_position_seconds)
         self.playback.durationChanged.connect(self.controls.update_total_duration_label)
         self.sync.videoCorrectionNeeded.connect(self.video_player.apply_correction)
         self.master_track.volume_changed.connect(self.waveform.set_volume)
+
+        # Waveform user seeks -> update playback and video
+        self.waveform.position_changed.connect(self.audio_player.seek_seconds)
+        self.waveform.position_changed.connect(self.video_player.seek_seconds)
+
         self.controls.play_clicked.connect(self.on_play_clicked)
         self.controls.pause_clicked.connect(self.on_pause_clicked)
    
@@ -159,8 +165,7 @@ class MainWindow(QMainWindow):
         
         # Notificar: Set duration in PlaybackManager para notificar a UI
         self.playback.set_duration(self.audio_player.get_duration_seconds())
-
-        # remover widgets si existen en self.ui.tracksLayout
+        # Limpiar layout de tracks
         clear_layout(self.ui.tracksLayout)
        
         for i, track in enumerate(tracks_paths):
@@ -170,8 +175,9 @@ class MainWindow(QMainWindow):
             track_widget.solo_toggled.connect(lambda checked, index=i: self.set_solo(index, checked))
             self.ui.tracksLayout.addWidget(track_widget)
 
-        #master_path = Path(multi_path) / global_state.MASTER_TRACK
-        #self.waveform.load_audio(master_path)
+        master_path = Path(song_path) / global_state.MASTER_TRACK
+        if master_path.exists():
+            self.waveform.load_audio_from_master(master_path)
         
         mp4_path = get_mp4(song_path)
         VIDEO_PATH = song_path / mp4_path

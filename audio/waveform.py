@@ -3,20 +3,18 @@
 import numpy as np
 from PySide6.QtWidgets import QWidget
 from PySide6.QtGui import QPainter, QColor, QPen, QFont
-from PySide6.QtCore import Qt, Signal, QTimer
+from PySide6.QtCore import Qt, Signal
 import soundfile as sf
-import sounddevice as sd
 
-from core.clock import AudioClock
-from core.global_state import app_state
 from core.utils import format_time, get_logarithmic_volume
 
 class WaveformWidget(QWidget):
-    # Señal para notificar a la ventana principal sobre el tiempo transcurrido
-    # Envía (tiempo_actual_segundos, duracion_total_segundos)
-    time_updated = Signal(float, float)
-    position_changed = Signal()
-    sync_player = Signal(float)
+    """
+    Widget pasivo para dibujar la onda y manejar eventos de usuario (zoom, scroll, doble clic para seek).
+    No reproduce audio; la reproducción y reloj son responsabilidad de `MultiTrackPlayer`/`PlaybackManager`.
+    """
+    # Señal para notificar que el usuario ha cambiado la posición (segundos)
+    position_changed = Signal(float)
 
     def __init__(self, audio_path=None, parent=None): # audio_path ahora es opcional
         super().__init__(parent)
@@ -34,8 +32,6 @@ class WaveformWidget(QWidget):
 
         # --- Playhead ---
         self.playhead_sample = 0
-        self.playing = False
-        self.stream = None # Añadir el stream como None inicialmente
         
         # --- Interaction ---
         self._dragging = False
@@ -47,51 +43,12 @@ class WaveformWidget(QWidget):
         # Cargar audio si se proporciona una ruta
         if audio_path:
             self.load_audio(audio_path)
-        
-        # Emitir la duración inicial (0.0 si no se cargó nada)
-        self.time_updated.emit(0.0, self.duration_seconds)
-
-        # ==============================================================
-        # RELOJ DE SINCRONIZACION
-        # ============================================================== 
-        self.audio_clock = AudioClock(self.sr)
-            # reloj suavizado (EMA)
-        self.audio_smooth = 0.0
-        self.smooth_initialized = False
-        self.alpha = 0.10        # peso del EMA (10%)
-
-        self.timer = QTimer()
-        self.timer.setInterval(15)
-        self.timer.timeout.connect(self.update_sync)
     
     # --------------------------------------------------------------------
     #   FUNCIONES PRINCIPALES DEL SINCRONIZADOR
     # --------------------------------------------------------------------
-    def update_sync(self):
-        """Se ejecuta ~60 veces por segundo desde QTimer."""
-        if not self.playing:
-            return
-        # verificamos que el videoplayer esta corriendo
-        if not app_state.video_is_playing:
-            return
-
-        # === 1. Leer reloj exacto del audio (sample-based) ===
-        audio_time = self.audio_clock.get_time()
-
-        # === 2. Inicializar suavizado la primera vez ===
-        if not self.smooth_initialized:
-            self.audio_smooth = audio_time
-            self.smooth_initialized = True
-
-        # === 3. Aplicar suavizado EMA ===
-        self.audio_smooth = (
-            (1 - self.alpha) * self.audio_smooth +
-            self.alpha * audio_time
-        )
-
-        # === 4. Notificar al sincronizador en videoplayer con el valor suavizado ===
-        self.sync_player.emit(self.audio_smooth)
-
+    # Waveform is passive; sync handled by SyncController/PlaybackManager
+    # No need for a timer nor sample clock here.
     def _set_empty_state(self):
         """Establece las variables internas en un estado seguro sin audio."""
         self.samples = np.array([], dtype=np.float32)
@@ -101,14 +58,11 @@ class WaveformWidget(QWidget):
         self.zoom_factor = 1.0
         self.center_sample = 0
         self.playhead_sample = 0
-        self.stop_stream()
-        self.time_updated.emit(0.0, 0.0)
         self.update()
 
 
     def load_audio(self, audio_path):
         """Carga nuevos datos de audio en el widget desde una ruta de archivo."""
-        self.stop_stream() # Detener cualquier reproducción anterior
 
         if not audio_path:
             self._set_empty_state()
@@ -133,7 +87,6 @@ class WaveformWidget(QWidget):
             self.center_sample = self.total_samples // 2
             self.playhead_sample = 0
             
-            self.time_updated.emit(0.0, self.duration_seconds)
             self.update()
             return True
         
@@ -147,115 +100,16 @@ class WaveformWidget(QWidget):
     # VOLUME CONTROL (LOGARÍTMICO) 
     # ==============================================================
     def set_volume(self, slider_value: int):
+        # Volume only affects visualization amplitude (optional)
         self.volume = get_logarithmic_volume(slider_value)
+        self.update()
 
 
     # ==============================================================
     # PLAYBACK CONTROL
     # ==============================================================
-    def start_play(self):
-        # 1. Si no hay audio, salir.
-        if self.duration_seconds <= 0:
-            return
-
-        # 2. Si ya está reproduciendo, no hacer nada.
-        if self.playing:
-            return
-
-        self.playing = True
-
-        # 3. Si el stream no existe o está cerrado, crearlo e iniciarlo.
-        if self.stream is None or not self.stream.active:
-            # reiniciar playhead al comienzo si está al final
-            if self.playhead_sample >= len(self.samples) - 1:
-                self.playhead_sample = 0
-
-            # abrir stream de audio REAL
-            self.stream = sd.OutputStream(
-                samplerate=self.sr,
-                channels=1,
-                callback=self._audio_callback,
-                finished_callback=self._on_finished
-            )
-            self.stream.start()
-            self.timer.start()
-        
-        # 4. Si el stream existe, pero está pausado, reanudarlo (solo cambiando self.playing)
-
-    def pause_play(self): 
-        # Simplemente establecemos el estado de reproducción en False.
-        self.playing = False
-        self.update()
-
-
-    def stop_stream(self):
-        """Función para detener y cerrar el stream completamente (detener, no pausar)."""
-        self.playing = False
-        try:
-            if self.stream and self.stream.active:
-                self.stream.stop()
-                self.stream.close()
-            self.stream = None
-        except Exception:
-            # Manejar excepción si el stream ya está detenido/cerrado
-            pass
-
-
-    def _on_finished(self):
-        """Called automatically when audio ends."""
-        self.stop_stream() # Usamos la función de detener/cerrar
-        self.update()
-        # Emitir el tiempo final
-        self.time_updated.emit(self.duration_seconds, self.duration_seconds)
-
-
-    def _audio_callback(self, outdata, frames, time, status):
-        """
-        Este callback es llamado por sounddevice para llenar el buffer de audio.
-        """
-        # Si no hay muestras o está pausado, llenamos con ceros.
-        if not self.playing or len(self.samples) == 0:
-            outdata.fill(0)
-            return
-
-        start = self.playhead_sample
-        end = start + frames
-
-        # si llegamos al final
-        if end >= len(self.samples):
-            end = len(self.samples)
-
-        chunk = self.samples[start:end]
-
-        # aplicar volumen al chunk de audio (self.volume ahora es logarítmico)
-        chunk_volumed = chunk * self.volume
-
-        # copiar al buffer de audio
-        outdata[:len(chunk_volumed), 0] = chunk_volumed
-
-        # si faltan muestras, llenar con cero
-        if len(chunk_volumed) < frames:
-            outdata[len(chunk_volumed):, 0] = 0
-
-            # Si llenamos con ceros porque se acabó el audio, 
-            # sounddevice llama a _on_finished
-            if end == len(self.samples):
-                # No llamar a stop_stream aquí, solo salir. _on_finished se encargará de ello.
-                return
-
-
-        # Avanzar playhead EXACTAMENTE según el audio real
-        self.playhead_sample = end
-        
-        # Emitir la posición actual
-        current_time = self.playhead_sample / self.sr
-        self.time_updated.emit(current_time, self.duration_seconds)
-
-        # Actualizar del reloj
-        self.audio_clock.update(frames)
-
-        # Forzar repintado para mover el playhead en pantalla
-        self.update()
+    # The WaveformWidget is passive and does not manage audio playback.
+    # Playback position is provided via `set_position_seconds()` from PlaybackManager.
     
 
     # ==============================================================
@@ -266,6 +120,13 @@ class WaveformWidget(QWidget):
         self.zoom_factor = factor
         self.center_sample = int(np.clip(self.center_sample, 0, len(self.samples)-1))
         self.update()
+
+    def load_audio_from_master(self, master_path):
+        """Convenience alias to maintain old usage in MainWindow (accepts Path)."""
+        if isinstance(master_path, (str,)):
+            self.load_audio(master_path)
+        else:
+            self.load_audio(str(master_path))
 
     def zoom_by(self, ratio: float, cursor_x: int = None):
         if self.total_samples == 0:
@@ -354,13 +215,9 @@ class WaveformWidget(QWidget):
             new_sample = int(start + rel * (end - start))
             self.set_playhead_sample(new_sample)
             
-            # Emitir la nueva posición
+            # Emitir la nueva posición en segundos al receptor (e.g., Audio Player)
             current_time = self.playhead_sample / self.sr
-            self.time_updated.emit(current_time, self.duration_seconds)
-
-            # Si está reproduciendo, pausamos para que la reanudación sea desde la nueva posición
-            if self.playing:
-                self.pause_play()
+            self.position_changed.emit(current_time)
         else:
             super().mouseDoubleClickEvent(event)
 
@@ -391,6 +248,16 @@ class WaveformWidget(QWidget):
             
         self.playhead_sample = int(max(0, min(sample, len(self.samples)-1)))
         self.update()
+
+    def set_position_seconds(self, seconds: float):
+        """Set playhead based on seconds and update widget.
+
+        This is the public API for PlaybackManager to update waveform position.
+        """
+        if self.total_samples == 0:
+            return
+        sample = int(max(0, min(int(seconds * self.sr), len(self.samples)-1)))
+        self.set_playhead_sample(sample)
 
 
     def mouseMoveEvent(self, event):

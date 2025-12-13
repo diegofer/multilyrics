@@ -126,6 +126,16 @@ class VideoLyrics(QWidget):
         if self.sync_controller:
             self.sync_controller.stop_sync()
 
+    def seek_seconds(self, seconds: float):
+        """Seek the video player to the specified time in seconds."""
+        if self.player is None:
+            return
+        ms = int(seconds * 1000)
+        try:
+            self.player.set_time(ms)
+        except Exception:
+            pass
+
     def _report_position(self):
         """
         Reportar posición actual al SyncController.
