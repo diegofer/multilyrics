@@ -18,3 +18,13 @@ class AudioClock(QObject):
         """Retorna el tiempo exacto procesado en segundos."""
         with self.lock:
             return self.total_frames / self.samplerate
+
+    def set_time(self, seconds: float):
+        """Set the clock time to a specific time in seconds (seek)."""
+        with self.lock:
+            self.total_frames = int(seconds * self.samplerate)
+
+    def reset(self):
+        """Reset the clock to zero."""
+        with self.lock:
+            self.total_frames = 0

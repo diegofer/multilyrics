@@ -3,7 +3,6 @@ from ui.shell import Ui_MainWindow
 from PySide6.QtGui import QIcon, QCloseEvent
 from PySide6.QtCore import Qt, QThread, Slot
 from pathlib import Path
-from typing import List
 
 from core.utils import get_mp4, get_tracks, get_logarithmic_volume, clear_layout
 from core import global_state
@@ -71,22 +70,23 @@ class MainWindow(QMainWindow):
         
         # Asignar SyncController a VideoLyrics para que reporte posición
         self.video_player.sync_controller = self.sync
+
+        # Asignar players al PlaybackManager para control centralizado
+        self.playback.set_audio_player(self.audio_player)
+        self.playback.set_video_player(self.video_player)
         
         #Conectar Signals
         self.plus_btn.clicked.connect(self.open_add_dialog)
         self.add_dialog.search_widget.multi_selected.connect(self.on_multi_selected)
         self.add_dialog.drop_widget.file_imported.connect(self.extract_audio)
-        #self.waveform.time_updated.connect(self.controls.update_time_label)
-        #self.waveform.sync_player.connect(self.on_sync_player)
         self.playback.positionChanged.connect(self.controls.update_time_position_label)
         self.playback.positionChanged.connect(self.waveform.set_position_seconds)
         self.playback.durationChanged.connect(self.controls.update_total_duration_label)
-        self.sync.videoCorrectionNeeded.connect(self.video_player.apply_correction)
+        #self.sync.videoCorrectionNeeded.connect(self.video_player.apply_correction)
         self.master_track.volume_changed.connect(self.waveform.set_volume)
 
-        # Waveform user seeks -> update playback and video
-        self.waveform.position_changed.connect(self.audio_player.seek_seconds)
-        self.waveform.position_changed.connect(self.video_player.seek_seconds)
+        # Waveform user seeks -> central request via PlaybackManager
+        self.waveform.position_changed.connect(self.playback.request_seek)
 
         self.controls.play_clicked.connect(self.on_play_clicked)
         self.controls.pause_clicked.connect(self.on_pause_clicked)
@@ -155,18 +155,19 @@ class MainWindow(QMainWindow):
     # ----------------------------
 
     def set_active_song(self, song_path):
-        #obtener rutas de tracks
+        #obtener rutas
         song_path = Path(song_path)
         master_path = Path(song_path) / global_state.MASTER_TRACK
         tracks_folder_path = song_path / global_state.TRACKS_PATH
         tracks_paths = get_tracks(tracks_folder_path)
+        mp4_path = get_mp4(song_path)
+        video_path = song_path / mp4_path
         
+        # Actualizar MultiTrackPlayer
         self.audio_player.load_tracks(tracks_paths)
-        
-        # Notificar: Set duration in PlaybackManager para notificar a UI
-        self.playback.set_duration(self.audio_player.get_duration_seconds())
-        # Limpiar layout de tracks
-        clear_layout(self.ui.tracksLayout)
+        self.playback.set_duration(self.audio_player.get_duration_seconds()) # Notificar a PlaybackManager
+           
+        clear_layout(self.ui.tracksLayout)  # Limpiar layout de tracks
        
         for i, track in enumerate(tracks_paths):
             track_widget = TrackWidget(Path(track).stem, False)
@@ -174,14 +175,13 @@ class MainWindow(QMainWindow):
             track_widget.mute_toggled.connect(lambda checked, index=i: self.set_mute(index, checked))
             track_widget.solo_toggled.connect(lambda checked, index=i: self.set_solo(index, checked))
             self.ui.tracksLayout.addWidget(track_widget)
-
-        master_path = Path(song_path) / global_state.MASTER_TRACK
+        
+        # Actualizar Waveform
         if master_path.exists():
             self.waveform.load_audio_from_master(master_path)
         
-        mp4_path = get_mp4(song_path)
-        VIDEO_PATH = song_path / mp4_path
-        self.video_player.set_media(VIDEO_PATH)
+        # Actualizar Video Player
+        self.video_player.set_media(video_path)
 
     @Slot()
     def set_mute(self, track_index: int, mute: bool):
@@ -202,12 +202,6 @@ class MainWindow(QMainWindow):
              self.video_player.close()
         # cerrar ventana principal
         event.accept()
-
-
-# ----------------------------
-# Valores iniciales
-# ----------------------------
-
 
 
 if __name__ == "__main__":
