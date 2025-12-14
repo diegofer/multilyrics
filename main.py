@@ -95,17 +95,19 @@ class MainWindow(QMainWindow):
 
     @Slot()
     def on_play_clicked(self):
-
-        # waveform debe correr silenciado si hay stems
+        #considerar correr primero video y luego audio para evitar delay en video
         self.audio_player.play()
-        #self.waveform.start_play()
         self.video_player.start_playback()
+        # Update UI toggle
+        self.controls.set_playing_state(True)
     
     @Slot()
     def on_pause_clicked(self):
         self.audio_player.pause()
         #self.waveform.pause_play()
         self.video_player.pause()
+        # Update UI toggle
+        self.controls.set_playing_state(False)
 
     @Slot()
     def extract_audio(self, video_path: str):

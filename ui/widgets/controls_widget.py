@@ -62,17 +62,13 @@ class ControlsWidget(QWidget):
                 QPushButton { margin:0px; border-radius: 5px; background-color: rgb(29,35,67); color: white; } 
                 QPushButton:hover { background-color: rgb(50, 60, 100); } """
         
-        self.play_btn = QPushButton()
-        self.play_btn.setIcon(QIcon("assets/img/play.svg"))
-        self.play_btn.setIconSize(QSize(50, 50))
-        self.play_btn.setStyleSheet(button_style)
-        self.play_btn.clicked.connect(self._emit_play)
-
-        self.stop_btn = QPushButton()
-        self.stop_btn.setIcon(QIcon("assets/img/pause.svg"))
-        self.stop_btn.setIconSize(QSize(50, 50))
-        self.stop_btn.setStyleSheet(button_style)
-        self.stop_btn.clicked.connect(self._emit_pause)
+        # Single toggle button for play/pause/resume
+        self.play_toggle_btn = QPushButton()
+        self.play_toggle_btn.setCheckable(True)
+        self.play_toggle_btn.setIcon(QIcon("assets/img/play.svg"))
+        self.play_toggle_btn.setIconSize(QSize(50, 50))
+        self.play_toggle_btn.setStyleSheet(button_style)
+        self.play_toggle_btn.toggled.connect(self._on_play_toggle)
 
         self.menu_btn = QPushButton()
         self.menu_btn.setIcon(QIcon("assets/img/settings.svg"))
@@ -91,8 +87,7 @@ class ControlsWidget(QWidget):
         # agregar botones a frames
         self.frame_1.layout().addWidget(self.total_duration_label)
         self.frame_1.layout().addWidget(self.current_time_label)
-        self.frame_3.layout().addWidget(self.play_btn)
-        self.frame_4.layout().addWidget(self.stop_btn)
+        self.frame_3.layout().addWidget(self.play_toggle_btn)
         self.frame_6.layout().addWidget(self.menu_btn)
 
         self.main_layout.addWidget(self.frame_1)
@@ -114,6 +109,28 @@ class ControlsWidget(QWidget):
 
     def _emit_pause(self):
         self.pause_clicked.emit()
+
+    def _on_play_toggle(self, checked: bool):
+        """Handler for the toggle button state.
+
+        When checked -> play/resume, when unchecked -> pause.
+        """
+        if checked:
+            # Switch icon to pause
+            self.play_toggle_btn.setIcon(QIcon("assets/img/pause.svg"))
+            self._emit_play()
+        else:
+            # Switch icon to play
+            self.play_toggle_btn.setIcon(QIcon("assets/img/play.svg"))
+            self._emit_pause()
+
+    def set_playing_state(self, playing: bool):
+        """Externally set the playing state: update toggle and icon."""
+        self.play_toggle_btn.setChecked(bool(playing))
+        if playing:
+            self.play_toggle_btn.setIcon(QIcon("assets/img/pause.svg"))
+        else:
+            self.play_toggle_btn.setIcon(QIcon("assets/img/play.svg"))
 
     def _emit_action_1(self):
         self.action_1_clicked.emit()
