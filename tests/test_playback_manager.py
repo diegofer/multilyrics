@@ -95,3 +95,23 @@ def test_request_seek_tolerates_missing_players(playback):
     playback.request_seek(2.0)
 
     assert emit_mock.called
+
+
+def test_playing_changed_emitted_on_audio_state_change(playback):
+    mock_audio = Mock()
+
+    playback.set_audio_player(mock_audio)
+
+    emit_mock = Mock()
+    playback.playingChanged.connect(emit_mock)
+
+    # The PlaybackManager should have set the audio's playStateCallback attribute
+    assert hasattr(mock_audio, 'playStateCallback')
+
+    # Simulate audio player reporting state changes
+    mock_audio.playStateCallback(True)
+    emit_mock.assert_called_with(True)
+
+    mock_audio.playStateCallback(False)
+    assert emit_mock.call_count == 2
+    assert emit_mock.call_args_list[-1][0][0] is False

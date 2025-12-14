@@ -75,6 +75,7 @@ class MainWindow(QMainWindow):
         self.playback.positionChanged.connect(self.controls.update_time_position_label)
         self.playback.positionChanged.connect(self.waveform.set_position_seconds)
         self.playback.durationChanged.connect(self.controls.update_total_duration_label)
+        self.playback.playingChanged.connect(self.controls.set_playing_state)
         #self.sync.videoCorrectionNeeded.connect(self.video_player.apply_correction)
         self.master_track.volume_changed.connect(self.waveform.set_volume)
 

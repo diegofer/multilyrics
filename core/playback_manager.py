@@ -9,6 +9,7 @@ class PlaybackManager(QObject):
 
     positionChanged = Signal(float)    # tiempo actual (s)
     durationChanged = Signal(float)    # duración total (s)
+    playingChanged = Signal(bool)      # emit when playing state changes
 
     def __init__(self, sync_controller, parent=None):
         super().__init__(parent)
@@ -30,6 +31,22 @@ class PlaybackManager(QObject):
     def set_audio_player(self, audio_player):
         """Asignar la referencia al `MultiTrackPlayer` para control centralizado."""
         self.audio_player = audio_player
+        # If audio player supports a play state callback, hook it to propagate
+        try:
+            if hasattr(self.audio_player, 'playStateCallback'):
+                self.audio_player.playStateCallback = self._on_audio_play_state_changed
+            # Emit initial state if available
+            if hasattr(self.audio_player, 'is_playing'):
+                self.playingChanged.emit(bool(self.audio_player.is_playing()))
+        except Exception:
+            pass
+
+    def _on_audio_play_state_changed(self, playing: bool):
+        """Called by the audio player's callback to notify state changes."""
+        try:
+            self.playingChanged.emit(bool(playing))
+        except Exception:
+            pass
 
     def set_video_player(self, video_player):
         """Asignar la referencia al `VideoLyrics` para control centralizado."""

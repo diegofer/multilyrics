@@ -55,6 +55,10 @@ class MultiTrackPlayer:
         # Sync controller callback opcional
         self.audioTimeCallback = None  # function to call with current time in seconds
 
+        # Playback state change callback opcional
+        # Should be a callable taking a single bool argument (playing)
+        self.playStateCallback = None
+
     
     def load_tracks(self, paths: List[str]):
         """
@@ -198,11 +202,23 @@ class MultiTrackPlayer:
             else:
                 if not self._stream.active:
                     self._stream.start()
+        # Notify play state changed -> playing
+        try:
+            if self.playStateCallback is not None:
+                self.playStateCallback(True)
+        except Exception:
+            pass
 
     def _on_stream_finished(self):
         # called when stream finishes
         with self._lock:
             self._playing = False
+        # Notify play state change (stream finished -> not playing)
+        try:
+            if self.playStateCallback is not None:
+                self.playStateCallback(False)
+        except Exception:
+            pass
 
     def stop(self):
         with self._lock:
@@ -213,16 +229,34 @@ class MultiTrackPlayer:
                 except Exception:
                     pass
             self._pos = 0
+        # Notify play state changed -> not playing
+        try:
+            if self.playStateCallback is not None:
+                self.playStateCallback(False)
+        except Exception:
+            pass
 
     def pause(self):
         with self._lock:
             self._playing = False
+        # Notify play state changed -> not playing
+        try:
+            if self.playStateCallback is not None:
+                self.playStateCallback(False)
+        except Exception:
+            pass
 
     def resume(self):
         with self._lock:
             if self._stream is not None and not self._stream.active:
                 self._stream.start()
             self._playing = True
+        # Notify play state changed -> playing
+        try:
+            if self.playStateCallback is not None:
+                self.playStateCallback(True)
+        except Exception:
+            pass
 
     def set_gain(self, track_index: int, gain: float):
         """
