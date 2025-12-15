@@ -24,7 +24,10 @@ class ControlsWidget(QWidget):
         self.main_layout.setObjectName(u"horizontallLayout")
 
         self.frame_1 = QFrame(self)
-        self.frame_1.setLayout(QVBoxLayout())
+        self.frame_1_layout = QVBoxLayout()
+        self.frame_1_layout.setSpacing(0)
+        self.frame_1_layout.setContentsMargins(6, 6, 6, 6)
+        self.frame_1.setLayout(self.frame_1_layout)
         self.frame_1.setObjectName(u"frame_1")
 
         self.frame_2 = QFrame(self)
@@ -47,12 +50,18 @@ class ControlsWidget(QWidget):
         self.frame_6.setLayout(QHBoxLayout())
         self.frame_6.setObjectName(u"frame_6")
 
+        self.frame_7 = QFrame(self)
+        self.frame_7.setLayout(QHBoxLayout())
+        self.frame_7.setObjectName(u"frame_7")
+
 
         # Etiqueta para mostrar el tiempo
-        self.current_time_label_style = "QLabel { color: white; font-size: 20px; font-weight: bold; background: transparent; padding: 5px; }"
-        self.total_duration_label_style = "QLabel { color: white; font-size: 30px; font-weight: bold; background: transparent; padding: 5px; }"
+        self.total_duration_label_style = "QLabel { color: white; font-size: 30px; line-height: 30px; font-weight: bold; background: transparent; padding: 0; }"
+        self.current_time_label_style = "QLabel { color: white; font-size: 30px; line-height: 30px; font-weight: bold; background: transparent; padding: 0; }"
         self.total_duration_label = QLabel("00:00") 
+        self.total_duration_label.setFixedSize(100, 30)
         self.current_time_label = QLabel("00:00")
+        self.current_time_label.setFixedSize(100, 30)
         self.total_duration_label.setStyleSheet(self.total_duration_label_style)
         self.total_duration_label.setAlignment(Qt.AlignCenter) 
         self.current_time_label.setStyleSheet(self.current_time_label_style)
@@ -87,8 +96,8 @@ class ControlsWidget(QWidget):
         # agregar botones a frames
         self.frame_1.layout().addWidget(self.total_duration_label)
         self.frame_1.layout().addWidget(self.current_time_label)
-        self.frame_3.layout().addWidget(self.play_toggle_btn)
-        self.frame_6.layout().addWidget(self.menu_btn)
+        self.frame_4.layout().addWidget(self.play_toggle_btn)
+        self.frame_7.layout().addWidget(self.menu_btn)
 
         self.main_layout.addWidget(self.frame_1)
         self.main_layout.addWidget(self.frame_2)
@@ -96,13 +105,15 @@ class ControlsWidget(QWidget):
         self.main_layout.addWidget(self.frame_4)
         self.main_layout.addWidget(self.frame_5)
         self.main_layout.addWidget(self.frame_6)
+        self.main_layout.addWidget(self.frame_7)
 
         self.main_layout.setStretch(0, 1)
         self.main_layout.setStretch(1, 1)
-        self.main_layout.setStretch(2, 2)
+        self.main_layout.setStretch(2, 1)
         self.main_layout.setStretch(3, 2)
         self.main_layout.setStretch(4, 1)
         self.main_layout.setStretch(5, 1)
+        self.main_layout.setStretch(6, 1)
 
     def _emit_play(self):
         self.play_clicked.emit()

@@ -51,6 +51,8 @@ class MultiTrackPlayer:
 
         # Smoothing factor for gain transitions (0..1). Higher -> faster changes.
         self.gain_smoothing = 0.15
+        # Master gain (global output gain, 0.0 .. 1.0)
+        self.master_gain = 1.0
 
         # Sync controller callback opcional
         self.audioTimeCallback = None  # function to call with current time in seconds
@@ -112,10 +114,15 @@ class MultiTrackPlayer:
         self.current_gains += (self.target_gains - self.current_gains) * self.gain_smoothing
 
         # Decide which tracks are active considering solo/mute
-        if np.any(self.solo_mask):
-            active = self.solo_mask & (~self.muted)
+        # Be robust if arrays weren't initialized (e.g., in tests)
+        n_tracks = self._n_tracks
+        muted = self.muted if getattr(self, 'muted', None) is not None and self.muted.size == n_tracks else np.zeros(n_tracks, dtype=bool)
+        solo_mask = self.solo_mask if getattr(self, 'solo_mask', None) is not None and self.solo_mask.size == n_tracks else np.zeros(n_tracks, dtype=bool)
+
+        if np.any(solo_mask):
+            active = solo_mask & (~muted)
         else:
-            active = ~self.muted
+            active = ~muted
 
         # Start accumulation in mono
         mix_mono = np.zeros((length,), dtype='float32')
@@ -133,6 +140,9 @@ class MultiTrackPlayer:
                 mix_mono[:length] += track_slice.mean(axis=1) * gain
 
         # Now create stereo output by duplicating mono into both channels
+        # Apply master gain to the mixed signal
+        mix_mono *= float(self.master_gain)
+
         out_block = np.zeros((frames, self._n_output_channels), dtype='float32')
         out_block[:length, 0] = mix_mono
         out_block[:length, 1] = mix_mono
@@ -180,14 +190,19 @@ class MultiTrackPlayer:
             if self.audioTimeCallback is not None:
                 self.audioTimeCallback(frames)
 
-    def play(self, start_frame: int = 0):
+    def play(self, start_frame: Optional[int] = None):
         """
-        Start playback from start_frame (in samples).
+        Start playback.
+
+        If `start_frame` is provided (int), playback will start from that frame.
+        If `start_frame` is None (the default), playback will resume from the
+        current position (useful after a pause).
         """
         with self._lock:
             if self._n_tracks == 0:
                 raise RuntimeError("No tracks loaded")
-            self._pos = int(start_frame)
+            if start_frame is not None:
+                self._pos = int(start_frame)
             self._playing = True
 
             # Create and start stream if not already
@@ -264,6 +279,21 @@ class MultiTrackPlayer:
         """
         with self._lock:
             self.target_gains[track_index] = np.float32(gain)
+
+    def set_master_gain(self, gain: float):
+        """Set the global/master gain (0.0 .. 1.0)."""
+        with self._lock:
+            try:
+                g = float(gain)
+            except Exception:
+                return
+            # Clamp
+            g = max(0.0, min(1.0, g))
+            self.master_gain = g
+
+    def get_master_gain(self) -> float:
+        with self._lock:
+            return float(self.master_gain)
 
     def get_gain(self, track_index: int) -> float:
         return float(self.target_gains[track_index])

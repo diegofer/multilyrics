@@ -115,3 +115,39 @@ def test_playing_changed_emitted_on_audio_state_change(playback):
     mock_audio.playStateCallback(False)
     assert emit_mock.call_count == 2
     assert emit_mock.call_args_list[-1][0][0] is False
+
+
+def test_play_without_arg_resumes_not_restart(monkeypatch):
+    # Avoid opening a real sounddevice stream by mocking OutputStream
+    class DummyStream:
+        def __init__(self, *a, **k):
+            self.active = False
+        def start(self):
+            self.active = True
+        def stop(self):
+            self.active = False
+        def close(self):
+            self.active = False
+
+    monkeypatch.setattr('sounddevice.OutputStream', DummyStream)
+
+    from audio.multitrack_player import MultiTrackPlayer
+
+    player = MultiTrackPlayer()
+    # pretend we have one track loaded
+    player._n_tracks = 1
+    player._n_frames = 44100 * 5
+
+    # move position to mid-track
+    player._pos = 44100 * 1
+
+    # Calling play() without arg should resume (not reset to 0)
+    player.play()
+    assert player.get_position_seconds() == pytest.approx(1.0)
+    assert player.is_playing()
+
+    # Calling play(0) explicitly should restart from beginning
+    player.stop()
+    player._pos = 44100 * 2
+    player.play(0)
+    assert player.get_position_seconds() == pytest.approx(0.0)

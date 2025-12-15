@@ -77,7 +77,8 @@ class MainWindow(QMainWindow):
         self.playback.durationChanged.connect(self.controls.update_total_duration_label)
         self.playback.playingChanged.connect(self.controls.set_playing_state)
         #self.sync.videoCorrectionNeeded.connect(self.video_player.apply_correction)
-        self.master_track.volume_changed.connect(self.waveform.set_volume)
+        # Master fader controls both waveform preview volume and global audio gain
+        self.master_track.volume_changed.connect(self.set_master_gain)
 
         # Waveform user seeks -> central request via PlaybackManager
         self.waveform.position_changed.connect(self.playback.request_seek)
@@ -182,6 +183,19 @@ class MainWindow(QMainWindow):
     @Slot()
     def set_mute(self, track_index: int, mute: bool):
         self.audio_player.mute(track_index, mute)
+
+
+    @Slot()
+    def set_master_gain(self, slider_value: int):
+        """Called from master fader slider (0..100)."""
+        gain = get_logarithmic_volume(slider_value)
+        # Update waveform preview volume (expects slider int)
+        self.waveform.set_volume(slider_value)
+        # Set global master gain on audio player
+        try:
+            self.audio_player.set_master_gain(gain)
+        except Exception:
+            pass
 
     @Slot()
     def set_solo(self, track_index: int, solo: bool):
