@@ -6,6 +6,7 @@ LOOPS_PATH = 'library/loops'
 MASTER_TRACK = 'master.wav'
 VIDEO_FILE = 'video'
 TRACKS_PATH = 'tracks'
+META_FILE_PATH = 'meta.json'
 
 class AppState(QObject):
     video_is_playing_changed = Signal(bool)

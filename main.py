@@ -14,6 +14,7 @@ from ui.widgets.add import AddDialog
 from audio.waveform import WaveformWidget
 from audio.extract import AudioExtractWorker
 from audio.multitrack_player import MultiTrackPlayer
+from audio.beats import BeatsExtractorWorker
 from video.video import VideoLyrics
 from core.sync import SyncController
 from core.playback_manager import PlaybackManager
@@ -71,7 +72,7 @@ class MainWindow(QMainWindow):
         #Conectar Signals
         self.plus_btn.clicked.connect(self.open_add_dialog)
         self.add_dialog.search_widget.multi_selected.connect(self.on_multi_selected)
-        self.add_dialog.drop_widget.file_imported.connect(self.extract_audio)
+        self.add_dialog.drop_widget.file_imported.connect(self.extraction_process)
         self.playback.positionChanged.connect(self.controls.update_time_position_label)
         self.playback.positionChanged.connect(self.waveform.set_position_seconds)
         self.playback.durationChanged.connect(self.controls.update_total_duration_label)
@@ -85,6 +86,11 @@ class MainWindow(QMainWindow):
 
         self.controls.play_clicked.connect(self.on_play_clicked)
         self.controls.pause_clicked.connect(self.on_pause_clicked)
+
+        # definir thread y worker para extraccion de audio
+        self.edit_thread = None
+        self.extract_worker = None
+        self.beats_worker = None
    
     @Slot()
     def open_add_dialog(self):
@@ -112,30 +118,45 @@ class MainWindow(QMainWindow):
         self.controls.set_playing_state(False)
 
     @Slot()
-    def extract_audio(self, video_path: str):
+    def extraction_process(self, video_path: str):
         self.loader.show()
-        print("Archivo importado y empezando extraccion de audio:", video_path)
+        print("Archivo importado y empezando extraccion de audio, metadatos y beats")
         
-        # Crear hilo y worker
-        self.thread = QThread()
-        self.extract_worker = AudioExtractWorker(video_path, None)
-        self.extract_worker.moveToThread(self.thread)
-        
-        # Conectar señales
-        self.thread.started.connect(self.extract_worker.run)
-        self.extract_worker.signals.result.connect(self.on_extract_audio)
-        self.extract_worker.signals.error.connect(self.handle_error)
-        
-        # Para destruir el thread correctamente
-        self.extract_worker.signals.finished.connect(self.thread.quit)
-        self.thread.finished.connect(self.thread.deleteLater)
-        self.extract_worker.signals.finished.connect(self.extract_worker.deleteLater)
+        # Instanciar thread y workers
+        self.edit_thread = QThread()
+        self.extract_worker = AudioExtractWorker(video_path)
+        self.beats_worker = BeatsExtractorWorker()
 
-        self.thread.start()
+        self.extract_worker.moveToThread(self.edit_thread)
+        self.beats_worker.moveToThread(self.edit_thread)
+
+        # Conectar señales
+        self.edit_thread.started.connect(self.extract_worker.run)
+
+        # Paso del path de un worker al otro
+        self.extract_worker.signals.result.connect(self.beats_worker.run)
+        self.beats_worker.signals.result.connect(self.on_extraction_process)
+
+        # Manejo de errores
+        self.extract_worker.signals.error.connect(self.handle_error)
+        self.beats_worker.signals.error.connect(self.handle_error)
+
+        # Finalización ordenada
+        self.extract_worker.signals.finished.connect(lambda: print("Extracción terminada"))
+        self.beats_worker.signals.finished.connect(lambda: print("Extracción de beats terminada"))
+
+        # Cerrar hilo solo cuando todo haya terminado
+        self.beats_worker.signals.finished.connect(self.edit_thread.quit)
+        self.beats_worker.signals.finished.connect(self.beats_worker.deleteLater)
+        self.extract_worker.signals.finished.connect(self.extract_worker.deleteLater)
+        self.edit_thread.finished.connect(self.edit_thread.deleteLater)
+
+        self.edit_thread.start()
+
 
     @Slot()
-    def on_extract_audio(self, msg, audio_path):
-        print(f"RESULTADO: {msg}")
+    def on_extraction_process(self, audio_path):
+        print(f"AUDIO_PATH: {audio_path}")
         muti_path = Path(audio_path).parent
         self.set_active_song(muti_path)
         self.loader.hide()
@@ -157,6 +178,7 @@ class MainWindow(QMainWindow):
         master_path = Path(song_path) / global_state.MASTER_TRACK
         tracks_folder_path = song_path / global_state.TRACKS_PATH
         tracks_paths = get_tracks(tracks_folder_path)
+        print(f"Cargando multi: {song_path}")
         mp4_path = get_mp4(song_path)
         video_path = song_path / mp4_path
         

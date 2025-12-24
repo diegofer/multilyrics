@@ -1,12 +1,14 @@
 from PySide6.QtCore import QObject, Signal, Slot
 import ffmpeg
-import os
+from pathlib import Path
 from core import global_state
+
+from .meta import MetaJson
 
 class WorkerSignals(QObject):
     finished = Signal()
     error = Signal(str)
-    result = Signal(str, str)
+    result = Signal(str)
 
 class AudioExtractWorker(QObject):
     """
@@ -14,7 +16,7 @@ class AudioExtractWorker(QObject):
     en un hilo separado (usando QThreadPool o QThread).
     """
 
-    def __init__(self, ruta_video: str, ruta_salida: str = None):
+    def __init__(self, video_path: str):
         """
         Inicializa el worker.
 
@@ -23,49 +25,29 @@ class AudioExtractWorker(QObject):
                             Si es None o una cadena vacía, se calculará automáticamente.
         """
         super().__init__()
-        self.ruta_video = ruta_video
-        self.ruta_salida = ruta_salida
+        self.video_path = video_path
         self.signals = WorkerSignals()
 
     @Slot()
     def run(self):
-        """
-        Función principal que se ejecuta en el hilo para realizar la extracción.
-        Aplica la lógica de ruta de salida por defecto.
-        """
+        print("Iniciando extracción de audio en worker...")
         # 1. Verificar la existencia del archivo de video primero
-        if not os.path.exists(self.ruta_video):
-            self.signals.error.emit(f"Error: El archivo de video no existe en '{self.ruta_video}'")
+        if not Path(self.video_path).exists():
+            self.signals.error.emit(f"Error: El archivo de video no existe en '{self.video_path}'")
             self.signals.finished.emit()
             return
 
-        # 2. Determinar la ruta de audio final
-        ruta_audio_final = self.ruta_salida
-
-        # Si no se proveyó una ruta de salida, calcular el valor por defecto
-        if not ruta_audio_final:
-            # Obtener el directorio del video
-            directorio_video = os.path.dirname(self.ruta_video)
-            
-            # Si os.path.dirname() devuelve una cadena vacía (ej. si solo se pasó un nombre de archivo),
-            # usamos el directorio de trabajo actual.
-            if not directorio_video:
-                directorio_video = os.path.abspath(os.getcwd())
-
-            # Construir la ruta final usando "master.wav" como nombre de archivo
-            # Usamos WAV porque el codec 'pcm_s16le' es de audio sin comprimir.
-            ruta_audio_final = os.path.join(directorio_video, global_state.MASTER_TRACK)
-            
-            print(f"Ruta de salida no provista. Usando la ruta por defecto: {ruta_audio_final}")
-
-
+        # 2. Determinar rutas de salida
+        master_track_path = Path(self.video_path).with_name(global_state.MASTER_TRACK)
+        meta_file_path = Path(self.video_path).with_name(global_state.META_FILE_PATH)
+ 
         # 3. Ejecutar la extracción de audio con FFmpeg
         try:
             (
                 ffmpeg
-                .input(self.ruta_video)
+                .input(self.video_path)
                 .output(
-                    ruta_audio_final,  # Usar la ruta de salida final (provista o por defecto)
+                    filename=master_track_path,  # Usar la ruta de salida final determinada
                     vn=None,           # No video
                     acodec='pcm_s16le', # Codec de audio PCM sin comprimir (16-bit little-endian)
                     ar=44100,          # Frecuencia de muestreo (44.1 kHz)
@@ -74,9 +56,17 @@ class AudioExtractWorker(QObject):
                 .overwrite_output()    # Sobrescribir el archivo de salida si existe
                 .run(capture_stdout=True, capture_stderr=True)
             )
-            
-            mensaje_exito = f"✅ Extracción de audio completada con éxito. Archivo guardado en: {ruta_audio_final}"
-            self.signals.result.emit(mensaje_exito, ruta_audio_final)
+
+            metadatos = self._extract_metadata()
+            print(f"[INFO] Metadatos extraídos: {metadatos}")
+           
+            # Crear o actualizar el archivo meta.json
+            meta_json = MetaJson(meta_file_path)
+            meta_json.update_meta(metadatos)
+
+            mensaje_exito = f"✅ Extracción de audio completada con éxito. Archivo guardado en: {master_track_path}"
+            print(mensaje_exito)
+            self.signals.result.emit(str(master_track_path))
 
         except ffmpeg.Error as e:
             # Manejar errores específicos de FFmpeg y mostrar su salida de error
@@ -91,3 +81,31 @@ class AudioExtractWorker(QObject):
         finally:
             # Siempre emite 'finished' al terminar.
             self.signals.finished.emit()
+
+
+    def _extract_metadata(self):
+        """
+        Extrae metadatos del archivo de video usando ffmpeg.probe.
+
+        :return: Diccionario con metadatos extraídos (título, artista).
+        """
+        try:
+            probe = ffmpeg.probe(self.video_path)
+            tags = probe.get('format', {}).get('tags', {})
+            title = tags.get('title') or tags.get('TITLE') or "Desconocido"
+            artist = tags.get('artist') or tags.get('ARTIST') or "Desconocido"
+
+            metadatos = {
+                "title": title,
+                "artist": artist
+            }
+
+            return metadatos
+
+        except ffmpeg.Error as e:
+            error_msg = f"❌ Error al extraer metadatos con FFmpeg:\n{e.stderr.decode('utf8', errors='ignore')}"
+            self.signals.error.emit(error_msg)
+            return {}
+        except Exception as e:
+            self.signals.error.emit(f"❌ Error inesperado al extraer metadatos: {str(e)}")
+            return {}

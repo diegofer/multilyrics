@@ -1,7 +1,7 @@
 import shutil
 from pathlib import Path
 from PySide6.QtWidgets import QWidget, QVBoxLayout, QLabel
-from PySide6.QtCore import Qt, QPoint, Signal
+from PySide6.QtCore import Qt, QPoint, Signal, QTimer
 from PySide6.QtGui import QPixmap, QDragEnterEvent, QDropEvent
 from core import global_state
 
@@ -74,6 +74,7 @@ class DropWidget(QWidget):
 
         valid_ext = {".mp4"}
         copied = 0
+        last_path = None
 
         for url in event.mimeData().urls():
             file_path = Path(url.toLocalFile())      
@@ -88,8 +89,7 @@ class DropWidget(QWidget):
                 final_path = target_folder / NEW_FILE_NAME
                 shutil.copy(file_path, final_path)
                 copied += 1
-
-                self.file_imported.emit(str(final_path))
+                last_path = final_path
 
         if copied > 0:
             self.text_label.setText(f"¡{copied} archivo(s) copiado(s)!")
@@ -97,5 +97,11 @@ class DropWidget(QWidget):
             self.text_label.setText("Formato no permitido")
 
         event.acceptProposedAction()
+
+        if last_path:
+            QTimer.singleShot(  #usamos singleShot para evitar fallo critico al cerrar modal 
+                0,
+                lambda p=str(last_path): self.file_imported.emit(p)
+            )
 
 
