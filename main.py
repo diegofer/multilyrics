@@ -13,8 +13,9 @@ from ui.widgets.add import AddDialog
 
 from audio.waveform import WaveformWidget
 from audio.extract import AudioExtractWorker
-from audio.multitrack_player import MultiTrackPlayer
 from audio.beats import BeatsExtractorWorker
+from audio.chords import ChordExtractorWorker
+from audio.multitrack_player import MultiTrackPlayer
 from video.video import VideoLyrics
 from core.sync import SyncController
 from core.playback_manager import PlaybackManager
@@ -91,7 +92,8 @@ class MainWindow(QMainWindow):
         self.edit_thread = None
         self.extract_worker = None
         self.beats_worker = None
-   
+        self.chords_worker = None
+
     @Slot()
     def open_add_dialog(self):
         self.add_dialog.exec()
@@ -120,33 +122,39 @@ class MainWindow(QMainWindow):
     @Slot()
     def extraction_process(self, video_path: str):
         self.loader.show()
-        print("Archivo importado y empezando extraccion de audio, metadatos y beats")
+        print("Archivo importado y empezando extraccion de audio, metadatos, beats y acordes")
         
         # Instanciar thread y workers
         self.edit_thread = QThread()
         self.extract_worker = AudioExtractWorker(video_path)
         self.beats_worker = BeatsExtractorWorker()
+        self.chords_worker = ChordExtractorWorker()
 
         self.extract_worker.moveToThread(self.edit_thread)
         self.beats_worker.moveToThread(self.edit_thread)
+        self.chords_worker.moveToThread(self.edit_thread)
 
         # Conectar señales
         self.edit_thread.started.connect(self.extract_worker.run)
 
         # Paso del path de un worker al otro
         self.extract_worker.signals.result.connect(self.beats_worker.run)
-        self.beats_worker.signals.result.connect(self.on_extraction_process)
+        self.beats_worker.signals.result.connect(self.chords_worker.run)
+        self.chords_worker.signals.result.connect(self.on_extraction_process)
 
         # Manejo de errores
         self.extract_worker.signals.error.connect(self.handle_error)
         self.beats_worker.signals.error.connect(self.handle_error)
-
+        self.chords_worker.signals.error.connect(self.handle_error)
+       
         # Finalización ordenada
         self.extract_worker.signals.finished.connect(lambda: print("Extracción terminada"))
         self.beats_worker.signals.finished.connect(lambda: print("Extracción de beats terminada"))
+        self.chords_worker.signals.finished.connect(lambda: print("Extracción de acordes terminada"))
 
         # Cerrar hilo solo cuando todo haya terminado
-        self.beats_worker.signals.finished.connect(self.edit_thread.quit)
+        self.chords_worker.signals.finished.connect(self.edit_thread.quit)
+        self.chords_worker.signals.finished.connect(self.chords_worker.deleteLater)
         self.beats_worker.signals.finished.connect(self.beats_worker.deleteLater)
         self.extract_worker.signals.finished.connect(self.extract_worker.deleteLater)
         self.edit_thread.finished.connect(self.edit_thread.deleteLater)

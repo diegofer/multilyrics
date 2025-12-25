@@ -17,6 +17,7 @@ class MetaJson:
             "year": "",
             "tracks": {},
             "tempo": 0.0,
+            "chords": [],
             "beats": []            
         }
         self._write_meta(initial_data)
