@@ -32,6 +32,12 @@ class WaveformWidget(QWidget):
 
         # --- Playhead ---
         self.playhead_sample = 0
+
+        # --- Beats / Downbeats (seconds and sample indices)
+        self._beats_seconds = []      # list of beat times in seconds
+        self._downbeats_seconds = []  # list of downbeat times in seconds
+        self._beats_samples = []      # cached sample indices corresponding to beats
+        self._downbeat_samples = []   # cached sample indices corresponding to downbeats
         
         # --- Interaction ---
         self._dragging = False
@@ -58,6 +64,11 @@ class WaveformWidget(QWidget):
         self.zoom_factor = 1.0
         self.center_sample = 0
         self.playhead_sample = 0
+        # Clear any beat/downbeat metadata
+        self._beats_seconds = []
+        self._downbeats_seconds = []
+        self._beats_samples = []
+        self._downbeat_samples = []
         self.update()
 
 
@@ -86,7 +97,10 @@ class WaveformWidget(QWidget):
             self.zoom_factor = 1.0
             self.center_sample = self.total_samples // 2
             self.playhead_sample = 0
-            
+
+            # Recompute any beat/downbeat sample positions (if metadata was loaded earlier)
+            self._recompute_beat_samples()
+
             self.update()
             return True
         
@@ -127,6 +141,61 @@ class WaveformWidget(QWidget):
             self.load_audio(master_path)
         else:
             self.load_audio(str(master_path))
+    
+    def load_metadata(self, meta_data):
+        """Load metadata dictionary to extract beats/downbeats.
+
+        Expected meta_data['beats'] format:
+        - a list of [time_seconds, position_flag] rows (as produced by the Beats extractor),
+          where position_flag==1 typically indicates a downbeat (first beat of the bar).
+        - or a list of numeric times (seconds).
+        """
+        self._beats_seconds = []
+        self._downbeats_seconds = []
+
+        if not meta_data:
+            # nothing to do
+            self._beats_samples = []
+            self._downbeat_samples = []
+            self.update()
+            return
+
+        beats = meta_data.get("beats", []) if isinstance(meta_data, dict) else []
+
+        for item in beats:
+            try:
+                if isinstance(item, (list, tuple)) and len(item) >= 2:
+                    t = float(item[0])
+                    pos = int(item[1])
+                    self._beats_seconds.append(t)
+                    if pos == 1:
+                        self._downbeats_seconds.append(t)
+                else:
+                    # simple numeric time
+                    t = float(item)
+                    self._beats_seconds.append(t)
+            except Exception:
+                # ignore malformed items
+                continue
+
+        # Once we have seconds, convert to sample indices if sr is known
+        self._recompute_beat_samples()
+        self.update()
+
+    def _recompute_beat_samples(self):
+        """Convert stored beat/downbeat times in seconds to sample indices using current sample rate."""
+        if not hasattr(self, "sr") or self.sr <= 0:
+            # can't compute sample indices yet
+            self._beats_samples = []
+            self._downbeat_samples = []
+            return
+
+        try:
+            self._beats_samples = [int(max(0, min(int(t * self.sr), self.total_samples-1))) for t in self._beats_seconds]
+            self._downbeat_samples = [int(max(0, min(int(t * self.sr), self.total_samples-1))) for t in self._downbeats_seconds]
+        except Exception:
+            self._beats_samples = []
+            self._downbeat_samples = []
 
     def zoom_by(self, ratio: float, cursor_x: int = None):
         if self.total_samples == 0:
@@ -389,6 +458,30 @@ class WaveformWidget(QWidget):
                     y1 = int(min_v * (h/2 - 2))
                     y2 = int(max_v * (h/2 - 2))
                     painter.drawLine(x, mid - y2, x, mid - y1)
+
+        # ----------------------------------------------------------
+        # DIBUJAR BEATS / DOWNBEATS (líneas verticales)
+        # ----------------------------------------------------------
+        # Beats: thin cyan lines; Downbeats: thicker yellow/orange lines
+        if hasattr(self, '_beats_samples') and start < end:
+            beat_pen = QPen(QColor(0, 150, 255), 1)
+            down_pen = QPen(QColor(255, 200, 0), 2)
+
+            # Draw beats
+            painter.setPen(beat_pen)
+            for b in self._beats_samples:
+                if start <= b <= end:
+                    rel_b = (b - start) / (end - start)
+                    x_b = int(rel_b * w)
+                    painter.drawLine(x_b, 0, x_b, h)
+
+            # Draw downbeats on top
+            painter.setPen(down_pen)
+            for d in self._downbeat_samples:
+                if start <= d <= end:
+                    rel_d = (d - start) / (end - start)
+                    x_d = int(rel_d * w)
+                    painter.drawLine(x_d, 0, x_d, h)
 
         # ----------------------------------------------------------
         # DIBUJAR PLAYHEAD

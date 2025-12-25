@@ -16,6 +16,7 @@ from audio.extract import AudioExtractWorker
 from audio.beats import BeatsExtractorWorker
 from audio.chords import ChordExtractorWorker
 from audio.multitrack_player import MultiTrackPlayer
+from audio.meta import MetaJson
 from video.video import VideoLyrics
 from core.sync import SyncController
 from core.playback_manager import PlaybackManager
@@ -183,12 +184,18 @@ class MainWindow(QMainWindow):
     def set_active_song(self, song_path):
         #obtener rutas
         song_path = Path(song_path)
-        master_path = Path(song_path) / global_state.MASTER_TRACK
+        meta_path = song_path / global_state.META_FILE_PATH
+        master_path = song_path / global_state.MASTER_TRACK
         tracks_folder_path = song_path / global_state.TRACKS_PATH
         tracks_paths = get_tracks(tracks_folder_path)
         print(f"Cargando multi: {song_path}")
         mp4_path = get_mp4(song_path)
         video_path = song_path / mp4_path
+
+        # Cargar metadatos
+        self.meta = MetaJson(meta_path)
+        meta_data = self.meta.read_meta()
+        print(f"Metadatos cargados: {meta_data}")
         
         # Actualizar MultiTrackPlayer
         self.audio_player.load_tracks(tracks_paths)
@@ -206,6 +213,7 @@ class MainWindow(QMainWindow):
         # Actualizar Waveform
         if master_path.exists():
             self.waveform.load_audio_from_master(master_path)
+            self.waveform.load_metadata(meta_data)
         
         # Actualizar Video Player
         self.video_player.set_media(video_path)
