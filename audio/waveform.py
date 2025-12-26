@@ -38,6 +38,11 @@ class WaveformWidget(QWidget):
         self._downbeats_seconds = []  # list of downbeat times in seconds
         self._beats_samples = []      # cached sample indices corresponding to beats
         self._downbeat_samples = []   # cached sample indices corresponding to downbeats
+
+        # --- Chords (seconds ranges and corresponding sample ranges)
+        # Each chord stored as tuple: (start_seconds, end_seconds, name)
+        self._chords_seconds = []     # list of (start_s, end_s, name)
+        self._chords_samples = []     # list of (start_sample, end_sample, name)
         
         # --- Interaction ---
         self._dragging = False
@@ -69,6 +74,9 @@ class WaveformWidget(QWidget):
         self._downbeats_seconds = []
         self._beats_samples = []
         self._downbeat_samples = []
+        # Clear chords
+        self._chords_seconds = []
+        self._chords_samples = []
         self.update()
 
 
@@ -178,6 +186,23 @@ class WaveformWidget(QWidget):
                 # ignore malformed items
                 continue
 
+        # Parse chords list if present in metadata. Expected format:
+        # "chords": [[start, end, "CHORD"], ...]
+        self._chords_seconds = []
+        chords = meta_data.get("chords", []) if isinstance(meta_data, dict) else []
+        for item in chords:
+            try:
+                if isinstance(item, (list, tuple)) and len(item) >= 3:
+                    start_t = float(item[0])
+                    end_t = float(item[1])
+                    name = str(item[2]).strip()
+                    # Clip so start <= end
+                    if end_t < start_t:
+                        start_t, end_t = end_t, start_t
+                    self._chords_seconds.append((start_t, end_t, name))
+            except Exception:
+                continue
+
         # Once we have seconds, convert to sample indices if sr is known
         self._recompute_beat_samples()
         self.update()
@@ -193,9 +218,22 @@ class WaveformWidget(QWidget):
         try:
             self._beats_samples = [int(max(0, min(int(t * self.sr), self.total_samples-1))) for t in self._beats_seconds]
             self._downbeat_samples = [int(max(0, min(int(t * self.sr), self.total_samples-1))) for t in self._downbeats_seconds]
+
+            # chords: list of (start_sec, end_sec, name) -> convert to sample ranges
+            self._chords_samples = []
+            for start_s, end_s, name in getattr(self, '_chords_seconds', []):
+                try:
+                    s0 = int(max(0, min(int(start_s * self.sr), self.total_samples-1)))
+                    s1 = int(max(0, min(int(end_s * self.sr), self.total_samples-1)))
+                    if s1 < s0:
+                        s0, s1 = s1, s0
+                    self._chords_samples.append((s0, s1, name))
+                except Exception:
+                    continue
         except Exception:
             self._beats_samples = []
             self._downbeat_samples = []
+            self._chords_samples = []
 
     def zoom_by(self, ratio: float, cursor_x: int = None):
         if self.total_samples == 0:
@@ -460,9 +498,48 @@ class WaveformWidget(QWidget):
                     painter.drawLine(x, mid - y2, x, mid - y1)
 
         # ----------------------------------------------------------
+        # DIBUJAR CHORDS (rectángulos y texto en la parte superior)
+        # ----------------------------------------------------------
+        if hasattr(self, '_chords_samples') and self._chords_samples and start < end:
+            font = QFont("Arial", 8, QFont.Bold)
+            painter.setFont(font)
+            box_h = min(18, max(12, h // 10))
+            box_y = 2
+
+            for s0, s1, name in self._chords_samples:
+                # skip if chord outside visible range
+                if s1 < start or s0 > end:
+                    continue
+                # clip chord to visible window
+                vis_s0 = max(s0, start)
+                vis_s1 = min(s1, end)
+                rel0 = (vis_s0 - start) / (end - start)
+                rel1 = (vis_s1 - start) / (end - start)
+                x0 = int(rel0 * w)
+                x1 = int(rel1 * w)
+                if x1 <= x0:
+                    x1 = x0 + 1
+
+                # color: empty chord 'N' shown grey; others greenish
+                if str(name).strip().upper() == 'N':
+                    fill = QColor(80, 80, 80, 120)
+                    text_col = QColor(200, 200, 200)
+                else:
+                    fill = QColor(0, 120, 80, 150)
+                    text_col = QColor(255, 255, 255)
+
+                painter.fillRect(x0, box_y, x1 - x0, box_h, fill)
+                painter.setPen(QColor(0, 0, 0, 100))
+                painter.drawRect(x0, box_y, x1 - x0, box_h)
+                painter.setPen(text_col)
+                # Draw chord name left-aligned at chord start with a small padding
+                text_padding = 4
+                text_w = max(1, x1 - x0 - text_padding)
+                painter.drawText(x0 + text_padding, box_y, text_w, box_h, Qt.AlignLeft | Qt.AlignVCenter, str(name))
+
+        # ----------------------------------------------------------
         # DIBUJAR BEATS / DOWNBEATS (líneas verticales)
         # ----------------------------------------------------------
-        # Beats: thin cyan lines; Downbeats: thicker yellow/orange lines
         if hasattr(self, '_beats_samples') and start < end:
             beat_pen = QPen(QColor(0, 150, 255), 1)
             down_pen = QPen(QColor(255, 200, 0), 2)

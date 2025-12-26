@@ -48,8 +48,8 @@ class ChordExtractorWorker(QObject):
             for start, end, label in chords:
                 start_c = round(start, 3)
                 end_c = round(end, 3)
-                clean_label = label.replace(':maj', '').replace(':min', 'm')
-                chord_list.append((start_c, end_c, clean_label))
+                chord_clean = self.clean_chord_label(label)
+                chord_list.append((start_c, end_c, chord_clean))
 
             print(f"[DEBUG] Formatted chords: {chord_list}")
             meta_json = MetaJson(Path(self.audio_path).with_name(global_state.META_FILE_PATH))
@@ -66,6 +66,32 @@ class ChordExtractorWorker(QObject):
         finally:
             # Emit the finished signal when done
             self.signals.finished.emit()
+
+    def clean_chord_label(self, label):
+        """
+        Convierte la nomenclatura de Madmom a formato de cancionero estándar.
+        """
+        if label == "N":
+            return "" # O podrías dejar "N" si prefieres marcar el silencio
+
+        # 1. Manejo de Menores (A:min -> Am)
+        label = label.replace(':min', 'm')
+        
+        # 2. Manejo de Mayores (C:maj -> C)
+        label = label.replace(':maj', '')
+        
+        # 3. Manejo de Semidisminuidos (ej. B:hdim7 -> Bm7b5)
+        # Madmom a veces usa 'hdim7' para half-diminished
+        label = label.replace(':hdim7', 'm7b5')
+        
+        # 4. Manejo de Disminuidos (B:dim -> Bdim)
+        label = label.replace(':dim', 'dim')
+        
+        # 5. Limpieza de colon (:) para séptimas y otras tensiones
+        # Ej: G:7 -> G7, C:maj7 -> Cmaj7 (o C7 si ya quitaste maj)
+        label = label.replace(':', '')
+        
+        return label
 
 # Example usage
 if __name__ == "__main__":
