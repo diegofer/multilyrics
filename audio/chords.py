@@ -1,5 +1,6 @@
 # crear clase ChordExtractorWorker con madmom
 from madmom.features.chords import CRFChordRecognitionProcessor, CNNChordFeatureProcessor
+from madmom.features.key import CNNKeyRecognitionProcessor, key_prediction_to_label
 from PySide6.QtCore import QObject, Signal, Slot
 import warnings
 from pathlib import Path
@@ -36,6 +37,12 @@ class ChordExtractorWorker(QObject):
             # Disable madmom warnings
             warnings.filterwarnings("ignore", category=UserWarning, module='madmom')
 
+            # Initialize the key recognition processors
+            key_proc = CNNKeyRecognitionProcessor()
+            key_feats = key_proc(self.audio_path)
+            key_label = key_prediction_to_label(key_feats)
+            print(f"[INFO] Key extracted: {key_label}")
+
             # Initialize the chord recognition processor
             feat_proc = CNNChordFeatureProcessor()
             decode_proc = CRFChordRecognitionProcessor()
@@ -54,6 +61,7 @@ class ChordExtractorWorker(QObject):
             print(f"[DEBUG] Formatted chords: {chord_list}")
             meta_json = MetaJson(Path(self.audio_path).with_name(global_state.META_FILE_PATH))
             meta_json.update_meta({
+                "key": key_label,
                 "chords": chord_list
             })
 

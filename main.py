@@ -197,6 +197,12 @@ class MainWindow(QMainWindow):
         meta_data = self.meta.read_meta()
         print(f"Metadatos cargados: {meta_data}")
         
+        # actualizar controlWidgets
+        tempo = meta_data.get("tempo", 120.0)
+        compass = meta_data.get("compass", "?/?")
+        self.controls.tempo_label.setText(f"{int(tempo)} BPM")
+        self.controls.compass_label.setText(compass)
+
         # Actualizar MultiTrackPlayer
         self.audio_player.load_tracks(tracks_paths)
         self.playback.set_duration(self.audio_player.get_duration_seconds()) # Notificar a PlaybackManager

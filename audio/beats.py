@@ -69,10 +69,20 @@ class BeatsExtractorWorker(QObject):
             avg_interval = np.mean(intervals)
             estimated_tempo = 60 / avg_interval if avg_interval > 0 else 0
 
+            #calcular compass de 4/4 o 3/4 basado en la mediana de los intervalos
+            median_interval = np.median(intervals)
+            if 0.45 <= median_interval <= 0.55:
+                compass = "4/4"
+            elif 0.65 <= median_interval <= 0.75:
+                compass = "3/4"
+            else:
+                compass = "?/?"
+
             # 6. Escribir a meta.json beats_info y tempo estimado
             meta_json = MetaJson(Path(self.audio_path).with_name(global_state.META_FILE_PATH))
             meta_json.update_meta({
                 "tempo": estimated_tempo,
+                "compass": compass,
                 "beats": beats_info.tolist()
             })
       

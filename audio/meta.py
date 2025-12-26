@@ -15,8 +15,10 @@ class MetaJson:
             "title": "",
             "artist": "",
             "year": "",
-            "tracks": {},
+            "key": "",
             "tempo": 0.0,
+            "compass": "?/?",
+            "tracks": {},
             "chords": [],
             "beats": []            
         }

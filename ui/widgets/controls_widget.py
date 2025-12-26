@@ -31,7 +31,7 @@ class ControlsWidget(QWidget):
         self.frame_1.setObjectName(u"frame_1")
 
         self.frame_2 = QFrame(self)
-        self.frame_2.setLayout(QHBoxLayout())
+        self.frame_2.setLayout(QVBoxLayout())
         self.frame_2.setObjectName(u"frame_2")
 
         self.frame_3 = QFrame(self)
@@ -67,6 +67,13 @@ class ControlsWidget(QWidget):
         self.current_time_label.setStyleSheet(self.current_time_label_style)
         self.current_time_label.setAlignment(Qt.AlignCenter) 
 
+        self.tempo_label = QLabel("120")
+        self.tempo_label.setStyleSheet("QLabel { color: white; font-size: 20px; line-height: 20px; font-weight: bold; background: transparent; padding: 0; }")
+        self.tempo_label.setAlignment(Qt.AlignCenter)
+        self.compass_label = QLabel("4/4")
+        self.compass_label.setStyleSheet("QLabel { color: white; font-size: 20px; line-height: 20px; font-weight: bold; background: transparent; padding: 0; }")
+        self.compass_label.setAlignment(Qt.AlignCenter)
+
         button_style = """
                 QPushButton { margin:0px; border-radius: 5px; background-color: rgb(29,35,67); color: white; } 
                 QPushButton:hover { background-color: rgb(50, 60, 100); } """
@@ -96,6 +103,8 @@ class ControlsWidget(QWidget):
         # agregar botones a frames
         self.frame_1.layout().addWidget(self.total_duration_label)
         self.frame_1.layout().addWidget(self.current_time_label)
+        self.frame_2.layout().addWidget(self.tempo_label)
+        self.frame_2.layout().addWidget(self.compass_label)
         self.frame_4.layout().addWidget(self.play_toggle_btn)
         self.frame_7.layout().addWidget(self.menu_btn)
 
