@@ -8,6 +8,11 @@ import soundfile as sf
 
 from core.utils import format_time, get_logarithmic_volume
 
+# Performance & zoom/downsampling settings
+MIN_SAMPLES_PER_PIXEL = 10   # Do not allow fewer than 10 samples per pixel (visual limit)
+MAX_ZOOM_LEVEL = 500.0      # Max zoom factor multiplier
+GLOBAL_DOWNSAMPLE_FACTOR = 1024  # For global view, aggregate at least this many samples per visual bucket
+
 class WaveformWidget(QWidget):
     """
     Widget pasivo para dibujar la onda y manejar eventos de usuario (zoom, scroll, doble clic para seek).
@@ -51,6 +56,10 @@ class WaveformWidget(QWidget):
         self.setMinimumHeight(120)
         self.setFocusPolicy(Qt.StrongFocus)
 
+        # Render cache (to avoid repeated heavy reductions when repainting)
+        self._last_render_params = None  # (start, end, width, zoom_factor)
+        self._last_render_envelope = None  # (mins, maxs)
+
         # Cargar audio si se proporciona una ruta
         if audio_path:
             self.load_audio(audio_path)
@@ -77,6 +86,9 @@ class WaveformWidget(QWidget):
         # Clear chords
         self._chords_seconds = []
         self._chords_samples = []
+        # Clear render cache
+        self._last_render_params = None
+        self._last_render_envelope = None
         self.update()
 
 
@@ -105,6 +117,10 @@ class WaveformWidget(QWidget):
             self.zoom_factor = 1.0
             self.center_sample = self.total_samples // 2
             self.playhead_sample = 0
+
+            # Clear render cache (new audio -> new envelope)
+            self._last_render_params = None
+            self._last_render_envelope = None
 
             # Recompute any beat/downbeat sample positions (if metadata was loaded earlier)
             self._recompute_beat_samples()
@@ -138,9 +154,17 @@ class WaveformWidget(QWidget):
     # ZOOM
     # ==============================================================
     def set_zoom(self, factor: float):
-        factor = max(1.0, factor)
-        self.zoom_factor = factor
+        if self.total_samples == 0:
+            return
+        w = max(1, self.width())
+        # Clamp to allowed range & ensure samples-per-pixel >= MIN_SAMPLES_PER_PIXEL
+        new_factor = max(1.0, min(factor, MAX_ZOOM_LEVEL))
+        new_factor = self._clamp_zoom_for_width(new_factor, w)
+        self.zoom_factor = new_factor
         self.center_sample = int(np.clip(self.center_sample, 0, len(self.samples)-1))
+        # Clear render cache since zoom changed
+        self._last_render_params = None
+        self._last_render_envelope = None
         self.update()
 
     def load_audio_from_master(self, master_path):
@@ -149,6 +173,14 @@ class WaveformWidget(QWidget):
             self.load_audio(master_path)
         else:
             self.load_audio(str(master_path))
+
+    def _clamp_zoom_for_width(self, factor: float, width: int):
+        """Ensure zoom factor keeps samples-per-pixel >= MIN_SAMPLES_PER_PIXEL and within limits."""
+        if self.total_samples == 0 or width <= 0:
+            return max(1.0, min(factor, MAX_ZOOM_LEVEL))
+        max_factor_by_spp = self.total_samples / (MIN_SAMPLES_PER_PIXEL * width)
+        max_allowed = max(1.0, min(MAX_ZOOM_LEVEL, max_factor_by_spp))
+        return max(1.0, min(factor, max_allowed))
     
     def load_metadata(self, meta_data):
         """Load metadata dictionary to extract beats/downbeats.
@@ -240,12 +272,13 @@ class WaveformWidget(QWidget):
             return
 
         old_zoom = self.zoom_factor
-        new_zoom = max(1.0, old_zoom * ratio)
+        tentative_zoom = max(1.0, old_zoom * ratio)
+        w = max(1, self.width())
+        new_zoom = self._clamp_zoom_for_width(tentative_zoom, w)
 
         if cursor_x is None:
             self.zoom_factor = new_zoom
         else:
-            w = max(1, self.width())
             old_spp = self._samples_per_pixel(old_zoom, w)
             sample_at_cursor = int(self.center_sample - (w/2 - cursor_x) * old_spp)
             new_spp = self._samples_per_pixel(new_zoom, w)
@@ -258,6 +291,10 @@ class WaveformWidget(QWidget):
             self._ensure_playhead_visible()
         except Exception:
             pass
+
+        # Zoom changed -> invalidate render cache
+        self._last_render_params = None
+        self._last_render_envelope = None
 
         self.update()
 
@@ -272,6 +309,44 @@ class WaveformWidget(QWidget):
         visible_samples = max(1.0, total_samples / zoom_factor)
         spp = visible_samples / width_pixels
         return max(1e-6, spp)
+
+    def _compute_envelope(self, start: int, end: int, w: int):
+        """Compute (mins, maxs) arrays of length `w` summarizing samples[start:end+1].
+        Results are cached keyed by (start, end, w, zoom_factor) to avoid repeated heavy reductions."""
+        key = (start, end, w, self.zoom_factor)
+        if self._last_render_params == key and self._last_render_envelope is not None:
+            return self._last_render_envelope
+
+        window = self.samples[start:end+1]
+        L = len(window)
+        if L == 0:
+            mins = np.zeros(w, dtype=np.float32)
+            maxs = np.zeros(w, dtype=np.float32)
+        elif L < w:
+            indices = np.linspace(0, L - 1, num=w)
+            interp = np.interp(indices, np.arange(L), window)
+            mins = interp.astype(np.float32)
+            maxs = interp.astype(np.float32)
+        else:
+            # bin edges (fast and stable)
+            edges = np.linspace(0, L, num=w+1, dtype=int)
+            mins = np.empty(w, dtype=np.float32)
+            maxs = np.empty(w, dtype=np.float32)
+            for i in range(w):
+                s = edges[i]
+                e = edges[i+1]
+                if e <= s:
+                    v = float(window[min(s, L-1)])
+                    mins[i] = v
+                    maxs[i] = v
+                else:
+                    block = window[s:e]
+                    mins[i] = float(np.min(block))
+                    maxs[i] = float(np.max(block))
+
+        self._last_render_params = key
+        self._last_render_envelope = (mins, maxs)
+        return mins, maxs
 
     # ==============================================================
     # SCROLL (Mouse + Keyboard)
@@ -516,30 +591,12 @@ class WaveformWidget(QWidget):
         # ----------------------------------------------------------
         # DIBUJAR ONDA
         # ----------------------------------------------------------
-        if len(window) < w:
-            indices = np.linspace(0, len(window) - 1, num=w)
-            interp = np.interp(indices, np.arange(len(window)), window)
-            for x in range(w):
-                val = float(interp[x])
-                y = int(val * (h/2 - 2))
-                painter.drawLine(x, mid - y, x, mid + y)
-        else:
-            samples_per_bucket = len(window) / w
-            for x in range(w):
-                b_start = int(x * samples_per_bucket)
-                b_end = int((x + 1) * samples_per_bucket)
-
-                if b_end <= b_start:
-                    val = float(window[min(b_start, len(window)-1)])
-                    y = int(val * (h/2 - 2))
-                    painter.drawLine(x, mid - y, x, mid + y)
-                else:
-                    block = window[b_start:b_end]
-                    min_v = float(np.min(block))
-                    max_v = float(np.max(block))
-                    y1 = int(min_v * (h/2 - 2))
-                    y2 = int(max_v * (h/2 - 2))
-                    painter.drawLine(x, mid - y2, x, mid - y1)
+        # Use a cached, downsampled envelope (mins/maxs per pixel bucket) for performance
+        mins, maxs = self._compute_envelope(start, end, w)
+        for x in range(w):
+            y1 = int(mins[x] * (h/2 - 2))
+            y2 = int(maxs[x] * (h/2 - 2))
+            painter.drawLine(x, mid - y2, x, mid - y1)
 
         # ----------------------------------------------------------
         # DIBUJAR CHORDS (rectángulos y texto en la parte superior)
