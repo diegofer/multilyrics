@@ -253,6 +253,12 @@ class WaveformWidget(QWidget):
             self.center_sample = int(np.clip(new_center, 0, len(self.samples)-1))
             self.zoom_factor = new_zoom
 
+        # After zoom, ensure the playhead remains visible in the current viewport
+        try:
+            self._ensure_playhead_visible()
+        except Exception:
+            pass
+
         self.update()
 
     def _samples_per_pixel(self, zoom_factor, width_pixels):
@@ -352,9 +358,47 @@ class WaveformWidget(QWidget):
         if self.total_samples == 0:
             self.playhead_sample = 0
             return
-            
+
         self.playhead_sample = int(max(0, min(sample, len(self.samples)-1)))
+        # Ensure playhead stays visible within the current viewport (similar to Audacity behavior)
+        self._ensure_playhead_visible()
         self.update()
+
+    def _ensure_playhead_visible(self, margin_px: int = None):
+        """Ensure the playhead is inside the visible area with optional pixel margins.
+
+        Behavior: The playhead is allowed to move inside the visible window. When it
+        reaches within `margin_px` of the left or right edge, the waveform recenters
+        so the playhead remains visible (mimics Audacity-like behavior).
+        """
+        if self.total_samples == 0:
+            return
+
+        w = max(1, self.width())
+        if margin_px is None:
+            margin_px = max(20, int(w * 0.1))
+
+        spp = self._samples_per_pixel(self.zoom_factor, w)
+        half_visible = (w * spp) / 2.0
+        start = int(np.clip(self.center_sample - half_visible, 0, self.total_samples - 1))
+        end = int(np.clip(self.center_sample + half_visible, 0, self.total_samples - 1))
+
+        if end <= start:
+            return
+
+        # Compute playhead x position in pixels relative to widget
+        rel = (self.playhead_sample - start) / (end - start)
+        x_pos = int(rel * w)
+
+        left_margin = margin_px
+        right_margin = w - margin_px
+
+        if x_pos < left_margin or x_pos > right_margin:
+            # move center so playhead sits at the nearest margin (clamped)
+            target_x = max(left_margin, min(x_pos, right_margin))
+            new_center = int(self.playhead_sample + (w / 2 - target_x) * spp)
+            self.center_sample = int(np.clip(new_center, 0, self.total_samples - 1))
+            # Do not call update() here (caller will update)
 
     def set_position_seconds(self, seconds: float):
         """Set playhead based on seconds and update widget.
@@ -541,10 +585,13 @@ class WaveformWidget(QWidget):
         # DIBUJAR BEATS / DOWNBEATS (líneas verticales)
         # ----------------------------------------------------------
         if hasattr(self, '_beats_samples') and start < end:
-            beat_pen = QPen(QColor(0, 150, 255), 1)
-            down_pen = QPen(QColor(255, 200, 0), 2)
+            # Make lines thinner and slightly translucent to avoid visual saturation
+            beat_pen = QPen(QColor(0, 150, 255, 150))  # cyan, semi-transparent
+            beat_pen.setWidth(1)
+            down_pen = QPen(QColor(255, 200, 0, 120))  # yellow/orange, less opaque
+            down_pen.setWidth(2)
 
-            # Draw beats
+            # Draw beats (thin, subtle)
             painter.setPen(beat_pen)
             for b in self._beats_samples:
                 if start <= b <= end:
@@ -552,7 +599,7 @@ class WaveformWidget(QWidget):
                     x_b = int(rel_b * w)
                     painter.drawLine(x_b, 0, x_b, h)
 
-            # Draw downbeats on top
+            # Draw downbeats on top (also thin and translucent)
             painter.setPen(down_pen)
             for d in self._downbeat_samples:
                 if start <= d <= end:
