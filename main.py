@@ -203,13 +203,20 @@ class MainWindow(QMainWindow):
         self.controls.tempo_label.setText(f"{int(tempo)} BPM")
         self.controls.compass_label.setText(compass)
 
-        # Actualizar MultiTrackPlayer
-        self.audio_player.load_tracks(tracks_paths)
+        tracks_paths_final = []
+
+        # Actualizar MultiTrackPlayer si folder tracks existe
+        if tracks_folder_path.exists():
+            tracks_paths_final = tracks_paths
+        else:
+            tracks_paths_final = [str(master_path)]
+
+        self.audio_player.load_tracks(tracks_paths_final)  # Cargar tracks o master
         self.playback.set_duration(self.audio_player.get_duration_seconds()) # Notificar a PlaybackManager
            
         clear_layout(self.ui.tracksLayout)  # Limpiar layout de tracks
        
-        for i, track in enumerate(tracks_paths):
+        for i, track in enumerate(tracks_paths_final):
             track_widget = TrackWidget(Path(track).stem, False)
             track_widget.volume_changed.connect(lambda gain, index=i: self.set_gain(index, gain))
             track_widget.mute_toggled.connect(lambda checked, index=i: self.set_mute(index, checked))
