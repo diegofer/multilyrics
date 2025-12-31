@@ -50,16 +50,12 @@ class WaveformWidget(QWidget):
         if timeline is not None:
             self.set_timeline(timeline)
 
-        # --- Beats / Downbeats (seconds and sample indices)
-        self._beats_seconds = []      # list of beat times in seconds
-        self._downbeats_seconds = []  # list of downbeat times in seconds
-        self._beats_samples = []      # cached sample indices corresponding to beats
-        self._downbeat_samples = []   # cached sample indices corresponding to downbeats
-
-        # --- Chords (seconds ranges and corresponding sample ranges)
-        # Each chord stored as tuple: (start_seconds, end_seconds, name)
-        self._chords_seconds = []     # list of (start_s, end_s, name)
-        self._chords_samples = []     # list of (start_sample, end_sample, name)
+        # NOTE: Beats, downbeats and chords are no longer owned by the widget.
+        # TimelineModel is the single source of truth for musical timeline
+        # metadata. The widget will query the attached timeline at render time
+        # for events in the visible time window. If no timeline is attached,
+        # the widget will behave as if there are no beats/chords.
+        # (Deprecated local storage removed.)
         
         # --- Interaction ---
         self._dragging = False
@@ -90,14 +86,8 @@ class WaveformWidget(QWidget):
         self.zoom_factor = 1.0
         self.center_sample = 0
         self.playhead_sample = 0
-        # Clear any beat/downbeat metadata
-        self._beats_seconds = []
-        self._downbeats_seconds = []
-        self._beats_samples = []
-        self._downbeat_samples = []
-        # Clear chords
-        self._chords_seconds = []
-        self._chords_samples = []
+        # Widget no longer stores beat/chord metadata locally. TimelineModel
+        # (if attached) is the authoritative source.
         # Clear render cache
         self._last_render_params = None
         self._last_render_envelope = None
@@ -134,8 +124,8 @@ class WaveformWidget(QWidget):
             self._last_render_params = None
             self._last_render_envelope = None
 
-            # Recompute any beat/downbeat sample positions (if metadata was loaded earlier)
-            self._recompute_beat_samples()
+            # We no longer maintain beat/chord samples locally — timeline holds
+            # that information. Nothing to recompute here.
 
             self.update()
             return True
@@ -197,87 +187,70 @@ class WaveformWidget(QWidget):
     def load_metadata(self, meta_data):
         """Load metadata dictionary to extract beats/downbeats.
 
-        Expected meta_data['beats'] format:
-        - a list of [time_seconds, position_flag] rows (as produced by the Beats extractor),
-          where position_flag==1 typically indicates a downbeat (first beat of the bar).
-        - or a list of numeric times (seconds).
-        """
-        self._beats_seconds = []
-        self._downbeats_seconds = []
+        Instead of storing beats/chords locally, forward metadata to the
+        attached TimelineModel (if present). The TimelineModel is the
+        canonical place to keep musical timeline metadata.
 
+        If no timeline is attached, the widget will not store metadata and
+        will render as if no beats/chords are present (fallback behavior).
+        """
         if not meta_data:
             # nothing to do
-            self._beats_samples = []
-            self._downbeat_samples = []
             self.update()
             return
 
-        beats = meta_data.get("beats", []) if isinstance(meta_data, dict) else []
-
-        for item in beats:
-            try:
-                if isinstance(item, (list, tuple)) and len(item) >= 2:
-                    t = float(item[0])
-                    pos = int(item[1])
-                    self._beats_seconds.append(t)
-                    if pos == 1:
-                        self._downbeats_seconds.append(t)
-                else:
-                    # simple numeric time
-                    t = float(item)
-                    self._beats_seconds.append(t)
-            except Exception:
-                # ignore malformed items
-                continue
-
-        # Parse chords list if present in metadata. Expected format:
-        # "chords": [[start, end, "CHORD"], ...]
-        self._chords_seconds = []
-        chords = meta_data.get("chords", []) if isinstance(meta_data, dict) else []
-        for item in chords:
-            try:
-                if isinstance(item, (list, tuple)) and len(item) >= 3:
-                    start_t = float(item[0])
-                    end_t = float(item[1])
-                    name = str(item[2]).strip()
-                    # Clip so start <= end
-                    if end_t < start_t:
-                        start_t, end_t = end_t, start_t
-                    self._chords_seconds.append((start_t, end_t, name))
-            except Exception:
-                continue
-
-        # Once we have seconds, convert to sample indices if sr is known
-        self._recompute_beat_samples()
-        self.update()
-
-    def _recompute_beat_samples(self):
-        """Convert stored beat/downbeat times in seconds to sample indices using current sample rate."""
-        if not hasattr(self, "sr") or self.sr <= 0:
-            # can't compute sample indices yet
-            self._beats_samples = []
-            self._downbeat_samples = []
-            return
-
-        try:
-            self._beats_samples = [int(max(0, min(int(t * self.sr), self.total_samples-1))) for t in self._beats_seconds]
-            self._downbeat_samples = [int(max(0, min(int(t * self.sr), self.total_samples-1))) for t in self._downbeats_seconds]
-
-            # chords: list of (start_sec, end_sec, name) -> convert to sample ranges
-            self._chords_samples = []
-            for start_s, end_s, name in getattr(self, '_chords_seconds', []):
+        # If a timeline is attached, forward parsed metadata to it. We use
+        # the minimal setters available on TimelineModel so it can become the
+        # authoritative source of beats and chords for other components.
+        if getattr(self, 'timeline', None) is not None:
+            # Parse beats into simple lists consistent with TimelineModel.set_beats
+            beats_input = meta_data.get("beats", []) if isinstance(meta_data, dict) else []
+            beats_seconds = []
+            downbeat_flags = []
+            for item in beats_input:
                 try:
-                    s0 = int(max(0, min(int(start_s * self.sr), self.total_samples-1)))
-                    s1 = int(max(0, min(int(end_s * self.sr), self.total_samples-1)))
-                    if s1 < s0:
-                        s0, s1 = s1, s0
-                    self._chords_samples.append((s0, s1, name))
+                    if isinstance(item, (list, tuple)) and len(item) >= 2:
+                        t = float(item[0])
+                        pos = int(item[1])
+                        beats_seconds.append(t)
+                        downbeat_flags.append(1 if pos == 1 else 0)
+                    else:
+                        t = float(item)
+                        beats_seconds.append(t)
+                        downbeat_flags.append(0)
                 except Exception:
                     continue
-        except Exception:
-            self._beats_samples = []
-            self._downbeat_samples = []
-            self._chords_samples = []
+
+            chords_input = meta_data.get("chords", []) if isinstance(meta_data, dict) else []
+            chords_parsed = []
+            for item in chords_input:
+                try:
+                    if isinstance(item, (list, tuple)) and len(item) >= 3:
+                        s = float(item[0])
+                        e = float(item[1])
+                        name = str(item[2]).strip()
+                        if e < s:
+                            s, e = e, s
+                        chords_parsed.append((s, e, name))
+                except Exception:
+                    continue
+
+            try:
+                self.timeline.set_beats(beats_seconds, downbeat_flags)
+            except Exception:
+                pass
+            try:
+                self.timeline.set_chords(chords_parsed)
+            except Exception:
+                pass
+
+        # If no timeline is attached, do not store metadata locally; the
+        # fallback rendering behavior will be to show no beats/chords.
+        self.update()
+
+    # NOTE: Beat/chord sample caches were removed from the widget. Events are
+    # queried from TimelineModel at render time and converted to samples on the
+    # fly in paintEvent(). This avoids duplicating timeline data in the widget.
 
     def zoom_by(self, ratio: float, cursor_x: int = None):
         if self.total_samples == 0:
@@ -697,56 +670,96 @@ class WaveformWidget(QWidget):
         # ----------------------------------------------------------
         # DIBUJAR CHORDS (rectángulos y texto en la parte superior)
         # ----------------------------------------------------------
-        if hasattr(self, '_chords_samples') and self._chords_samples and start < end:
-            font = QFont("Arial", 8, QFont.Bold)
-            painter.setFont(font)
-            box_h = min(18, max(12, h // 10))
-            box_y = 2
+        # Chords are now provided by the TimelineModel (if attached). Query the
+        # timeline for chords that overlap the visible time window and render
+        # them. If no timeline is attached, fall back to no chords.
+        if start < end:
+            start_s = start / float(self.sr)
+            end_s = end / float(self.sr)
 
-            for s0, s1, name in self._chords_samples:
-                # skip if chord outside visible range
-                if s1 < start or s0 > end:
-                    continue
-                # clip chord to visible window
-                vis_s0 = max(s0, start)
-                vis_s1 = min(s1, end)
-                rel0 = (vis_s0 - start) / (end - start)
-                rel1 = (vis_s1 - start) / (end - start)
-                x0 = int(rel0 * w)
-                x1 = int(rel1 * w)
-                if x1 <= x0:
-                    x1 = x0 + 1
+            chords = []
+            if getattr(self, 'timeline', None) is not None:
+                try:
+                    chords = self.timeline.chords_in_range(start_s, end_s)
+                except Exception:
+                    chords = []
 
-                # color: empty chord 'N' shown grey; others greenish
-                if str(name).strip().upper() == 'N':
-                    fill = QColor(80, 80, 80, 120)
-                    text_col = QColor(200, 200, 200)
-                else:
-                    fill = QColor(0, 120, 80, 150)
-                    text_col = QColor(255, 255, 255)
+            if chords:
+                font = QFont("Arial", 8, QFont.Bold)
+                painter.setFont(font)
+                box_h = min(18, max(12, h // 10))
+                box_y = 2
 
-                painter.fillRect(x0, box_y, x1 - x0, box_h, fill)
-                painter.setPen(QColor(0, 0, 0, 100))
-                painter.drawRect(x0, box_y, x1 - x0, box_h)
-                painter.setPen(text_col)
-                # Draw chord name left-aligned at chord start with a small padding
-                text_padding = 4
-                text_w = max(1, x1 - x0 - text_padding)
-                painter.drawText(x0 + text_padding, box_y, text_w, box_h, Qt.AlignLeft | Qt.AlignVCenter, str(name))
+                for s0_t, s1_t, name in chords:
+                    # convert times back to sample indices to reuse existing layout logic
+                    s0 = int(max(0, min(int(s0_t * self.sr), total_samples - 1)))
+                    s1 = int(max(0, min(int(s1_t * self.sr), total_samples - 1)))
+
+                    # skip if chord outside visible range
+                    if s1 < start or s0 > end:
+                        continue
+                    # clip chord to visible window
+                    vis_s0 = max(s0, start)
+                    vis_s1 = min(s1, end)
+                    rel0 = (vis_s0 - start) / (end - start)
+                    rel1 = (vis_s1 - start) / (end - start)
+                    x0 = int(rel0 * w)
+                    x1 = int(rel1 * w)
+                    if x1 <= x0:
+                        x1 = x0 + 1
+
+                    # color: empty chord 'N' shown grey; others greenish
+                    if str(name).strip().upper() == 'N':
+                        fill = QColor(80, 80, 80, 120)
+                        text_col = QColor(200, 200, 200)
+                    else:
+                        fill = QColor(0, 120, 80, 150)
+                        text_col = QColor(255, 255, 255)
+
+                    painter.fillRect(x0, box_y, x1 - x0, box_h, fill)
+                    painter.setPen(QColor(0, 0, 0, 100))
+                    painter.drawRect(x0, box_y, x1 - x0, box_h)
+                    painter.setPen(text_col)
+                    # Draw chord name left-aligned at chord start with a small padding
+                    text_padding = 4
+                    text_w = max(1, x1 - x0 - text_padding)
+                    painter.drawText(x0 + text_padding, box_y, text_w, box_h, Qt.AlignLeft | Qt.AlignVCenter, str(name))
 
         # ----------------------------------------------------------
         # DIBUJAR BEATS / DOWNBEATS (líneas verticales)
         # ----------------------------------------------------------
-        if hasattr(self, '_beats_samples') and start < end:
+        if start < end:
             # Make lines thinner and slightly translucent to avoid visual saturation
             beat_pen = QPen(QColor(0, 150, 255, 150))  # cyan, semi-transparent
             beat_pen.setWidth(1)
             down_pen = QPen(QColor(255, 200, 0, 120))  # yellow/orange, less opaque
             down_pen.setWidth(2)
 
+            # Query timeline for beats in the visible time range. If no timeline
+            # is attached, no beats will be drawn.
+            beats_samples = []
+            downbeat_samples = []
+            if getattr(self, 'timeline', None) is not None:
+                try:
+                    start_s = start / float(self.sr)
+                    end_s = end / float(self.sr)
+                    beats_seconds = self.timeline.beats_in_range(start_s, end_s)
+                    beats_samples = [int(max(0, min(int(b * self.sr), total_samples - 1))) for b in beats_seconds]
+
+                    # If the timeline stores explicit downbeats we try to use
+                    # that information; this accesses a private attribute on the
+                    # timeline as an incremental bridge until a public API is
+                    # added to TimelineModel (non-invasive, small-scope usage).
+                    if hasattr(self.timeline, '_downbeats'):
+                        downbeats_all = getattr(self.timeline, '_downbeats')
+                        downbeat_samples = [int(max(0, min(int(d * self.sr), total_samples - 1))) for d in downbeats_all if start_s <= d <= end_s]
+                except Exception:
+                    beats_samples = []
+                    downbeat_samples = []
+
             # Draw beats (thin, subtle)
             painter.setPen(beat_pen)
-            for b in self._beats_samples:
+            for b in beats_samples:
                 if start <= b <= end:
                     rel_b = (b - start) / (end - start)
                     x_b = int(rel_b * w)
@@ -754,7 +767,7 @@ class WaveformWidget(QWidget):
 
             # Draw downbeats on top (also thin and translucent)
             painter.setPen(down_pen)
-            for d in self._downbeat_samples:
+            for d in downbeat_samples:
                 if start <= d <= end:
                     rel_d = (d - start) / (end - start)
                     x_d = int(rel_d * w)
