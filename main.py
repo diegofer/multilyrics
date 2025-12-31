@@ -195,7 +195,7 @@ class MainWindow(QMainWindow):
         # Cargar metadatos
         self.meta = MetaJson(meta_path)
         meta_data = self.meta.read_meta()
-        print(f"Metadatos cargados: {meta_data}")
+        #print(f"Metadatos cargados: {meta_data}")
         
         # actualizar controlWidgets
         tempo = meta_data.get("tempo", 120.0)
