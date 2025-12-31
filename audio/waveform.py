@@ -751,8 +751,8 @@ class WaveformWidget(QWidget):
                     # timeline as an incremental bridge until a public API is
                     # added to TimelineModel (non-invasive, small-scope usage).
                     if hasattr(self.timeline, '_downbeats'):
-                        downbeats_all = getattr(self.timeline, '_downbeats')
-                        downbeat_samples = [int(max(0, min(int(d * self.sr), total_samples - 1))) for d in downbeats_all if start_s <= d <= end_s]
+                        downbeats_all = self.timeline.downbeats_in_range(start_s, end_s)
+                        downbeat_samples = [int(max(0, min(int(d * self.sr), total_samples - 1))) for d in downbeats_all]
                 except Exception:
                     beats_samples = []
                     downbeat_samples = []
@@ -760,18 +760,16 @@ class WaveformWidget(QWidget):
             # Draw beats (thin, subtle)
             painter.setPen(beat_pen)
             for b in beats_samples:
-                if start <= b <= end:
-                    rel_b = (b - start) / (end - start)
-                    x_b = int(rel_b * w)
-                    painter.drawLine(x_b, 0, x_b, h)
+                rel_b = (b - start) / (end - start)
+                x_b = int(rel_b * w)
+                painter.drawLine(x_b, 0, x_b, h)
 
             # Draw downbeats on top (also thin and translucent)
             painter.setPen(down_pen)
             for d in downbeat_samples:
-                if start <= d <= end:
-                    rel_d = (d - start) / (end - start)
-                    x_d = int(rel_d * w)
-                    painter.drawLine(x_d, 0, x_d, h)
+                rel_d = (d - start) / (end - start)
+                x_d = int(rel_d * w)
+                painter.drawLine(x_d, 0, x_d, h)
 
         # ----------------------------------------------------------
         # DIBUJAR PLAYHEAD

@@ -220,6 +220,25 @@ class TimelineModel:
             raise ValueError("end_s must be >= start_s")
         return [b for b in self._beats if start_s <= b <= end_s]
 
+    def downbeats_in_range(self, start_s: float, end_s: float) -> List[float]:
+        """Return downbeat times that fall within the closed interval [start_s, end_s].
+
+        Args:
+            start_s: start time in seconds (inclusive)
+            end_s: end time in seconds (inclusive)
+
+        Returns a list of downbeat times (floats). If the timeline has no
+        downbeats, an empty list is returned.
+
+        Raises:
+            ValueError: if end_s < start_s
+        """
+        if end_s < start_s:
+            raise ValueError("end_s must be >= start_s")
+        # Use the model's canonical downbeat storage; do not expose private
+        # attributes to callers. This method does not modify state.
+        return [d for d in self._downbeats if start_s <= d <= end_s]
+
     def chords_in_range(self, start_s: float, end_s: float) -> List[Chord]:
         """Return chords that overlap the time interval [start_s, end_s]."""
         if end_s < start_s:
