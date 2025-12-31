@@ -5,8 +5,10 @@ from PySide6.QtWidgets import QWidget
 from PySide6.QtGui import QPainter, QColor, QPen, QFont
 from PySide6.QtCore import Qt, Signal
 import soundfile as sf
+from typing import Optional
 
 from core.utils import format_time, get_logarithmic_volume
+from core.timeline_model import TimelineModel
 
 # Performance & zoom/downsampling settings
 MIN_SAMPLES_PER_PIXEL = 10   # Do not allow fewer than 10 samples per pixel (visual limit)
@@ -21,7 +23,7 @@ class WaveformWidget(QWidget):
     # Señal para notificar que el usuario ha cambiado la posición (segundos)
     position_changed = Signal(float)
 
-    def __init__(self, audio_path=None, parent=None): # audio_path ahora es opcional
+    def __init__(self, audio_path=None, parent=None, timeline: Optional[TimelineModel] = None): # audio_path ahora es opcional
         super().__init__(parent)
 
         # --- Estado inicial por defecto (sin audio) ---
@@ -36,7 +38,17 @@ class WaveformWidget(QWidget):
         self.center_sample = 0 # Centro inicial (se ajustará si se carga audio)
 
         # --- Playhead ---
+        # NOTE: TimelineModel is the canonical source of time; the widget keeps a
+        # cached `playhead_sample` only for rendering and viewport logic.
         self.playhead_sample = 0
+
+        # Optional TimelineModel reference. Use `set_timeline()` to attach
+        # after construction. This keeps the widget UI-independent while
+        # observing canonical time changes from the timeline model.
+        self.timeline: Optional[TimelineModel] = None
+        self._timeline_unsubscribe = None
+        if timeline is not None:
+            self.set_timeline(timeline)
 
         # --- Beats / Downbeats (seconds and sample indices)
         self._beats_seconds = []      # list of beat times in seconds
@@ -401,10 +413,26 @@ class WaveformWidget(QWidget):
 
             # Nueva posición del playhead
             new_sample = int(start + rel * (end - start))
-            self.set_playhead_sample(new_sample)
-            
+
+            # Compute time for the new sample
+            current_time = new_sample / float(self.sr)
+
+            # Prefer the TimelineModel as the canonical owner of playhead time.
+            # If a timeline is attached, update it rather than setting the widget's
+            # internal playhead directly. This keeps a single source of truth.
+            if getattr(self, 'timeline', None) is not None:
+                try:
+                    self.timeline.set_playhead_time(current_time)
+                except Exception:
+                    # If timeline update fails for some reason, fall back to the
+                    # old behavior and update local playhead for rendering.
+                    self.set_playhead_sample(new_sample)
+            else:
+                self.set_playhead_sample(new_sample)
+
             # Emitir la nueva posición en segundos al receptor (e.g., Audio Player)
-            current_time = self.playhead_sample / self.sr
+            # Keep emitting the legacy signal so existing code (seek handlers)
+            # continues to work as before.
             self.position_changed.emit(current_time)
         else:
             super().mouseDoubleClickEvent(event)
@@ -427,6 +455,74 @@ class WaveformWidget(QWidget):
             self.setFocus() # Asegura que el widget mantenga el foco
             
         super().mousePressEvent(event)
+
+    # ---------------------- Timeline integration ----------------------
+    def set_timeline(self, timeline: Optional[TimelineModel]) -> None:
+        """Attach or replace the TimelineModel this widget observes.
+
+        The TimelineModel is the canonical owner of playback time. The widget
+        listens for playhead changes and updates its cached `playhead_sample`
+        for rendering. If a previous timeline was attached, its observer is
+        unsubscribed first.
+        """
+        # Unsubscribe previous observer if present
+        if getattr(self, '_timeline_unsubscribe', None):
+            try:
+                self._timeline_unsubscribe()
+            except Exception:
+                pass
+            self._timeline_unsubscribe = None
+
+        self.timeline = timeline
+        if timeline is not None:
+            # Register observer and initialize widget position from timeline
+            try:
+                self._timeline_unsubscribe = timeline.on_playhead_changed(self._on_timeline_playhead_changed)
+                # Initialize playhead to timeline's current value
+                self.set_position_seconds(timeline.get_playhead_time())
+            except Exception:
+                # If registration fails, ensure internal state remains consistent
+                self._timeline_unsubscribe = None
+
+    def _on_timeline_playhead_changed(self, new_time: float) -> None:
+        """Callback invoked synchronously when the TimelineModel playhead changes.
+
+        Updates the widget's cached playhead (in samples) and triggers a repaint
+        if visible. This method intentionally does not call back into the
+        TimelineModel to avoid feedback loops; the TimelineModel is the
+        single source of truth for canonical time.
+        """
+        try:
+            # Use existing conversion and clamping logic
+            self.set_position_seconds(float(new_time))
+        except Exception:
+            # Keep observer lightweight: swallow exceptions to avoid breaking
+            # timeline updates from other sources.
+            pass
+
+    def closeEvent(self, event):
+        # Ensure we unsubscribe observer to avoid holding references after
+        # the widget is closed/destroyed.
+        if getattr(self, '_timeline_unsubscribe', None):
+            try:
+                self._timeline_unsubscribe()
+            except Exception:
+                pass
+            self._timeline_unsubscribe = None
+        super().closeEvent(event)
+
+    def __del__(self):
+        # Defensive cleanup if the widget is garbage collected without being
+        # closed (may not run reliably but helps avoid leaks).
+        try:
+            if getattr(self, '_timeline_unsubscribe', None):
+                try:
+                    self._timeline_unsubscribe()
+                except Exception:
+                    pass
+                self._timeline_unsubscribe = None
+        except Exception:
+            pass
             
     def set_playhead_sample(self, sample):
         # Asegurarse de que no falle con total_samples = 0
