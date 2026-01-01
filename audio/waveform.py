@@ -697,60 +697,19 @@ class WaveformWidget(QWidget):
         # ----------------------------------------------------------
         # DIBUJAR CHORDS (rectángulos y texto en la parte superior)
         # ----------------------------------------------------------
-        # Chords are now provided by the TimelineModel (if attached). Query the
-        # timeline for chords that overlap the visible time window and render
-        # them. If no timeline is attached, fall back to no chords.
+        # Delegate chord rendering to ChordTrack for separation of concerns
         if start < end:
-            start_s = start / float(self.sr)
-            end_s = end / float(self.sr)
+            from audio.tracks.chord_track import ChordTrack
+            from audio.tracks.beat_track import ViewContext
 
-            chords = []
-            if getattr(self, 'timeline', None) is not None:
-                try:
-                    chords = self.timeline.chords_in_range(start_s, end_s)
-                except Exception:
-                    chords = []
-
-            if chords:
-                font = QFont("Arial", 8, QFont.Bold)
-                painter.setFont(font)
-                box_h = min(18, max(12, h // 10))
-                box_y = 2
-
-                for s0_t, s1_t, name in chords:
-                    # convert times back to sample indices to reuse existing layout logic
-                    s0 = int(max(0, min(int(s0_t * self.sr), total_samples - 1)))
-                    s1 = int(max(0, min(int(s1_t * self.sr), total_samples - 1)))
-
-                    # skip if chord outside visible range
-                    if s1 < start or s0 > end:
-                        continue
-                    # clip chord to visible window
-                    vis_s0 = max(s0, start)
-                    vis_s1 = min(s1, end)
-                    rel0 = (vis_s0 - start) / (end - start)
-                    rel1 = (vis_s1 - start) / (end - start)
-                    x0 = int(rel0 * w)
-                    x1 = int(rel1 * w)
-                    if x1 <= x0:
-                        x1 = x0 + 1
-
-                    # color: empty chord 'N' shown grey; others greenish
-                    if str(name).strip().upper() == 'N':
-                        fill = QColor(80, 80, 80, 120)
-                        text_col = QColor(200, 200, 200)
-                    else:
-                        fill = QColor(0, 120, 80, 150)
-                        text_col = QColor(255, 255, 255)
-
-                    painter.fillRect(x0, box_y, x1 - x0, box_h, fill)
-                    painter.setPen(QColor(0, 0, 0, 100))
-                    painter.drawRect(x0, box_y, x1 - x0, box_h)
-                    painter.setPen(text_col)
-                    # Draw chord name left-aligned at chord start with a small padding
-                    text_padding = 4
-                    text_w = max(1, x1 - x0 - text_padding)
-                    painter.drawText(x0 + text_padding, box_y, text_w, box_h, Qt.AlignLeft | Qt.AlignVCenter, str(name))
+            ctx = ViewContext(start_sample=start, end_sample=end, total_samples=total_samples, sample_rate=self.sr, width=w, height=h, timeline_model=self.timeline)
+            if getattr(self, '_chord_track', None) is None:
+                self._chord_track = ChordTrack()
+            try:
+                self._chord_track.paint(painter, ctx)
+            except Exception:
+                # Keep painting robust: if the track fails, don't break waveform
+                pass
 
         # ----------------------------------------------------------
         # DIBUJAR BEATS / DOWNBEATS (líneas verticales)
@@ -762,39 +721,17 @@ class WaveformWidget(QWidget):
             down_pen = QPen(QColor(255, 200, 0, 120))  # yellow/orange, less opaque
             down_pen.setWidth(2)
 
-            # Query timeline for beats in the visible time range. If no timeline
-            # is attached, no beats will be drawn.
-            beats_samples = []
-            downbeat_samples = []
-            if getattr(self, 'timeline', None) is not None:
-                try:
-                    start_s = start / float(self.sr)
-                    end_s = end / float(self.sr)
-                    beats_seconds = self.timeline.beats_in_range(start_s, end_s)
-                    beats_samples = [int(max(0, min(int(b * self.sr), total_samples - 1))) for b in beats_seconds]
+                # Delegate beat rendering to BeatTrack for better separation of concerns
+            from audio.tracks.beat_track import ViewContext, BeatTrack
 
-                    # Use the public downbeats API if available; avoid accessing
-                    # timeline internals directly.
-                    if hasattr(self.timeline, 'downbeats_in_range'):
-                        downbeats_all = self.timeline.downbeats_in_range(start_s, end_s)
-                        downbeat_samples = [int(max(0, min(int(d * self.sr), total_samples - 1))) for d in downbeats_all]
-                except Exception:
-                    beats_samples = []
-                    downbeat_samples = []
-
-            # Draw beats (thin, subtle)
-            painter.setPen(beat_pen)
-            for b in beats_samples:
-                rel_b = (b - start) / (end - start)
-                x_b = int(rel_b * w)
-                painter.drawLine(x_b, 0, x_b, h)
-
-            # Draw downbeats on top (also thin and translucent)
-            painter.setPen(down_pen)
-            for d in downbeat_samples:
-                rel_d = (d - start) / (end - start)
-                x_d = int(rel_d * w)
-                painter.drawLine(x_d, 0, x_d, h)
+            ctx = ViewContext(start_sample=start, end_sample=end, total_samples=total_samples, sample_rate=self.sr, width=w, height=h, timeline_model=self.timeline)
+            if getattr(self, '_beat_track', None) is None:
+                self._beat_track = BeatTrack()
+            try:
+                self._beat_track.paint(painter, ctx)
+            except Exception:
+                # Keep painting robust: if the track fails, don't break waveform
+                pass
 
         # ----------------------------------------------------------
         # DIBUJAR PLAYHEAD
