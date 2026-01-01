@@ -6,6 +6,7 @@ from pathlib import Path
 
 from core.utils import get_mp4, get_tracks, get_logarithmic_volume, clear_layout
 from core import global_state
+from core.timeline_model import TimelineModel
 from ui.widgets.controls_widget import ControlsWidget
 from ui.widgets.track_widget import TrackWidget
 from ui.widgets.spinner_dialog import SpinnerDialog
@@ -63,7 +64,10 @@ class MainWindow(QMainWindow):
         self.audio_player = MultiTrackPlayer()
         self.sync = SyncController(44100)
         self.audio_player.audioTimeCallback = self.sync.audio_callback
-        self.playback = PlaybackManager(self.sync)
+        
+        # Create single canonical TimelineModel instance shared across all components
+        self.timeline = TimelineModel()
+        self.playback = PlaybackManager(self.sync, timeline=self.timeline)
         
         # Asignar SyncController a VideoLyrics para que reporte posición
         self.video_player.sync_controller = self.sync
@@ -71,6 +75,9 @@ class MainWindow(QMainWindow):
         # Asignar players al PlaybackManager para control centralizado
         self.playback.set_audio_player(self.audio_player)
         self.playback.set_video_player(self.video_player)
+        
+        # Attach timeline to waveform widget
+        self.waveform.set_timeline(self.timeline)
         
         #Conectar Signals
         self.plus_btn.clicked.connect(self.open_add_dialog)
@@ -226,8 +233,7 @@ class MainWindow(QMainWindow):
         
         # Actualizar Waveform
         if master_path.exists():
-            self.timeline = TimelineModel()
-            self.waveform.set_timeline(self.timeline)
+            # Reuse existing timeline instance, just update its metadata
             self.waveform.load_audio_from_master(master_path)
             self.waveform.load_metadata(meta_data)
         

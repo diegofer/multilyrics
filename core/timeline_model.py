@@ -66,6 +66,14 @@ class TimelineModel:
         return self._duration_seconds
 
     def set_duration_seconds(self, seconds: float) -> None:
+        # Emit playheadChanged signal when playhead time changes
+        if seconds < 0:
+            raise ValueError("duration_seconds must be non-negative")
+        self._duration_seconds = float(seconds)
+        # Ensure playhead remains in valid range
+        if self._playhead_time > self._duration_seconds:
+            self._playhead_time = self._duration_seconds
+        self._notify_playhead_changed()
         if seconds < 0:
             raise ValueError("duration_seconds must be non-negative")
         self._duration_seconds = float(seconds)
@@ -118,11 +126,15 @@ class TimelineModel:
         if seconds > self._duration_seconds:
             seconds = self._duration_seconds
         new_time = float(seconds)
+        print(f"[TimelineModel] set_playhead_time: {new_time:.3f}s (id: {id(self)})")
         # Notify only if the value actually changed
         if new_time == self._playhead_time:
             return
         self._playhead_time = new_time
+        self._notify_playhead_changed()
 
+    def _notify_playhead_changed(self) -> None:
+        """Internal method to notify all observers of playhead change."""
         # Call observers synchronously in registration order. Ensure one failing
         # observer does not prevent others from running.
         for cb in list(self._playhead_observers):

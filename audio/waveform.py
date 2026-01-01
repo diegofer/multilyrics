@@ -447,6 +447,7 @@ class WaveformWidget(QWidget):
         for rendering. If a previous timeline was attached, its observer is
         unsubscribed first.
         """
+        print("WF timeline id:", id(timeline))
         # Unsubscribe previous observer if present
         if getattr(self, '_timeline_unsubscribe', None):
             try:
@@ -457,9 +458,11 @@ class WaveformWidget(QWidget):
 
         self.timeline = timeline
         if timeline is not None:
+            print(f"[WaveformWidget] Attached timeline: {id(timeline)}")
             # Register observer and initialize widget position from timeline
             try:
                 self._timeline_unsubscribe = timeline.on_playhead_changed(self._on_timeline_playhead_changed)
+                self.update()
                 # Initialize playhead to timeline's current value
                 self.set_position_seconds(timeline.get_playhead_time())
                 # Forward any cached metadata that was loaded before a timeline
@@ -492,7 +495,7 @@ class WaveformWidget(QWidget):
         TimelineModel to avoid feedback loops; the TimelineModel is the
         single source of truth for canonical time.
         """
-        print("Timeline playhead:", new_time)
+        print(f"[WaveformWidget] Playhead changed: {new_time:.3f}s (timeline id: {id(self.timeline)})")
         try:
             # Use existing conversion and clamping logic
             self.set_position_seconds(float(new_time))
@@ -500,6 +503,8 @@ class WaveformWidget(QWidget):
             # Keep observer lightweight: swallow exceptions to avoid breaking
             # timeline updates from other sources.
             pass
+        # Schedule repaint on every playhead change (Qt will coalesce updates)
+        self.update()
 
     def closeEvent(self, event):
         # Ensure we unsubscribe observer to avoid holding references after

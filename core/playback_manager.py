@@ -33,6 +33,8 @@ class PlaybackManager(QObject):
         # Optional timeline model (canonical source of truth for playhead time)
         # Can be injected in the constructor or set later with `set_timeline`.
         self.timeline: Optional[TimelineModel] = timeline
+        if timeline is not None:
+            print(f"[PlaybackManager] Attached timeline: {id(timeline)}")
 
         # Referencias a reproductores (se asignan desde MainWindow)
         self.audio_player = None
@@ -136,10 +138,12 @@ class PlaybackManager(QObject):
         owner of the playhead time. Also keep emitting the existing
         ``positionChanged`` signal so current UI code continues to work.
         """
+        print(f"[PlaybackManager] _on_audio_time: {t:.3f}s (timeline id: {id(self.timeline) if self.timeline else 'None'})")
         if self.timeline is not None:
             try:
                 self.timeline.set_playhead_time(float(t))
-            except Exception:
+            except Exception as e:
+                print(f"[PlaybackManager] Error updating timeline: {e}")
                 pass
 
         self.positionChanged.emit(t)
