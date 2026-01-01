@@ -492,6 +492,7 @@ class WaveformWidget(QWidget):
         TimelineModel to avoid feedback loops; the TimelineModel is the
         single source of truth for canonical time.
         """
+        print("Timeline playhead:", new_time)
         try:
             # Use existing conversion and clamping logic
             self.set_position_seconds(float(new_time))
@@ -733,16 +734,18 @@ class WaveformWidget(QWidget):
                 # Keep painting robust: if the track fails, don't break waveform
                 pass
 
-        # ----------------------------------------------------------
-        # DIBUJAR PLAYHEAD
-        # ----------------------------------------------------------
-        if start <= self.playhead_sample <= end:
-            rel = (self.playhead_sample - start) / (end - start)
-            x_pos = int(rel * w)
+        # Delegate playhead rendering to PlayheadTrack
+        from audio.tracks.playhead_track import PlayheadTrack
+        from audio.tracks.beat_track import ViewContext
 
-            play_pen = QPen(QColor(255, 50, 50), 2)
-            painter.setPen(play_pen)
-            painter.drawLine(x_pos, 0, x_pos, h)
+        ctx = ViewContext(start_sample=start, end_sample=end, total_samples=total_samples, sample_rate=self.sr, width=w, height=h, timeline_model=self.timeline)
+        if getattr(self, '_playhead_track', None) is None:
+            self._playhead_track = PlayheadTrack()
+        try:
+            self._playhead_track.paint(painter, ctx)
+        except Exception:
+            # Keep painting robust: if the track fails, don't break waveform
+            pass
 
         # ----------------------------------------------------------
         # DIBUJAR TIEMPO TOTAL (Opcional, pero útil)
@@ -753,23 +756,3 @@ class WaveformWidget(QWidget):
         total_time_str = format_time(self.duration_seconds)
         # Dibujar en la esquina superior derecha
         painter.drawText(w - 150, 20, 140, 20, Qt.AlignRight, total_time_str)
-
-        # ----------------------------------------------------------
-        # DIBUJAR TIEMPO TRANSCURRIDO (En la posición del playhead si es visible)
-        # ----------------------------------------------------------
-        if start <= self.playhead_sample <= end:
-            current_time = self.playhead_sample / self.sr
-            current_time_str = format_time(current_time)
-            
-            # Usar un color diferente y fuente un poco más grande
-            painter.setPen(QColor(255, 255, 255))
-            painter.setFont(QFont("Arial", 9, QFont.Bold))
-            
-            # Posición x: justo a la derecha del playhead
-            text_x = x_pos + 5 
-            
-            # Asegurar que el texto no se salga del borde derecho
-            if text_x + 100 > w:
-                text_x = x_pos - 105 # Dibujar a la izquierda si no hay espacio
-                
-            painter.drawText(text_x, 20, 100, 20, Qt.AlignLeft, current_time_str)
