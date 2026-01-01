@@ -50,12 +50,15 @@ class WaveformWidget(QWidget):
         if timeline is not None:
             self.set_timeline(timeline)
 
-        # NOTE: Beats, downbeats and chords are no longer owned by the widget.
-        # TimelineModel is the single source of truth for musical timeline
-        # metadata. The widget will query the attached timeline at render time
-        # for events in the visible time window. If no timeline is attached,
-        # the widget will behave as if there are no beats/chords.
-        # (Deprecated local storage removed.)
+        # NOTE: Beats, downbeats and chords are intended to be owned by
+        # TimelineModel; however, to preserve backward compatibility we keep a
+        # lightweight cache of the most recently loaded metadata so it can be
+        # forwarded to a timeline if the timeline is attached later. This
+        # avoids cases where metadata is loaded before the UI constructs or
+        # attaches the TimelineModel and would otherwise be lost.
+        self._cached_beats_seconds = []
+        self._cached_downbeat_flags = []
+        self._cached_chords = []
         
         # --- Interaction ---
         self._dragging = False
@@ -86,8 +89,10 @@ class WaveformWidget(QWidget):
         self.zoom_factor = 1.0
         self.center_sample = 0
         self.playhead_sample = 0
-        # Widget no longer stores beat/chord metadata locally. TimelineModel
-        # (if attached) is the authoritative source.
+        # Clear metadata caches
+        self._cached_beats_seconds = []
+        self._cached_downbeat_flags = []
+        self._cached_chords = []
         # Clear render cache
         self._last_render_params = None
         self._last_render_envelope = None
@@ -199,42 +204,46 @@ class WaveformWidget(QWidget):
             self.update()
             return
 
-        # If a timeline is attached, forward parsed metadata to it. We use
-        # the minimal setters available on TimelineModel so it can become the
-        # authoritative source of beats and chords for other components.
+        # Parse metadata into canonical lists (always keep a lightweight cache
+        # so metadata isn't lost if the timeline isn't yet attached).
+        beats_input = meta_data.get("beats", []) if isinstance(meta_data, dict) else []
+        beats_seconds = []
+        downbeat_flags = []
+        for item in beats_input:
+            try:
+                if isinstance(item, (list, tuple)) and len(item) >= 2:
+                    t = float(item[0])
+                    pos = int(item[1])
+                    beats_seconds.append(t)
+                    downbeat_flags.append(1 if pos == 1 else 0)
+                else:
+                    t = float(item)
+                    beats_seconds.append(t)
+                    downbeat_flags.append(0)
+            except Exception:
+                continue
+
+        chords_input = meta_data.get("chords", []) if isinstance(meta_data, dict) else []
+        chords_parsed = []
+        for item in chords_input:
+            try:
+                if isinstance(item, (list, tuple)) and len(item) >= 3:
+                    s = float(item[0])
+                    e = float(item[1])
+                    name = str(item[2]).strip()
+                    if e < s:
+                        s, e = e, s
+                    chords_parsed.append((s, e, name))
+            except Exception:
+                continue
+
+        # Update cache (so metadata is available if a timeline is attached later)
+        self._cached_beats_seconds = beats_seconds
+        self._cached_downbeat_flags = downbeat_flags
+        self._cached_chords = chords_parsed
+
+        # If a timeline is attached, forward parsed metadata to it immediately.
         if getattr(self, 'timeline', None) is not None:
-            # Parse beats into simple lists consistent with TimelineModel.set_beats
-            beats_input = meta_data.get("beats", []) if isinstance(meta_data, dict) else []
-            beats_seconds = []
-            downbeat_flags = []
-            for item in beats_input:
-                try:
-                    if isinstance(item, (list, tuple)) and len(item) >= 2:
-                        t = float(item[0])
-                        pos = int(item[1])
-                        beats_seconds.append(t)
-                        downbeat_flags.append(1 if pos == 1 else 0)
-                    else:
-                        t = float(item)
-                        beats_seconds.append(t)
-                        downbeat_flags.append(0)
-                except Exception:
-                    continue
-
-            chords_input = meta_data.get("chords", []) if isinstance(meta_data, dict) else []
-            chords_parsed = []
-            for item in chords_input:
-                try:
-                    if isinstance(item, (list, tuple)) and len(item) >= 3:
-                        s = float(item[0])
-                        e = float(item[1])
-                        name = str(item[2]).strip()
-                        if e < s:
-                            s, e = e, s
-                        chords_parsed.append((s, e, name))
-                except Exception:
-                    continue
-
             try:
                 self.timeline.set_beats(beats_seconds, downbeat_flags)
             except Exception:
@@ -244,8 +253,8 @@ class WaveformWidget(QWidget):
             except Exception:
                 pass
 
-        # If no timeline is attached, do not store metadata locally; the
-        # fallback rendering behavior will be to show no beats/chords.
+        # Fallback rendering behavior: if no timeline is attached, there will
+        # simply be no beats/chords to draw.
         self.update()
 
     # NOTE: Beat/chord sample caches were removed from the widget. Events are
@@ -453,6 +462,24 @@ class WaveformWidget(QWidget):
                 self._timeline_unsubscribe = timeline.on_playhead_changed(self._on_timeline_playhead_changed)
                 # Initialize playhead to timeline's current value
                 self.set_position_seconds(timeline.get_playhead_time())
+                # Forward any cached metadata that was loaded before a timeline
+                # was attached. This preserves previous behavior where metadata
+                # loaded into the widget would be visible even if the timeline
+                # wasn't yet available.
+                if self._cached_beats_seconds:
+                    try:
+                        self.timeline.set_beats(self._cached_beats_seconds, self._cached_downbeat_flags)
+                    except Exception:
+                        pass
+                if self._cached_chords:
+                    try:
+                        self.timeline.set_chords(self._cached_chords)
+                    except Exception:
+                        pass
+                # Once forwarded, we can clear the cache (the timeline holds it)
+                self._cached_beats_seconds = []
+                self._cached_downbeat_flags = []
+                self._cached_chords = []            
             except Exception:
                 # If registration fails, ensure internal state remains consistent
                 self._timeline_unsubscribe = None
@@ -746,11 +773,9 @@ class WaveformWidget(QWidget):
                     beats_seconds = self.timeline.beats_in_range(start_s, end_s)
                     beats_samples = [int(max(0, min(int(b * self.sr), total_samples - 1))) for b in beats_seconds]
 
-                    # If the timeline stores explicit downbeats we try to use
-                    # that information; this accesses a private attribute on the
-                    # timeline as an incremental bridge until a public API is
-                    # added to TimelineModel (non-invasive, small-scope usage).
-                    if hasattr(self.timeline, '_downbeats'):
+                    # Use the public downbeats API if available; avoid accessing
+                    # timeline internals directly.
+                    if hasattr(self.timeline, 'downbeats_in_range'):
                         downbeats_all = self.timeline.downbeats_in_range(start_s, end_s)
                         downbeat_samples = [int(max(0, min(int(d * self.sr), total_samples - 1))) for d in downbeats_all]
                 except Exception:

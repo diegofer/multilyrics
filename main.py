@@ -20,6 +20,7 @@ from audio.meta import MetaJson
 from video.video import VideoLyrics
 from core.sync import SyncController
 from core.playback_manager import PlaybackManager
+from core.timeline_model import TimelineModel
 
 class MainWindow(QMainWindow):
     def __init__(self):
@@ -225,6 +226,8 @@ class MainWindow(QMainWindow):
         
         # Actualizar Waveform
         if master_path.exists():
+            self.timeline = TimelineModel()
+            self.waveform.set_timeline(self.timeline)
             self.waveform.load_audio_from_master(master_path)
             self.waveform.load_metadata(meta_data)
         
