@@ -15,7 +15,7 @@ MIN_SAMPLES_PER_PIXEL = 10   # Do not allow fewer than 10 samples per pixel (vis
 MAX_ZOOM_LEVEL = 500.0      # Max zoom factor multiplier
 GLOBAL_DOWNSAMPLE_FACTOR = 1024  # For global view, aggregate at least this many samples per visual bucket
 
-class WaveformWidget(QWidget):
+class TimelineView(QWidget):
     """
     Widget pasivo para dibujar la onda y manejar eventos de usuario (zoom, scroll, doble clic para seek).
     No reproduce audio; la reproducción y reloj son responsabilidad de `MultiTrackPlayer`/`PlaybackManager`.

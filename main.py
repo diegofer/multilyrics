@@ -12,7 +12,7 @@ from ui.widgets.track_widget import TrackWidget
 from ui.widgets.spinner_dialog import SpinnerDialog
 from ui.widgets.add import AddDialog
 
-from audio.waveform import WaveformWidget
+from audio.timeline_view import TimelineView
 from audio.extract import AudioExtractWorker
 from audio.beats import BeatsExtractorWorker
 from audio.chords import ChordExtractorWorker
@@ -42,8 +42,8 @@ class MainWindow(QMainWindow):
         self.ui.playlistLayout.addWidget(self.plus_btn)
         
         #Agregar waveform widget
-        self.waveform = WaveformWidget("example.wav")
-        self.ui.waveformLayout.addWidget(self.waveform)
+        self.timeline_view = TimelineView("example.wav")
+        self.ui.waveformLayout.addWidget(self.timeline_view)
 
         #Agregar tracks widgets
         self.master_track = TrackWidget("Master", True)
@@ -66,8 +66,8 @@ class MainWindow(QMainWindow):
         self.audio_player.audioTimeCallback = self.sync.audio_callback
         
         # Create single canonical TimelineModel instance shared across all components
-        self.timeline = TimelineModel()
-        self.playback = PlaybackManager(self.sync, timeline=self.timeline)
+        self.timeline_model = TimelineModel()
+        self.playback = PlaybackManager(self.sync, timeline=self.timeline_model)
         
         # Asignar SyncController a VideoLyrics para que reporte posición
         self.video_player.sync_controller = self.sync
@@ -77,14 +77,14 @@ class MainWindow(QMainWindow):
         self.playback.set_video_player(self.video_player)
         
         # Attach timeline to waveform widget
-        self.waveform.set_timeline(self.timeline)
+        self.timeline_view.set_timeline(self.timeline_model)
         
         #Conectar Signals
         self.plus_btn.clicked.connect(self.open_add_dialog)
         self.add_dialog.search_widget.multi_selected.connect(self.on_multi_selected)
         self.add_dialog.drop_widget.file_imported.connect(self.extraction_process)
         self.playback.positionChanged.connect(self.controls.update_time_position_label)
-        self.playback.positionChanged.connect(self.waveform.set_position_seconds)
+        #self.playback.positionChanged.connect(self.timeline.set_position_seconds)
         self.playback.durationChanged.connect(self.controls.update_total_duration_label)
         self.playback.playingChanged.connect(self.controls.set_playing_state)
         #self.sync.videoCorrectionNeeded.connect(self.video_player.apply_correction)
@@ -92,7 +92,7 @@ class MainWindow(QMainWindow):
         self.master_track.volume_changed.connect(self.set_master_gain)
 
         # Waveform user seeks -> central request via PlaybackManager
-        self.waveform.position_changed.connect(self.playback.request_seek)
+        self.timeline_view.position_changed.connect(self.playback.request_seek)
 
         self.controls.play_clicked.connect(self.on_play_clicked)
         self.controls.pause_clicked.connect(self.on_pause_clicked)
@@ -234,8 +234,8 @@ class MainWindow(QMainWindow):
         # Actualizar Waveform
         if master_path.exists():
             # Reuse existing timeline instance, just update its metadata
-            self.waveform.load_audio_from_master(master_path)
-            self.waveform.load_metadata(meta_data)
+            self.timeline_view.load_audio_from_master(master_path)
+            self.timeline_view.load_metadata(meta_data)
         
         # Actualizar Video Player
         self.video_player.set_media(video_path)
@@ -250,7 +250,7 @@ class MainWindow(QMainWindow):
         """Called from master fader slider (0..100)."""
         gain = get_logarithmic_volume(slider_value)
         # Update waveform preview volume (expects slider int)
-        self.waveform.set_volume(slider_value)
+        self.timeline_view.set_volume(slider_value)
         # Set global master gain on audio player
         try:
             self.audio_player.set_master_gain(gain)
