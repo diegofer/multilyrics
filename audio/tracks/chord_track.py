@@ -35,7 +35,7 @@ class ChordTrack:
         font = QFont("Arial", 8, QFont.Bold)
         painter.setFont(font)
         box_h = min(18, max(12, h // 10))
-        box_y = 2
+        box_y = h - box_h - 2  # Position at bottom instead of top
 
         for s0_t, s1_t, name in chords:
             # convert times back to sample indices to reuse existing layout logic

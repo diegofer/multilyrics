@@ -664,22 +664,6 @@ class TimelineView(QWidget):
             # Keep painting robust: if the track fails, don't break waveform
             pass
 
-        # ----------------------------------------------------------
-        # DIBUJAR CHORDS (rectángulos y texto en la parte superior)
-        # ----------------------------------------------------------
-        # Delegate chord rendering to ChordTrack for separation of concerns
-        if start < end:
-            from audio.tracks.chord_track import ChordTrack
-            from audio.tracks.beat_track import ViewContext
-
-            ctx = ViewContext(start_sample=start, end_sample=end, total_samples=total_samples, sample_rate=self.sr, width=w, height=h, timeline_model=self.timeline)
-            if getattr(self, '_chord_track', None) is None:
-                self._chord_track = ChordTrack()
-            try:
-                self._chord_track.paint(painter, ctx)
-            except Exception:
-                # Keep painting robust: if the track fails, don't break waveform
-                pass
 
         # ----------------------------------------------------------
         # DIBUJAR BEATS / DOWNBEATS (líneas verticales)
@@ -703,6 +687,23 @@ class TimelineView(QWidget):
                 # Keep painting robust: if the track fails, don't break waveform
                 pass
 
+        # ----------------------------------------------------------
+        # DIBUJAR CHORDS (rectángulos y texto en la parte superior)
+        # ----------------------------------------------------------
+        # Delegate chord rendering to ChordTrack for separation of concerns
+        if start < end:
+            from audio.tracks.chord_track import ChordTrack
+            from audio.tracks.beat_track import ViewContext
+
+            ctx = ViewContext(start_sample=start, end_sample=end, total_samples=total_samples, sample_rate=self.sr, width=w, height=h, timeline_model=self.timeline)
+            if getattr(self, '_chord_track', None) is None:
+                self._chord_track = ChordTrack()
+            try:
+                self._chord_track.paint(painter, ctx)
+            except Exception:
+                # Keep painting robust: if the track fails, don't break waveform
+                pass        
+        
         # Delegate playhead rendering to PlayheadTrack
         from audio.tracks.playhead_track import PlayheadTrack
         from audio.tracks.beat_track import ViewContext

@@ -41,7 +41,7 @@ class BeatTrack:
         beat_pen = QPen(QColor(0, 150, 255, 150))  # cyan, semi-transparent
         beat_pen.setWidth(1)
         down_pen = QPen(QColor(255, 200, 0, 120))  # yellow/orange, less opaque
-        down_pen.setWidth(2)
+        down_pen.setWidth(1)
 
         beats_samples = []
         downbeat_samples = []
