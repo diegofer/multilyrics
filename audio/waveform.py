@@ -67,9 +67,10 @@ class WaveformWidget(QWidget):
         self.setMinimumHeight(120)
         self.setFocusPolicy(Qt.StrongFocus)
 
-        # Render cache (to avoid repeated heavy reductions when repainting)
-        self._last_render_params = None  # (start, end, width, zoom_factor)
-        self._last_render_envelope = None  # (mins, maxs)
+        # Render cache handled by WaveformTrack; keep legacy mirrors for tests.
+        self._waveform_track = None
+        self._last_render_params = None
+        self._last_render_envelope = None
 
         # Cargar audio si se proporciona una ruta
         if audio_path:
@@ -93,10 +94,36 @@ class WaveformWidget(QWidget):
         self._cached_beats_seconds = []
         self._cached_downbeat_flags = []
         self._cached_chords = []
-        # Clear render cache
+        self._reset_waveform_cache()
+        self.update()
+
+    def _reset_waveform_cache(self):
+        """Clear cached waveform envelope/rendering in the track (if any)."""
         self._last_render_params = None
         self._last_render_envelope = None
-        self.update()
+        if getattr(self, '_waveform_track', None) is not None:
+            try:
+                self._waveform_track.reset_cache()
+            except Exception:
+                pass
+
+    def _compute_envelope(self, start: int, end: int, w: int):
+        """Legacy API retained for tests; delegates to WaveformTrack cache."""
+        from audio.tracks.waveform_track import WaveformTrack
+        if getattr(self, '_waveform_track', None) is None:
+            self._waveform_track = WaveformTrack()
+
+        # If legacy cache was manually set (in tests), sync it into the track.
+        if self._last_render_params is not None and self._last_render_envelope is not None:
+            self._waveform_track._last_params = self._last_render_params
+            self._waveform_track._last_envelope = self._last_render_envelope
+
+        mins, maxs = self._waveform_track._compute_envelope(self.samples, start, end, w, self.zoom_factor)
+
+        # Mirror back into legacy fields for compatibility with existing tests.
+        self._last_render_params = self._waveform_track._last_params
+        self._last_render_envelope = self._waveform_track._last_envelope
+        return mins, maxs
 
 
     def load_audio(self, audio_path):
@@ -125,9 +152,7 @@ class WaveformWidget(QWidget):
             self.center_sample = self.total_samples // 2
             self.playhead_sample = 0
 
-            # Clear render cache (new audio -> new envelope)
-            self._last_render_params = None
-            self._last_render_envelope = None
+            self._reset_waveform_cache()
 
             # We no longer maintain beat/chord samples locally — timeline holds
             # that information. Nothing to recompute here.
@@ -169,9 +194,7 @@ class WaveformWidget(QWidget):
         new_factor = self._clamp_zoom_for_width(new_factor, w)
         self.zoom_factor = new_factor
         self.center_sample = int(np.clip(self.center_sample, 0, len(self.samples)-1))
-        # Clear render cache since zoom changed
-        self._last_render_params = None
-        self._last_render_envelope = None
+        self._reset_waveform_cache()
         self.update()
 
     def load_audio_from_master(self, master_path):
@@ -287,8 +310,7 @@ class WaveformWidget(QWidget):
             pass
 
         # Zoom changed -> invalidate render cache
-        self._last_render_params = None
-        self._last_render_envelope = None
+        self._reset_waveform_cache()
 
         self.update()
 
@@ -304,43 +326,7 @@ class WaveformWidget(QWidget):
         spp = visible_samples / width_pixels
         return max(1e-6, spp)
 
-    def _compute_envelope(self, start: int, end: int, w: int):
-        """Compute (mins, maxs) arrays of length `w` summarizing samples[start:end+1].
-        Results are cached keyed by (start, end, w, zoom_factor) to avoid repeated heavy reductions."""
-        key = (start, end, w, self.zoom_factor)
-        if self._last_render_params == key and self._last_render_envelope is not None:
-            return self._last_render_envelope
-
-        window = self.samples[start:end+1]
-        L = len(window)
-        if L == 0:
-            mins = np.zeros(w, dtype=np.float32)
-            maxs = np.zeros(w, dtype=np.float32)
-        elif L < w:
-            indices = np.linspace(0, L - 1, num=w)
-            interp = np.interp(indices, np.arange(L), window)
-            mins = interp.astype(np.float32)
-            maxs = interp.astype(np.float32)
-        else:
-            # bin edges (fast and stable)
-            edges = np.linspace(0, L, num=w+1, dtype=int)
-            mins = np.empty(w, dtype=np.float32)
-            maxs = np.empty(w, dtype=np.float32)
-            for i in range(w):
-                s = edges[i]
-                e = edges[i+1]
-                if e <= s:
-                    v = float(window[min(s, L-1)])
-                    mins[i] = v
-                    maxs[i] = v
-                else:
-                    block = window[s:e]
-                    mins[i] = float(np.min(block))
-                    maxs[i] = float(np.max(block))
-
-        self._last_render_params = key
-        self._last_render_envelope = (mins, maxs)
-        return mins, maxs
+    # Waveform envelope computation moved to WaveformTrack
 
     # ==============================================================
     # SCROLL (Mouse + Keyboard)
@@ -685,20 +671,20 @@ class WaveformWidget(QWidget):
             if end <= start:
                 return
 
-        window = self.samples[start:end+1]
-
-        pen = QPen(QColor(0, 200, 255), 1)
-        painter.setPen(pen)
-
         # ----------------------------------------------------------
-        # DIBUJAR ONDA
+        # DIBUJAR ONDA (delegado a WaveformTrack)
         # ----------------------------------------------------------
-        # Use a cached, downsampled envelope (mins/maxs per pixel bucket) for performance
-        mins, maxs = self._compute_envelope(start, end, w)
-        for x in range(w):
-            y1 = int(mins[x] * (h/2 - 2))
-            y2 = int(maxs[x] * (h/2 - 2))
-            painter.drawLine(x, mid - y2, x, mid - y1)
+        from audio.tracks.waveform_track import WaveformTrack
+        from audio.tracks.beat_track import ViewContext
+
+        ctx = ViewContext(start_sample=start, end_sample=end, total_samples=total_samples, sample_rate=self.sr, width=w, height=h, timeline_model=self.timeline)
+        if getattr(self, '_waveform_track', None) is None:
+            self._waveform_track = WaveformTrack()
+        try:
+            self._waveform_track.paint(painter, ctx, self.samples)
+        except Exception:
+            # Keep painting robust: if the track fails, don't break waveform
+            pass
 
         # ----------------------------------------------------------
         # DIBUJAR CHORDS (rectángulos y texto en la parte superior)

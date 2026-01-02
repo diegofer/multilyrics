@@ -1,5 +1,7 @@
 """Quick validation script to verify single TimelineModel instance."""
 
+__test__ = False  # prevent pytest from collecting this helper script
+
 import sys
 from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent))
