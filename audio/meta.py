@@ -17,6 +17,7 @@ class MetaJson:
             "year": "",
             "key": "",
             "tempo": 0.0,
+            "duration": 0.0,
             "compass": "?/?",
             "tracks": {},
             "chords": [],
