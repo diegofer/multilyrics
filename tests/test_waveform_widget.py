@@ -26,9 +26,6 @@ def make_widget_with_samples(length=1000, sr=44100):
     w.sr = sr
     w.total_samples = len(w.samples)
     w.duration_seconds = w.total_samples / float(w.sr)
-    # Ensure cache cleared
-    w._last_render_params = None
-    w._last_render_envelope = None
     return w
 
 
@@ -51,28 +48,33 @@ def test_clamp_zoom_for_width_limits(qapp):
 def test_zoom_invalidation_and_load_clears_cache(qapp):
     w = make_widget_with_samples(length=10000)
 
+    # ensure track exists
+    from audio.tracks.waveform_track import WaveformTrack
+    if getattr(w, '_waveform_track', None) is None:
+        w._waveform_track = WaveformTrack()
+
     # create fake cache
-    w._last_render_params = (0, 100, 200, w.zoom_factor)
-    w._last_render_envelope = (np.ones(200), np.ones(200))
+    w._waveform_track._last_params = (0, 100, 200, w.zoom_factor)
+    w._waveform_track._last_envelope = (np.ones(200), np.ones(200))
 
     # set_zoom should invalidate cache
     w.set_zoom(2.0)
-    assert w._last_render_params is None
-    assert w._last_render_envelope is None
+    assert w._waveform_track._last_params is None
+    assert w._waveform_track._last_envelope is None
 
     # set cache again and call zoom_by
-    w._last_render_params = (0, 100, 200, w.zoom_factor)
-    w._last_render_envelope = (np.ones(200), np.ones(200))
+    w._waveform_track._last_params = (0, 100, 200, w.zoom_factor)
+    w._waveform_track._last_envelope = (np.ones(200), np.ones(200))
     w.zoom_by(1.5)
-    assert w._last_render_params is None
-    assert w._last_render_envelope is None
+    assert w._waveform_track._last_params is None
+    assert w._waveform_track._last_envelope is None
 
     # load_audio(None) triggers empty state and also clears cache
-    w._last_render_params = (1,)
-    w._last_render_envelope = (np.array([1.0]), np.array([1.0]))
+    w._waveform_track._last_params = (1,)
+    w._waveform_track._last_envelope = (np.array([1.0]), np.array([1.0]))
     w.load_audio(None)
-    assert w._last_render_params is None
-    assert w._last_render_envelope is None
+    assert w._waveform_track._last_params is None
+    assert w._waveform_track._last_envelope is None
 
 
 def test_compute_envelope_matches_direct_reduction_for_large_window(qapp):
@@ -87,7 +89,10 @@ def test_compute_envelope_matches_direct_reduction_for_large_window(qapp):
     end = len(samples) - 1
     pixel_width = 10
 
-    mins, maxs = w._compute_envelope(start, end, pixel_width)
+    from audio.tracks.waveform_track import WaveformTrack
+    if getattr(w, '_waveform_track', None) is None:
+        w._waveform_track = WaveformTrack()
+    mins, maxs = w._waveform_track._compute_envelope(w.samples, start, end, pixel_width, w.zoom_factor)
 
     # Compute expected by manual binning
     L = len(samples)
@@ -116,7 +121,10 @@ def test_compute_envelope_interpolation_when_L_lt_w(qapp):
     end = len(samples) - 1
     pixel_width = 10  # w > L
 
-    mins, maxs = w._compute_envelope(start, end, pixel_width)
+    from audio.tracks.waveform_track import WaveformTrack
+    if getattr(w, '_waveform_track', None) is None:
+        w._waveform_track = WaveformTrack()
+    mins, maxs = w._waveform_track._compute_envelope(w.samples, start, end, pixel_width, w.zoom_factor)
 
     # Expected interpolation equals numpy.interp used in implementation
     indices = np.linspace(0, len(samples) - 1, num=pixel_width)
@@ -131,7 +139,10 @@ def test_compute_envelope_empty_returns_zeros(qapp):
     w.samples = np.array([], dtype=np.float32)
     w.total_samples = 0
 
-    mins, maxs = w._compute_envelope(0, 0, 50)
+    from audio.tracks.waveform_track import WaveformTrack
+    if getattr(w, '_waveform_track', None) is None:
+        w._waveform_track = WaveformTrack()
+    mins, maxs = w._waveform_track._compute_envelope(w.samples, 0, 0, 50, w.zoom_factor)
     assert mins.shape == (50,)
     assert maxs.shape == (50,)
     assert np.all(mins == 0)
@@ -144,16 +155,18 @@ def test_compute_envelope_cache_hits(qapp):
     w.samples = samples
     w.total_samples = len(samples)
 
-    key = (0, len(samples)-1, 100, w.zoom_factor)
+    from audio.tracks.waveform_track import WaveformTrack
+    if getattr(w, '_waveform_track', None) is None:
+        w._waveform_track = WaveformTrack()
 
-    a1, b1 = w._compute_envelope(0, len(samples)-1, 100)
+    a1, b1 = w._waveform_track._compute_envelope(w.samples, 0, len(samples)-1, 100, w.zoom_factor)
     # After call, cache should be populated
-    assert w._last_render_params is not None
-    assert w._last_render_envelope is not None
+    assert w._waveform_track._last_params is not None
+    assert w._waveform_track._last_envelope is not None
 
-    a2, b2 = w._compute_envelope(0, len(samples)-1, 100)
+    a2, b2 = w._waveform_track._compute_envelope(w.samples, 0, len(samples)-1, 100, w.zoom_factor)
     # second call should hit cache and return same values
     assert np.array_equal(a1, a2)
     assert np.array_equal(b1, b2)
-    assert w._last_render_params == (0, len(samples)-1, 100, w.zoom_factor)
+    assert w._waveform_track._last_params == (0, len(samples)-1, 100, w.zoom_factor)
 

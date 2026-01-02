@@ -67,10 +67,8 @@ class WaveformWidget(QWidget):
         self.setMinimumHeight(120)
         self.setFocusPolicy(Qt.StrongFocus)
 
-        # Render cache handled by WaveformTrack; keep legacy mirrors for tests.
+        # Render cache handled by WaveformTrack; widget remains stateless.
         self._waveform_track = None
-        self._last_render_params = None
-        self._last_render_envelope = None
 
         # Cargar audio si se proporciona una ruta
         if audio_path:
@@ -99,31 +97,11 @@ class WaveformWidget(QWidget):
 
     def _reset_waveform_cache(self):
         """Clear cached waveform envelope/rendering in the track (if any)."""
-        self._last_render_params = None
-        self._last_render_envelope = None
         if getattr(self, '_waveform_track', None) is not None:
             try:
                 self._waveform_track.reset_cache()
             except Exception:
                 pass
-
-    def _compute_envelope(self, start: int, end: int, w: int):
-        """Legacy API retained for tests; delegates to WaveformTrack cache."""
-        from audio.tracks.waveform_track import WaveformTrack
-        if getattr(self, '_waveform_track', None) is None:
-            self._waveform_track = WaveformTrack()
-
-        # If legacy cache was manually set (in tests), sync it into the track.
-        if self._last_render_params is not None and self._last_render_envelope is not None:
-            self._waveform_track._last_params = self._last_render_params
-            self._waveform_track._last_envelope = self._last_render_envelope
-
-        mins, maxs = self._waveform_track._compute_envelope(self.samples, start, end, w, self.zoom_factor)
-
-        # Mirror back into legacy fields for compatibility with existing tests.
-        self._last_render_params = self._waveform_track._last_params
-        self._last_render_envelope = self._waveform_track._last_envelope
-        return mins, maxs
 
 
     def load_audio(self, audio_path):
