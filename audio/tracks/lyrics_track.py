@@ -45,6 +45,7 @@ class LyricsTrack:
         if ctx.timeline_model is None:
             return
         
+        painter.save()  # Save painter state
         try:
             # Convert visible range to seconds
             start_time_s = ctx.start_sample / float(ctx.sample_rate)
@@ -96,6 +97,8 @@ class LyricsTrack:
         except Exception:
             # Fail silently - don't crash the rendering pipeline
             pass
+        finally:
+            painter.restore()  # Always restore painter state
     
     def _draw_line(
         self,

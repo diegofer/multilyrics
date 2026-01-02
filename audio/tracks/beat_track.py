@@ -34,46 +34,50 @@ class BeatTrack:
         if ctx.end_sample <= ctx.start_sample:
             return
 
-        w = max(1, ctx.width)
-        h = max(2, ctx.height)
+        painter.save()  # Save painter state
+        try:
+            w = max(1, ctx.width)
+            h = max(2, ctx.height)
 
-        # Pens match previous WaveformWidget styling
-        beat_pen = QPen(QColor(0, 150, 255, 150))  # cyan, semi-transparent
-        beat_pen.setWidth(1)
-        down_pen = QPen(QColor(255, 200, 0, 120))  # yellow/orange, less opaque
-        down_pen.setWidth(1)
+            # Pens match previous WaveformWidget styling
+            beat_pen = QPen(QColor(0, 150, 255, 150))  # cyan, semi-transparent
+            beat_pen.setWidth(1)
+            down_pen = QPen(QColor(255, 200, 0, 120))  # yellow/orange, less opaque
+            down_pen.setWidth(1)
 
-        beats_samples = []
-        downbeat_samples = []
+            beats_samples = []
+            downbeat_samples = []
 
-        # Query TimelineModel (if any) for beats and downbeats in the visible time window
-        if ctx.timeline_model is not None:
-            try:
-                start_s = ctx.start_sample / float(ctx.sample_rate)
-                end_s = ctx.end_sample / float(ctx.sample_rate)
+            # Query TimelineModel (if any) for beats and downbeats in the visible time window
+            if ctx.timeline_model is not None:
+                try:
+                    start_s = ctx.start_sample / float(ctx.sample_rate)
+                    end_s = ctx.end_sample / float(ctx.sample_rate)
 
-                beats_seconds = ctx.timeline_model.beats_in_range(start_s, end_s)
-                beats_samples = [int(max(0, min(int(b * ctx.sample_rate), ctx.total_samples - 1))) for b in beats_seconds]
+                    beats_seconds = ctx.timeline_model.beats_in_range(start_s, end_s)
+                    beats_samples = [int(max(0, min(int(b * ctx.sample_rate), ctx.total_samples - 1))) for b in beats_seconds]
 
-                if hasattr(ctx.timeline_model, 'downbeats_in_range'):
-                    downbeats = ctx.timeline_model.downbeats_in_range(start_s, end_s)
-                    downbeat_samples = [int(max(0, min(int(d * ctx.sample_rate), ctx.total_samples - 1))) for d in downbeats]
-            except Exception:
-                beats_samples = []
-                downbeat_samples = []
+                    if hasattr(ctx.timeline_model, 'downbeats_in_range'):
+                        downbeats = ctx.timeline_model.downbeats_in_range(start_s, end_s)
+                        downbeat_samples = [int(max(0, min(int(d * ctx.sample_rate), ctx.total_samples - 1))) for d in downbeats]
+                except Exception:
+                    beats_samples = []
+                    downbeat_samples = []
 
-        # Draw beats (thin, subtle)
-        painter.setPen(beat_pen)
-        for b in beats_samples:
-            if ctx.start_sample <= b <= ctx.end_sample:
-                rel_b = (b - ctx.start_sample) / (ctx.end_sample - ctx.start_sample)
-                x_b = int(rel_b * w)
-                painter.drawLine(x_b, 0, x_b, h)
+            # Draw beats (thin, subtle)
+            painter.setPen(beat_pen)
+            for b in beats_samples:
+                if ctx.start_sample <= b <= ctx.end_sample:
+                    rel_b = (b - ctx.start_sample) / (ctx.end_sample - ctx.start_sample)
+                    x_b = int(rel_b * w)
+                    painter.drawLine(x_b, 0, x_b, h)
 
-        # Draw downbeats on top (also thin and translucent)
-        painter.setPen(down_pen)
-        for d in downbeat_samples:
-            if ctx.start_sample <= d <= ctx.end_sample:
-                rel_d = (d - ctx.start_sample) / (ctx.end_sample - ctx.start_sample)
-                x_d = int(rel_d * w)
-                painter.drawLine(x_d, 0, x_d, h)
+            # Draw downbeats on top (also thin and translucent)
+            painter.setPen(down_pen)
+            for d in downbeat_samples:
+                if ctx.start_sample <= d <= ctx.end_sample:
+                    rel_d = (d - ctx.start_sample) / (ctx.end_sample - ctx.start_sample)
+                    x_d = int(rel_d * w)
+                    painter.drawLine(x_d, 0, x_d, h)
+        finally:
+            painter.restore()  # Always restore painter state

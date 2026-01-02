@@ -5,6 +5,7 @@ A UI-independent model that centralizes timeline-related logic for the applicati
 Responsibilities:
 - Maintain timeline state: sample rate, duration (seconds), canonical playhead time
 - Store simple timeline metadata: beats (seconds), downbeats (seconds), chords (start,end,name)
+- Store lyrics model for time-synced lyrics
 - Provide conversions seconds <-> samples
 - Provide query helpers for beats/chords within an arbitrary time range
 
@@ -17,7 +18,10 @@ This module is intentionally minimal for the first refactor step; advanced helpe
 (e.g., snapping, next/prev beat, lyric events, observer hooks, thread-safety) are
 left as TODO items to be implemented later.
 """
-from typing import List, Tuple, Optional, Callable
+from typing import List, Tuple, Optional, Callable, TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from audio.lyrics.model import LyricsModel
 
 # Type alias for chords stored as plain tuples (start_seconds, end_seconds, name)
 Chord = Tuple[float, float, str]
@@ -45,6 +49,9 @@ class TimelineModel:
         self._beats: List[float] = []
         self._downbeats: List[float] = []
         self._chords: List[Chord] = []
+        
+        # Lyrics model (optional, set via set_lyrics_model)
+        self.lyrics_model: Optional['LyricsModel'] = None
 
         # Observers for playhead changes (callable: new_time_seconds -> None)
         # This is a simple synchronous callback list; callers are responsible for
@@ -224,6 +231,14 @@ class TimelineModel:
             except Exception:
                 continue
         self._chords = out
+
+    def set_lyrics_model(self, lyrics_model: Optional['LyricsModel']) -> None:
+        """Set the lyrics model for this timeline.
+        
+        Args:
+            lyrics_model: LyricsModel instance or None to clear
+        """
+        self.lyrics_model = lyrics_model
 
     # ---------------------- Query helpers ----------------------
     def beats_in_range(self, start_s: float, end_s: float) -> List[float]:

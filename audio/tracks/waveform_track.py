@@ -55,15 +55,20 @@ class WaveformTrack:
 
     def paint(self, painter: QPainter, ctx: ViewContext, samples: np.ndarray) -> None:
         """Draw waveform envelope for the current viewport."""
-        w = max(1, ctx.width)
-        h = max(2, ctx.height)
-        mid = h // 2
+        painter.save()  # Save painter state
+        try:
+            w = max(1, ctx.width)
+            h = max(2, ctx.height)
+            mid = h // 2
 
-        pen = QPen(QColor(0, 200, 255), 1)
-        painter.setPen(pen)
+            pen = QPen(QColor(0, 200, 255), 1)
+            painter.setPen(pen)
 
-        mins, maxs = self._compute_envelope(samples, ctx.start_sample, ctx.end_sample, w, None)
-        for x in range(w):
-            y1 = int(mins[x] * (h / 2 - 2))
-            y2 = int(maxs[x] * (h / 2 - 2))
-            painter.drawLine(x, mid - y2, x, mid - y1)
+            mins, maxs = self._compute_envelope(samples, ctx.start_sample, ctx.end_sample, w, None)
+            for x in range(w):
+                y1 = int(mins[x] * (h / 2 - 2))
+                y2 = int(maxs[x] * (h / 2 - 2))
+                painter.drawLine(x, mid - y2, x, mid - y1)
+        finally:
+            painter.restore()  # Always restore painter state        finally:
+            painter.restore()  # Always restore painter state

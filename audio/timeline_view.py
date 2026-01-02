@@ -688,7 +688,7 @@ class TimelineView(QWidget):
                 pass
 
         # ----------------------------------------------------------
-        # DIBUJAR CHORDS (rectángulos y texto en la parte superior)
+        # DIBUJAR CHORDS (rectángulos y texto en la parte inferior, justo encima de lyrics)
         # ----------------------------------------------------------
         # Delegate chord rendering to ChordTrack for separation of concerns
         if start < end:
@@ -716,6 +716,29 @@ class TimelineView(QWidget):
         except Exception:
             # Keep painting robust: if the track fails, don't break waveform
             pass
+         # ----------------------------------------------------------
+        # DIBUJAR LYRICS (Debajo de chords)
+        # ----------------------------------------------------------
+        if start < end:
+            from audio.tracks.lyrics_track import LyricsTrack
+            from audio.tracks.beat_track import ViewContext
+            from audio.lyrics.model import LyricsModel
+
+            ctx = ViewContext(start_sample=start, end_sample=end, total_samples=total_samples, sample_rate=self.sr, width=w, height=h, timeline_model=self.timeline)
+            
+            # Get lyrics model from timeline if available, otherwise use empty model
+            lyrics_model = getattr(self.timeline, 'lyrics_model', None) if self.timeline else None
+            if lyrics_model is None:
+                lyrics_model = LyricsModel()  # Empty model
+            
+            if getattr(self, '_lyrics_track', None) is None:
+                self._lyrics_track = LyricsTrack(lyrics_model)
+            
+            try:
+                self._lyrics_track.paint(painter, ctx)
+            except Exception:
+                # Keep painting robust: if the track fails, don't break waveform
+                pass
 
         # ----------------------------------------------------------
         # DIBUJAR TIEMPO TOTAL (Opcional, pero útil)
