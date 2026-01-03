@@ -22,6 +22,7 @@ from video.video import VideoLyrics
 from core.sync import SyncController
 from core.playback_manager import PlaybackManager
 from core.timeline_model import TimelineModel
+from audio.lyrics.loader import LyricsLoader
 
 class MainWindow(QMainWindow):
     def __init__(self):
@@ -68,6 +69,7 @@ class MainWindow(QMainWindow):
         # Create single canonical TimelineModel instance shared across all components
         self.timeline_model = TimelineModel()
         self.playback = PlaybackManager(self.sync, timeline=self.timeline_model)
+        self.lyrics_loader = LyricsLoader()
         
         # Asignar SyncController a VideoLyrics para que reporte posición
         self.video_player.sync_controller = self.sync
@@ -231,11 +233,15 @@ class MainWindow(QMainWindow):
             track_widget.solo_toggled.connect(lambda checked, index=i: self.set_solo(index, checked))
             self.ui.tracksLayout.addWidget(track_widget)
         
-        # Actualizar Waveform
+        # Actualizar Waveform TimelineModel
         if master_path.exists():
             # Reuse existing timeline instance, just update its metadata
             self.timeline_view.load_audio_from_master(master_path)
             self.timeline_view.load_metadata(meta_data)
+
+            # Actualizar LyricsModel
+            lyrics_model = self.lyrics_loader.load(song_path, meta_data)
+            self.timeline_model.set_lyrics_model(lyrics_model)
         
         # Actualizar Video Player
         self.video_player.set_media(video_path)

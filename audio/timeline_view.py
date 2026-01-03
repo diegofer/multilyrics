@@ -411,7 +411,7 @@ class TimelineView(QWidget):
         for rendering. If a previous timeline was attached, its observer is
         unsubscribed first.
         """
-        print("WF timeline id:", id(timeline))
+        print("[TimelineView:set_timeline] timeline id:", id(timeline))
         # Unsubscribe previous observer if present
         if getattr(self, '_timeline_unsubscribe', None):
             try:
@@ -422,7 +422,7 @@ class TimelineView(QWidget):
 
         self.timeline = timeline
         if timeline is not None:
-            print(f"[WaveformWidget] Attached timeline: {id(timeline)}")
+            print(f"[TimelineView:set_timeline] Attached timeline: {id(timeline)}")
             # Register observer and initialize widget position from timeline
             try:
                 self._timeline_unsubscribe = timeline.on_playhead_changed(self._on_timeline_playhead_changed)
@@ -704,7 +704,9 @@ class TimelineView(QWidget):
                 # Keep painting robust: if the track fails, don't break waveform
                 pass        
         
-        # Delegate playhead rendering to PlayheadTrack
+        # ----------------------------------------------------------
+        # DIBUJAR PLAYHEAD (línea vertical roja)
+        # ----------------------------------------------------------
         from audio.tracks.playhead_track import PlayheadTrack
         from audio.tracks.beat_track import ViewContext
 
@@ -716,7 +718,8 @@ class TimelineView(QWidget):
         except Exception:
             # Keep painting robust: if the track fails, don't break waveform
             pass
-         # ----------------------------------------------------------
+        
+        # ----------------------------------------------------------
         # DIBUJAR LYRICS (Debajo de chords)
         # ----------------------------------------------------------
         if start < end:
@@ -726,13 +729,10 @@ class TimelineView(QWidget):
 
             ctx = ViewContext(start_sample=start, end_sample=end, total_samples=total_samples, sample_rate=self.sr, width=w, height=h, timeline_model=self.timeline)
             
-            # Get lyrics model from timeline if available, otherwise use empty model
-            lyrics_model = getattr(self.timeline, 'lyrics_model', None) if self.timeline else None
-            if lyrics_model is None:
-                lyrics_model = LyricsModel()  # Empty model
-            
             if getattr(self, '_lyrics_track', None) is None:
-                self._lyrics_track = LyricsTrack(lyrics_model)
+                self._lyrics_track = LyricsTrack()
+                # Connect to the global lyrics model (singleton)
+                #self._lyrics_track.set_lyrics_model(LyricsModel.get_instance())
             
             try:
                 self._lyrics_track.paint(painter, ctx)

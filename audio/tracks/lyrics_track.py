@@ -20,13 +20,8 @@ class LyricsTrack:
     next lines shown above and below for context.
     """
     
-    def __init__(self, lyrics_model: LyricsModel):
-        """Initialize the lyrics track.
-        
-        Args:
-            lyrics_model: Model containing the timed lyric lines
-        """
-        self._lyrics_model = lyrics_model
+    def __init__(self):
+        pass
     
     def paint(self, painter: QPainter, ctx: ViewContext) -> None:
         """Paint the lyrics track.
@@ -35,11 +30,18 @@ class LyricsTrack:
             painter: QPainter to draw with
             ctx: ViewContext containing visible range and timeline info
         """
+        
+        timeline = ctx.timeline_model
+        
         # Defensive checks
         if ctx.end_sample <= ctx.start_sample:
             return
         
-        if not self._lyrics_model or len(self._lyrics_model) == 0:
+        if timeline is None:
+            return
+        
+        lyrics_model = getattr(timeline, 'lyrics_model', None)
+        if not lyrics_model or len(lyrics_model) == 0:
             return
         
         if ctx.timeline_model is None:
@@ -56,47 +58,30 @@ class LyricsTrack:
                 return
             
             # Get current playhead time
-            playhead_time_s = ctx.timeline_model.playhead_time()
+            playhead_time_s = ctx.timeline_model.get_playhead_time()
             
-            # Get active, previous, and next lines
-            active_line = self._lyrics_model.get_active_line(playhead_time_s)
-            previous_line = self._lyrics_model.get_previous_line(playhead_time_s)
-            next_line = self._lyrics_model.get_next_line(playhead_time_s)
+            # Get the active line for highlighting
+            active_line = lyrics_model.get_active_line(playhead_time_s)
             
-            # Vertical layout configuration
-            center_y = ctx.height // 2
-            line_spacing = ctx.height // 6
+            # Draw ALL lyric lines that are in the visible time range
+            # Similar to how ChordTrack draws all chords in range
+            for line in lyrics_model.lines:
+                # Check if this line's time is in the visible range
+                if start_time_s <= line.time_s <= end_time_s:
+                    # Determine if this is the active line
+                    is_active = (active_line is not None and 
+                                line.time_s == active_line.time_s and 
+                                line.text == active_line.text)
+                    
+                    self._draw_line(
+                        painter, line, ctx,
+                        start_time_s, time_range_s,
+                        is_active
+                    )
             
-            # Draw previous line (above center)
-            if previous_line:
-                self._draw_line(
-                    painter, previous_line, ctx,
-                    start_time_s, time_range_s,
-                    center_y - line_spacing,
-                    is_active=False
-                )
-            
-            # Draw active line (at center)
-            if active_line:
-                self._draw_line(
-                    painter, active_line, ctx,
-                    start_time_s, time_range_s,
-                    center_y,
-                    is_active=True
-                )
-            
-            # Draw next line (below center)
-            if next_line:
-                self._draw_line(
-                    painter, next_line, ctx,
-                    start_time_s, time_range_s,
-                    center_y + line_spacing,
-                    is_active=False
-                )
-            
-        except Exception:
-            # Fail silently - don't crash the rendering pipeline
-            pass
+        except Exception as e:
+            # For debugging - print the error but don't crash
+            print(f"[LyricsTrack] Error in paint: {e}")
         finally:
             painter.restore()  # Always restore painter state
     
@@ -107,7 +92,6 @@ class LyricsTrack:
         ctx: ViewContext,
         start_time_s: float,
         time_range_s: float,
-        y_position: int,
         is_active: bool
     ) -> None:
         """Draw a single lyric line.
@@ -118,50 +102,52 @@ class LyricsTrack:
             ctx: ViewContext for dimensions
             start_time_s: Start time of visible range in seconds
             time_range_s: Duration of visible range in seconds
-            y_position: Vertical position to draw at
             is_active: Whether this is the active line
         """
-        # Calculate horizontal position based on time
+        # Calculate horizontal position based on time (like ChordTrack does)
         rel_time = (line.time_s - start_time_s) / time_range_s
         
-        # Skip if outside visible range (with small margin for clipping)
-        if rel_time < -0.1 or rel_time > 1.1:
+        # Skip if outside visible range
+        if rel_time < 0 or rel_time > 1.0:
             return
         
         x_position = int(rel_time * ctx.width)
         
         # Clamp to visible area
-        x_position = max(0, min(x_position, ctx.width))
+        x_position = max(0, min(x_position, ctx.width - 1))
         
         # Configure styling based on active state
         if is_active:
             # Active line: white, larger, full opacity
-            font = QFont("Arial", 12, QFont.Bold)
+            font = QFont("Arial", 14, QFont.Bold)
             color = QColor(255, 255, 255, 255)
         else:
             # Inactive line: light gray, smaller, reduced opacity
-            font = QFont("Arial", 10, QFont.Normal)
-            color = QColor(180, 180, 180, 160)
+            font = QFont("Arial", 11, QFont.Normal)
+            color = QColor(180, 180, 180, 200)
         
         painter.setFont(font)
         painter.setPen(QPen(color))
         
-        # Draw text centered at the x position
+        # Draw text
         text = line.text
         if not text:
             return
         
-        # Get text metrics for centering
+        # Position text at the bottom of the track (above chords which are at h - box_h - 2)
+        # Let's put lyrics higher up in the track
+        y_position = ctx.height - 30  # 30 pixels from bottom
+        
+        # Get text metrics for positioning
         fm = painter.fontMetrics()
         text_width = fm.horizontalAdvance(text)
-        text_height = fm.height()
         
-        # Center text horizontally around the x position
-        text_x = x_position - text_width // 2
-        text_y = y_position + text_height // 4  # Adjust for baseline
+        # Draw text left-aligned at the x position (like timestamps)
+        text_x = x_position + 5  # Small offset to the right
         
         # Ensure text doesn't go off screen
-        text_x = max(0, min(text_x, ctx.width - text_width))
+        if text_x + text_width > ctx.width:
+            text_x = max(0, ctx.width - text_width - 5)
         
         # Draw the text
-        painter.drawText(text_x, text_y, text)
+        painter.drawText(text_x, y_position, text)
