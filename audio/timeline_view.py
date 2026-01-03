@@ -422,7 +422,6 @@ class TimelineView(QWidget):
 
         self.timeline = timeline
         if timeline is not None:
-            print(f"[TimelineView:set_timeline] Attached timeline: {id(timeline)}")
             # Register observer and initialize widget position from timeline
             try:
                 self._timeline_unsubscribe = timeline.on_playhead_changed(self._on_timeline_playhead_changed)
@@ -459,7 +458,6 @@ class TimelineView(QWidget):
         TimelineModel to avoid feedback loops; the TimelineModel is the
         single source of truth for canonical time.
         """
-        print(f"[WaveformWidget] Playhead changed: {new_time:.3f}s (timeline id: {id(self.timeline)})")
         try:
             # Use existing conversion and clamping logic
             self.set_position_seconds(float(new_time))
@@ -508,17 +506,15 @@ class TimelineView(QWidget):
     def _ensure_playhead_visible(self, margin_px: int = None):
         """Ensure the playhead is inside the visible area with optional pixel margins.
 
-        Behavior: The playhead is allowed to move inside the visible window. When it
-        reaches within `margin_px` of the left or right edge, the waveform recenters
-        so the playhead remains visible (mimics Audacity-like behavior).
+        Behavior: The playhead advances to the center of the screen, then the view
+        scrolls automatically to keep it centered. This allows better visibility of
+        upcoming lyrics and content.
         """
         if self.total_samples == 0:
             return
 
         w = max(1, self.width())
-        if margin_px is None:
-            margin_px = max(20, int(w * 0.1))
-
+        
         spp = self._samples_per_pixel(self.zoom_factor, w)
         half_visible = (w * spp) / 2.0
         start = int(np.clip(self.center_sample - half_visible, 0, self.total_samples - 1))
@@ -531,13 +527,14 @@ class TimelineView(QWidget):
         rel = (self.playhead_sample - start) / (end - start)
         x_pos = int(rel * w)
 
-        left_margin = margin_px
-        right_margin = w - margin_px
-
-        if x_pos < left_margin or x_pos > right_margin:
-            # move center so playhead sits at the nearest margin (clamped)
-            target_x = max(left_margin, min(x_pos, right_margin))
-            new_center = int(self.playhead_sample + (w / 2 - target_x) * spp)
+        # Target position: center of the screen (50% of width)
+        center_x = w // 2
+        
+        # Allow playhead to move freely until it reaches the center
+        # Once at center or beyond, auto-scroll to keep it centered
+        if x_pos >= center_x:
+            # Auto-scroll: move the view to keep playhead at center
+            new_center = self.playhead_sample
             self.center_sample = int(np.clip(new_center, 0, self.total_samples - 1))
             # Do not call update() here (caller will update)
 

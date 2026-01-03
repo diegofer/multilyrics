@@ -138,7 +138,7 @@ class PlaybackManager(QObject):
         owner of the playhead time. Also keep emitting the existing
         ``positionChanged`` signal so current UI code continues to work.
         """
-        print(f"[PlaybackManager] _on_audio_time: {t:.3f}s (timeline id: {id(self.timeline) if self.timeline else 'None'})")
+        #print(f"[PlaybackManager] _on_audio_time: {t:.3f}s (timeline id: {id(self.timeline) if self.timeline else 'None'})")
         if self.timeline is not None:
             try:
                 self.timeline.set_playhead_time(float(t))

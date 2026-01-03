@@ -133,7 +133,7 @@ class TimelineModel:
         if seconds > self._duration_seconds:
             seconds = self._duration_seconds
         new_time = float(seconds)
-        print(f"[TimelineModel] set_playhead_time: {new_time:.3f}s (id: {id(self)})")
+        #print(f"[TimelineModel] set_playhead_time: {new_time:.3f}s (id: {id(self)})")
         # Notify only if the value actually changed
         if new_time == self._playhead_time:
             return
