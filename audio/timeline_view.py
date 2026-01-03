@@ -9,6 +9,12 @@ from typing import Optional
 
 from core.utils import format_time, get_logarithmic_volume
 from core.timeline_model import TimelineModel
+from audio.tracks.beat_track import ViewContext, BeatTrack
+from audio.tracks.chord_track import ChordTrack
+from audio.tracks.playhead_track import PlayheadTrack
+from audio.tracks.waveform_track import WaveformTrack
+from audio.tracks.lyrics_track import LyricsTrack
+from audio.lyrics.model import LyricsModel
 
 # Performance & zoom/downsampling settings
 MIN_SAMPLES_PER_PIXEL = 10   # Do not allow fewer than 10 samples per pixel (visual limit)
@@ -50,15 +56,12 @@ class TimelineView(QWidget):
         if timeline is not None:
             self.set_timeline(timeline)
 
-        # NOTE: Beats, downbeats and chords are intended to be owned by
-        # TimelineModel; however, to preserve backward compatibility we keep a
-        # lightweight cache of the most recently loaded metadata so it can be
-        # forwarded to a timeline if the timeline is attached later. This
-        # avoids cases where metadata is loaded before the UI constructs or
-        # attaches the TimelineModel and would otherwise be lost.
-        self._cached_beats_seconds = []
-        self._cached_downbeat_flags = []
-        self._cached_chords = []
+        # Initialize all tracks once at construction
+        self._waveform_track = WaveformTrack()
+        self._beat_track = BeatTrack()
+        self._chord_track = ChordTrack()
+        self._playhead_track = PlayheadTrack()
+        self._lyrics_track = None  # Will be initialized when lyrics are loaded
         
         # --- Interaction ---
         self._dragging = False
@@ -66,9 +69,6 @@ class TimelineView(QWidget):
 
         self.setMinimumHeight(120)
         self.setFocusPolicy(Qt.StrongFocus)
-
-        # Render cache handled by WaveformTrack; widget remains stateless.
-        self._waveform_track = None
 
         # Cargar audio si se proporciona una ruta
         if audio_path:
@@ -88,10 +88,6 @@ class TimelineView(QWidget):
         self.zoom_factor = 1.0
         self.center_sample = 0
         self.playhead_sample = 0
-        # Clear metadata caches
-        self._cached_beats_seconds = []
-        self._cached_downbeat_flags = []
-        self._cached_chords = []
         self._reset_waveform_cache()
         self.update()
 
@@ -191,22 +187,16 @@ class TimelineView(QWidget):
         return max(1.0, min(factor, max_allowed))
     
     def load_metadata(self, meta_data):
-        """Load metadata dictionary to extract beats/downbeats.
-
-        Instead of storing beats/chords locally, forward metadata to the
-        attached TimelineModel (if present). The TimelineModel is the
-        canonical place to keep musical timeline metadata.
-
-        If no timeline is attached, the widget will not store metadata and
-        will render as if no beats/chords are present (fallback behavior).
+        """Load metadata dictionary and forward to TimelineModel.
+        
+        Parses beats/chords from metadata and forwards directly to the timeline.
+        If no timeline is attached, metadata is discarded (fail-safe).
         """
-        if not meta_data:
-            # nothing to do
+        if not meta_data or self.timeline is None:
             self.update()
             return
-
-        # Parse metadata into canonical lists (always keep a lightweight cache
-        # so metadata isn't lost if the timeline isn't yet attached).
+        
+        # Parse beats
         beats_input = meta_data.get("beats", []) if isinstance(meta_data, dict) else []
         beats_seconds = []
         downbeat_flags = []
@@ -223,7 +213,8 @@ class TimelineView(QWidget):
                     downbeat_flags.append(0)
             except Exception:
                 continue
-
+        
+        # Parse chords
         chords_input = meta_data.get("chords", []) if isinstance(meta_data, dict) else []
         chords_parsed = []
         for item in chords_input:
@@ -237,30 +228,19 @@ class TimelineView(QWidget):
                     chords_parsed.append((s, e, name))
             except Exception:
                 continue
-
-        # Update cache (so metadata is available if a timeline is attached later)
-        self._cached_beats_seconds = beats_seconds
-        self._cached_downbeat_flags = downbeat_flags
-        self._cached_chords = chords_parsed
-
-        # If a timeline is attached, forward parsed metadata to it immediately.
-        if getattr(self, 'timeline', None) is not None:
-            try:
-                self.timeline.set_beats(beats_seconds, downbeat_flags)
-            except Exception:
-                pass
-            try:
-                self.timeline.set_chords(chords_parsed)
-            except Exception:
-                pass
-
-        # Fallback rendering behavior: if no timeline is attached, there will
-        # simply be no beats/chords to draw.
+        
+        # Forward to timeline immediately
+        try:
+            self.timeline.set_beats(beats_seconds, downbeat_flags)
+        except Exception:
+            pass
+        
+        try:
+            self.timeline.set_chords(chords_parsed)
+        except Exception:
+            pass
+        
         self.update()
-
-    # NOTE: Beat/chord sample caches were removed from the widget. Events are
-    # queried from TimelineModel at render time and converted to samples on the
-    # fly in paintEvent(). This avoids duplicating timeline data in the widget.
 
     def zoom_by(self, ratio: float, cursor_x: int = None):
         if self.total_samples == 0:
@@ -424,31 +404,33 @@ class TimelineView(QWidget):
         if timeline is not None:
             # Register observer and initialize widget position from timeline
             try:
-                self._timeline_unsubscribe = timeline.on_playhead_changed(self._on_timeline_playhead_changed)
+                self._timeline_unsubscribe = timeline.on_playhead_changed(
+                    self._on_timeline_playhead_changed
+                )
+                
+                # Initialize lyrics track if lyrics_model is available
+                if hasattr(timeline, 'lyrics_model') and timeline.lyrics_model is not None:
+                    self._lyrics_track = LyricsTrack()
+                
                 self.update()
                 # Initialize playhead to timeline's current value
                 self.set_position_seconds(timeline.get_playhead_time())
-                # Forward any cached metadata that was loaded before a timeline
-                # was attached. This preserves previous behavior where metadata
-                # loaded into the widget would be visible even if the timeline
-                # wasn't yet available.
-                if self._cached_beats_seconds:
-                    try:
-                        self.timeline.set_beats(self._cached_beats_seconds, self._cached_downbeat_flags)
-                    except Exception:
-                        pass
-                if self._cached_chords:
-                    try:
-                        self.timeline.set_chords(self._cached_chords)
-                    except Exception:
-                        pass
-                # Once forwarded, we can clear the cache (the timeline holds it)
-                self._cached_beats_seconds = []
-                self._cached_downbeat_flags = []
-                self._cached_chords = []            
             except Exception:
                 # If registration fails, ensure internal state remains consistent
                 self._timeline_unsubscribe = None
+
+    def reload_lyrics_track(self) -> None:
+        """Reinitialize lyrics track when lyrics_model is added to timeline.
+        
+        Call this after setting lyrics_model on the timeline to ensure
+        the view updates properly.
+        """
+        if self.timeline is not None:
+            if hasattr(self.timeline, 'lyrics_model') and self.timeline.lyrics_model is not None:
+                self._lyrics_track = LyricsTrack()
+                self.update()
+            else:
+                self._lyrics_track = None
 
     def _on_timeline_playhead_changed(self, new_time: float) -> None:
         """Callback invoked synchronously when the TimelineModel playhead changes.
@@ -647,95 +629,52 @@ class TimelineView(QWidget):
                 return
 
         # ----------------------------------------------------------
-        # DIBUJAR ONDA (delegado a WaveformTrack)
+        # Create ViewContext once for all tracks
         # ----------------------------------------------------------
-        from audio.tracks.waveform_track import WaveformTrack
-        from audio.tracks.beat_track import ViewContext
-
-        ctx = ViewContext(start_sample=start, end_sample=end, total_samples=total_samples, sample_rate=self.sr, width=w, height=h, timeline_model=self.timeline)
-        if getattr(self, '_waveform_track', None) is None:
-            self._waveform_track = WaveformTrack()
+        ctx = ViewContext(
+            start_sample=start,
+            end_sample=end,
+            total_samples=total_samples,
+            sample_rate=self.sr,
+            width=w,
+            height=h,
+            timeline_model=self.timeline
+        )
+        
+        # ----------------------------------------------------------
+        # Paint all tracks in order (bottom to top layering)
+        # ----------------------------------------------------------
+        
+        # 1. Waveform (base layer)
         try:
             self._waveform_track.paint(painter, ctx, self.samples)
         except Exception:
-            # Keep painting robust: if the track fails, don't break waveform
             pass
-
-
-        # ----------------------------------------------------------
-        # DIBUJAR BEATS / DOWNBEATS (líneas verticales)
-        # ----------------------------------------------------------
-        if start < end:
-            # Make lines thinner and slightly translucent to avoid visual saturation
-            beat_pen = QPen(QColor(0, 150, 255, 150))  # cyan, semi-transparent
-            beat_pen.setWidth(1)
-            down_pen = QPen(QColor(255, 200, 0, 120))  # yellow/orange, less opaque
-            down_pen.setWidth(2)
-
-                # Delegate beat rendering to BeatTrack for better separation of concerns
-            from audio.tracks.beat_track import ViewContext, BeatTrack
-
-            ctx = ViewContext(start_sample=start, end_sample=end, total_samples=total_samples, sample_rate=self.sr, width=w, height=h, timeline_model=self.timeline)
-            if getattr(self, '_beat_track', None) is None:
-                self._beat_track = BeatTrack()
-            try:
-                self._beat_track.paint(painter, ctx)
-            except Exception:
-                # Keep painting robust: if the track fails, don't break waveform
-                pass
-
-        # ----------------------------------------------------------
-        # DIBUJAR CHORDS (rectángulos y texto en la parte inferior, justo encima de lyrics)
-        # ----------------------------------------------------------
-        # Delegate chord rendering to ChordTrack for separation of concerns
-        if start < end:
-            from audio.tracks.chord_track import ChordTrack
-            from audio.tracks.beat_track import ViewContext
-
-            ctx = ViewContext(start_sample=start, end_sample=end, total_samples=total_samples, sample_rate=self.sr, width=w, height=h, timeline_model=self.timeline)
-            if getattr(self, '_chord_track', None) is None:
-                self._chord_track = ChordTrack()
-            try:
-                self._chord_track.paint(painter, ctx)
-            except Exception:
-                # Keep painting robust: if the track fails, don't break waveform
-                pass        
         
-        # ----------------------------------------------------------
-        # DIBUJAR PLAYHEAD (línea vertical roja)
-        # ----------------------------------------------------------
-        from audio.tracks.playhead_track import PlayheadTrack
-        from audio.tracks.beat_track import ViewContext
-
-        ctx = ViewContext(start_sample=start, end_sample=end, total_samples=total_samples, sample_rate=self.sr, width=w, height=h, timeline_model=self.timeline)
-        if getattr(self, '_playhead_track', None) is None:
-            self._playhead_track = PlayheadTrack()
+        # 2. Beats and downbeats
         try:
-            self._playhead_track.paint(painter, ctx)
+            self._beat_track.paint(painter, ctx)
         except Exception:
-            # Keep painting robust: if the track fails, don't break waveform
             pass
         
-        # ----------------------------------------------------------
-        # DIBUJAR LYRICS (Debajo de chords)
-        # ----------------------------------------------------------
-        if start < end:
-            from audio.tracks.lyrics_track import LyricsTrack
-            from audio.tracks.beat_track import ViewContext
-            from audio.lyrics.model import LyricsModel
-
-            ctx = ViewContext(start_sample=start, end_sample=end, total_samples=total_samples, sample_rate=self.sr, width=w, height=h, timeline_model=self.timeline)
-            
-            if getattr(self, '_lyrics_track', None) is None:
-                self._lyrics_track = LyricsTrack()
-                # Connect to the global lyrics model (singleton)
-                #self._lyrics_track.set_lyrics_model(LyricsModel.get_instance())
-            
+        # 3. Chords
+        try:
+            self._chord_track.paint(painter, ctx)
+        except Exception:
+            pass
+        
+        # 4. Lyrics
+        if self._lyrics_track is not None:
             try:
                 self._lyrics_track.paint(painter, ctx)
             except Exception:
-                # Keep painting robust: if the track fails, don't break waveform
                 pass
+        
+        # 5. Playhead (top layer)
+        try:
+            self._playhead_track.paint(painter, ctx)
+        except Exception:
+            pass
 
         # ----------------------------------------------------------
         # DIBUJAR TIEMPO TOTAL (Opcional, pero útil)

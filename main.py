@@ -242,6 +242,9 @@ class MainWindow(QMainWindow):
             # Actualizar LyricsModel
             lyrics_model = self.lyrics_loader.load(song_path, meta_data)
             self.timeline_model.set_lyrics_model(lyrics_model)
+            
+            # Notify timeline_view to initialize lyrics track
+            self.timeline_view.reload_lyrics_track()
         
         # Actualizar Video Player
         self.video_player.set_media(video_path)

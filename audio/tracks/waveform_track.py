@@ -70,5 +70,4 @@ class WaveformTrack:
                 y2 = int(maxs[x] * (h / 2 - 2))
                 painter.drawLine(x, mid - y2, x, mid - y1)
         finally:
-            painter.restore()  # Always restore painter state        finally:
             painter.restore()  # Always restore painter state
