@@ -21,7 +21,16 @@ class LyricsTrack:
     """
     
     def __init__(self):
-        pass
+        # Default colors and styling for lyrics rendering
+        self.active_color = QColor(255, 255, 255, 255)      # White, full opacity
+        self.active_font_size = 15
+        self.active_font_weight = QFont.Bold
+        
+        self.inactive_color = QColor(255, 255, 255, 255)    # White, full opacity
+        self.inactive_font_size = 13
+        self.inactive_font_weight = QFont.Normal
+        
+        self.y_offset = 30  # Pixels from bottom of track
     
     def paint(self, painter: QPainter, ctx: ViewContext) -> None:
         """Paint the lyrics track.
@@ -118,13 +127,13 @@ class LyricsTrack:
         
         # Configure styling based on active state
         if is_active:
-            # Active line: white, larger, full opacity
-            font = QFont("Arial", 14, QFont.Bold)
-            color = QColor(255, 255, 255, 255)
+            # Active line: use configured active styling
+            font = QFont("Arial", self.active_font_size, self.active_font_weight)
+            color = self.active_color
         else:
-            # Inactive line: light gray, smaller, reduced opacity
-            font = QFont("Arial", 11, QFont.Normal)
-            color = QColor(180, 180, 180, 200)
+            # Inactive line: use configured inactive styling
+            font = QFont("Arial", self.inactive_font_size, self.inactive_font_weight)
+            color = self.inactive_color
         
         painter.setFont(font)
         painter.setPen(QPen(color))
@@ -134,9 +143,8 @@ class LyricsTrack:
         if not text:
             return
         
-        # Position text at the bottom of the track (above chords which are at h - box_h - 2)
-        # Let's put lyrics higher up in the track
-        y_position = ctx.height - 30  # 30 pixels from bottom
+        # Position text using configured offset
+        y_position = ctx.height - self.y_offset
         
         # Get text metrics for positioning
         fm = painter.fontMetrics()
