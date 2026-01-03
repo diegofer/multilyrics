@@ -33,68 +33,69 @@ def playback(sync):
 def test_request_seek_calls_players_and_sync(playback):
     mock_audio = Mock()
     mock_video = Mock()
+    mock_timeline = Mock()
 
     playback.set_audio_player(mock_audio)
     playback.set_video_player(mock_video)
+    playback.set_timeline(mock_timeline)
 
-    # Spy positionChanged emit
-    emit_mock = Mock()
-    playback.positionChanged.connect(emit_mock)
+    # No longer testing positionChanged signal - it was removed
+    # Instead verify timeline model gets updated
 
     playback.request_seek(4.2)
 
     mock_audio.seek_seconds.assert_called_once_with(4.2)
     mock_video.seek_seconds.assert_called_once_with(4.2)
     assert playback.sync.set_audio_time_called_with == 4.2
-    emit_mock.assert_called_once_with(4.2)
+    mock_timeline.set_playhead_time.assert_called_once_with(4.2)
 
 
 def test_request_seek_clamps_to_duration(playback):
     mock_audio = Mock()
     mock_video = Mock()
+    mock_timeline = Mock()
 
     playback.set_audio_player(mock_audio)
     playback.set_video_player(mock_video)
+    playback.set_timeline(mock_timeline)
     playback.set_duration(5.0)
 
-    emit_mock = Mock()
-    playback.positionChanged.connect(emit_mock)
+    # Verify timeline gets clamped value instead of signal
 
     playback.request_seek(12.3)  # beyond duration
 
     mock_audio.seek_seconds.assert_called_once_with(5.0)
     mock_video.seek_seconds.assert_called_once_with(5.0)
     assert playback.sync.set_audio_time_called_with == 5.0
-    emit_mock.assert_called_once_with(5.0)
+    mock_timeline.set_playhead_time.assert_called_once_with(5.0)
 
 
 def test_request_seek_handles_negative_values(playback):
     mock_audio = Mock()
     mock_video = Mock()
+    mock_timeline = Mock()
 
     playback.set_audio_player(mock_audio)
     playback.set_video_player(mock_video)
+    playback.set_timeline(mock_timeline)
 
-    emit_mock = Mock()
-    playback.positionChanged.connect(emit_mock)
+    # Verify timeline gets clamped to 0
 
     playback.request_seek(-3.5)
 
     mock_audio.seek_seconds.assert_called_once_with(0.0)
     mock_video.seek_seconds.assert_called_once_with(0.0)
     assert playback.sync.set_audio_time_called_with == 0.0
-    emit_mock.assert_called_once_with(0.0)
+    mock_timeline.set_playhead_time.assert_called_once_with(0.0)
 
 
 def test_request_seek_tolerates_missing_players(playback):
-    # No players set
-    emit_mock = Mock()
-    playback.positionChanged.connect(emit_mock)
-
-    # Should not raise
+    # No players set, no timeline set
+    # Should not raise even without signal connection
     playback.request_seek(2.0)
-
-    assert emit_mock.called
+    
+    # Test passes if no exception raised
+    assert True
 
 
 def test_playing_changed_emitted_on_audio_state_change(playback):

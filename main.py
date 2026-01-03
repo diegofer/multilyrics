@@ -85,8 +85,12 @@ class MainWindow(QMainWindow):
         self.plus_btn.clicked.connect(self.open_add_dialog)
         self.add_dialog.search_widget.multi_selected.connect(self.on_multi_selected)
         self.add_dialog.drop_widget.file_imported.connect(self.extraction_process)
-        self.playback.positionChanged.connect(self.controls.update_time_position_label)
-        #self.playback.positionChanged.connect(self.timeline.set_position_seconds)
+        
+        # Connect Controls to TimelineModel (canonical source of playhead time)
+        self._timeline_unsub_controls = self.timeline_model.on_playhead_changed(
+            self.controls.update_time_position_label
+        )
+        
         self.playback.durationChanged.connect(self.controls.update_total_duration_label)
         self.playback.playingChanged.connect(self.controls.set_playing_state)
         #self.sync.videoCorrectionNeeded.connect(self.video_player.apply_correction)

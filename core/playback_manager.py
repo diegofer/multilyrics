@@ -21,7 +21,8 @@ class PlaybackManager(QObject):
       ``TimelineModel`` the canonical owner of playhead time.
     """
 
-    positionChanged = Signal(float)    # tiempo actual (s)
+    # Removed positionChanged signal: UI should observe TimelineModel directly
+    # positionChanged = Signal(float)  # ❌ Redundant - TimelineModel is canonical source
     durationChanged = Signal(float)    # duración total (s)
     playingChanged = Signal(bool)      # emit when playing state changes
 
@@ -128,15 +129,15 @@ class PlaybackManager(QObject):
             except Exception:
                 pass
 
-        # Emit position change to update UI or other listeners (existing behavior)
-        self.positionChanged.emit(seconds)
+        # Timeline model will notify its observers (e.g., TimelineView, Controls)
+        # No need to emit positionChanged - removed redundant signal
 
     def _on_audio_time(self, t: float):
-        """ Viene desde SyncController.
+        """Called from SyncController when audio clock advances.
 
-        When a timeline model is attached, update it so it remains the canonical
-        owner of the playhead time. Also keep emitting the existing
-        ``positionChanged`` signal so current UI code continues to work.
+        Updates TimelineModel (canonical playhead owner), which then notifies
+        all observers (TimelineView, Controls, etc.) via its callback system.
+        This eliminates the redundant positionChanged signal.
         """
         #print(f"[PlaybackManager] _on_audio_time: {t:.3f}s (timeline id: {id(self.timeline) if self.timeline else 'None'})")
         if self.timeline is not None:
@@ -146,7 +147,8 @@ class PlaybackManager(QObject):
                 print(f"[PlaybackManager] Error updating timeline: {e}")
                 pass
 
-        self.positionChanged.emit(t)
+        # Timeline model notifies observers automatically
+        # Removed: self.positionChanged.emit(t)  # ❌ Redundant
 
     def set_timeline(self, timeline: TimelineModel) -> None:
         """Attach or replace the TimelineModel used by this manager.
