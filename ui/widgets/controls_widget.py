@@ -8,6 +8,7 @@ class ControlsWidget(QWidget):
     play_clicked = Signal() 
     pause_clicked = Signal()
     action_1_clicked = Signal()
+    edit_mode_toggled = Signal(bool)  # Signal for edit mode state
 
 
     def __init__(self,  control_name="ControlsWidget", parent=None):
@@ -86,6 +87,15 @@ class ControlsWidget(QWidget):
         self.play_toggle_btn.setStyleSheet(button_style)
         self.play_toggle_btn.toggled.connect(self._on_play_toggle)
 
+        # Toggle button for editing mode
+        self.edit_toggle_btn = QPushButton("Editar")
+        self.edit_toggle_btn.setCheckable(True)
+        self.edit_toggle_btn.setFixedSize(80, 50)
+        self.edit_toggle_btn.setStyleSheet(button_style)
+        self.edit_toggle_btn.setEnabled(False)  # Disabled by default
+        self.edit_toggle_btn.toggled.connect(self._on_edit_toggle)
+
+        # button for settings menu
         self.menu_btn = QPushButton()
         self.menu_btn.setIcon(QIcon("assets/img/settings.svg"))
         self.menu_btn.setIconSize(QSize(50, 50))
@@ -106,6 +116,7 @@ class ControlsWidget(QWidget):
         self.frame_2.layout().addWidget(self.tempo_label)
         self.frame_2.layout().addWidget(self.compass_label)
         self.frame_4.layout().addWidget(self.play_toggle_btn)
+        self.frame_6.layout().addWidget(self.edit_toggle_btn)
         self.frame_7.layout().addWidget(self.menu_btn)
 
         self.main_layout.addWidget(self.frame_1)
@@ -144,6 +155,19 @@ class ControlsWidget(QWidget):
             self.play_toggle_btn.setIcon(QIcon("assets/img/play.svg"))
             self._emit_pause()
 
+    def _on_edit_toggle(self, checked: bool):
+        """Handler for edit mode toggle.
+        
+        When checked -> activate edit mode, when unchecked -> deactivate.
+        """
+        # cambia el texto del botón según el estado
+        if checked:
+            self.edit_toggle_btn.setText("Hecho")
+        else:
+            self.edit_toggle_btn.setText("Editar") 
+
+        self.edit_mode_toggled.emit(checked)
+
     def set_playing_state(self, playing: bool):
         """Externally set the playing state: update toggle and icon."""
         self.play_toggle_btn.setChecked(bool(playing))
@@ -151,6 +175,16 @@ class ControlsWidget(QWidget):
             self.play_toggle_btn.setIcon(QIcon("assets/img/pause.svg"))
         else:
             self.play_toggle_btn.setIcon(QIcon("assets/img/play.svg"))
+
+    def set_edit_mode_enabled(self, enabled: bool):
+        """Enable or disable the edit mode button.
+        
+        Call this when a multitrack song is selected/deselected.
+        """
+        self.edit_toggle_btn.setEnabled(enabled)
+        if not enabled:
+            # Reset to unchecked when disabled
+            self.edit_toggle_btn.setChecked(False)
 
     def _emit_action_1(self):
         self.action_1_clicked.emit()

@@ -103,6 +103,7 @@ class MainWindow(QMainWindow):
         self.controls.play_clicked.connect(self.on_play_clicked)
         self.controls.pause_clicked.connect(self.on_pause_clicked)
 
+
         # definir thread y worker para extraccion de audio
         self.edit_thread = None
         self.extract_worker = None
@@ -133,6 +134,12 @@ class MainWindow(QMainWindow):
         self.video_player.pause()
         # Update UI toggle
         self.controls.set_playing_state(False)
+    
+    @Slot()
+    def on_edit_mode_toggled(self, enabled: bool):
+        #self.timeline_view.set_edit_mode(enabled)
+        pass
+  
 
     @Slot()
     def extraction_process(self, video_path: str):
@@ -252,6 +259,9 @@ class MainWindow(QMainWindow):
         
         # Actualizar Video Player
         self.video_player.set_media(video_path)
+
+        # Activar boton de edit mode en controles
+        self.controls.set_edit_mode_enabled(True)  # Cuando hay multitrack seleccionado
 
     @Slot()
     def set_mute(self, track_index: int, mute: bool):
