@@ -67,6 +67,9 @@ class TimelineView(QWidget):
         self._dragging = False
         self._last_mouse_x = None
 
+        # --- Lyrics Edit Mode ---
+        self._lyrics_edit_mode: bool = False
+
         self.setMinimumHeight(120)
         self.setFocusPolicy(Qt.StrongFocus)
 
@@ -322,6 +325,14 @@ class TimelineView(QWidget):
     def mouseDoubleClickEvent(self, event):
         if self.total_samples == 0:
             return
+        
+        # TODO (Lyrics Edit Mode): When _lyrics_edit_mode is True and user double-clicks
+        # on a lyric line, open an inline text editor for that line.
+        # For now, handle edit mode separately and fall through to existing behavior.
+        if self._lyrics_edit_mode:
+            # TODO: Detect if click is on a lyrics track region
+            # TODO: If so, activate inline editor and return early
+            pass
             
         # Mover playhead solo con doble clic izquierdo
         if event.button() == Qt.LeftButton:
@@ -368,6 +379,14 @@ class TimelineView(QWidget):
     # mousePressEvent: Iniciar arrastre horizontal (Clic IZQUIERDO)
     # --------------------------------------------------------------
     def mousePressEvent(self, event):
+        # TODO (Lyrics Edit Mode): When _lyrics_edit_mode is True, detect clicks
+        # on lyric lines for selection or dragging (future: retiming).
+        # For now, fall through to existing pan/scroll behavior.
+        if self._lyrics_edit_mode:
+            # TODO: Check if click is on a lyrics region
+            # TODO: If so, handle selection and prevent scroll/pan
+            pass
+        
         # Lógica para scroll/pan (ARRRASTRE CON CLIC IZQUIERDO)
         if event.button() == Qt.LeftButton and self.total_samples > 0:
             # Solo permitir arrastre si hay audio cargado
@@ -431,6 +450,15 @@ class TimelineView(QWidget):
                 self.update()
             else:
                 self._lyrics_track = None
+
+    def set_lyrics_edit_mode(self, enabled: bool) -> None:
+        """Enable or disable lyrics edit mode.
+        
+        When enabled, the timeline prepares for inline lyric editing.
+        Rendering and playback remain unchanged.
+        """
+        self._lyrics_edit_mode = enabled
+        self.update()
 
     def _on_timeline_playhead_changed(self, new_time: float) -> None:
         """Callback invoked synchronously when the TimelineModel playhead changes.
@@ -564,6 +592,16 @@ class TimelineView(QWidget):
     def keyPressEvent(self, event):
         if self.total_samples == 0:
             return
+        
+        # TODO (Lyrics Edit Mode): When _lyrics_edit_mode is True and a lyric line
+        # is selected, handle keyboard shortcuts for editing:
+        # - Delete key to remove line
+        # - Arrow keys for navigation between lines
+        # - Enter to start inline editing
+        # For now, fall through to existing navigation behavior.
+        if self._lyrics_edit_mode:
+            # TODO: Handle edit-mode-specific keyboard shortcuts
+            pass
             
         w = max(1, self.width())
         spp = self._samples_per_pixel(self.zoom_factor, w)
@@ -685,3 +723,12 @@ class TimelineView(QWidget):
         total_time_str = format_time(self.duration_seconds)
         # Dibujar en la esquina superior derecha
         painter.drawText(w - 150, 20, 140, 20, Qt.AlignRight, total_time_str)
+        
+        # ----------------------------------------------------------
+        # LYRICS EDIT MODE INDICATOR
+        # ----------------------------------------------------------
+        if self._lyrics_edit_mode:
+            # Draw subtle overlay in top-left corner to indicate edit mode is active
+            painter.setFont(QFont("Arial", 10, QFont.Bold))
+            painter.setPen(QColor(255, 200, 0))  # Amber color for visibility
+            painter.drawText(10, 10, 200, 30, Qt.AlignLeft | Qt.AlignTop, "LYRICS EDIT MODE")

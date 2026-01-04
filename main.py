@@ -102,6 +102,7 @@ class MainWindow(QMainWindow):
 
         self.controls.play_clicked.connect(self.on_play_clicked)
         self.controls.pause_clicked.connect(self.on_pause_clicked)
+        self.controls.edit_mode_toggled.connect(self.on_edit_mode_toggled)
 
 
         # definir thread y worker para extraccion de audio
@@ -137,9 +138,7 @@ class MainWindow(QMainWindow):
     
     @Slot()
     def on_edit_mode_toggled(self, enabled: bool):
-        #self.timeline_view.set_edit_mode(enabled)
-        pass
-  
+        self.timeline_view.set_lyrics_edit_mode(enabled)
 
     @Slot()
     def extraction_process(self, video_path: str):
