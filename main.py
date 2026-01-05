@@ -1,12 +1,19 @@
 from PySide6.QtWidgets import QApplication, QMainWindow, QPushButton
-from ui.shell import Ui_MainWindow
 from PySide6.QtGui import QIcon, QCloseEvent
 from PySide6.QtCore import Qt, QThread, Slot
 from pathlib import Path
+import os
+
+from ui.shell import Ui_MainWindow
+from ui.style_manager import StyleManager
 
 from core.utils import get_mp4, get_tracks, get_logarithmic_volume, clear_layout
 from core import global_state
 from core.timeline_model import TimelineModel
+from core.sync import SyncController
+from core.playback_manager import PlaybackManager
+from core.timeline_model import TimelineModel
+
 from ui.widgets.controls_widget import ControlsWidget
 from ui.widgets.track_widget import TrackWidget
 from ui.widgets.spinner_dialog import SpinnerDialog
@@ -17,12 +24,10 @@ from audio.extract import AudioExtractWorker
 from audio.beats import BeatsExtractorWorker
 from audio.chords import ChordExtractorWorker
 from audio.multitrack_player import MultiTrackPlayer
-from audio.meta import MetaJson
-from video.video import VideoLyrics
-from core.sync import SyncController
-from core.playback_manager import PlaybackManager
-from core.timeline_model import TimelineModel
 from audio.lyrics.loader import LyricsLoader
+from audio.meta import MetaJson
+
+from video.video import VideoLyrics
 
 class MainWindow(QMainWindow):
     def __init__(self):
@@ -110,6 +115,7 @@ class MainWindow(QMainWindow):
         self.extract_worker = None
         self.beats_worker = None
         self.chords_worker = None
+
 
     @Slot()
     def open_add_dialog(self):
@@ -303,8 +309,15 @@ if __name__ == "__main__":
     # import soundfile as sf
     # import numpy as np
     # sf.write('example.wav', np.random.uniform(-1, 1, 44100 * 5), 44100) # 5 segundos de ruido
+    
+    # Decirle al sistema operativo cómo manejar el escalado de la ventana.
+    os.environ["QT_ENABLE_HIGHDPI_SCALING"] = "1"
 
     app = QApplication(sys.argv)
+    # Asegura que los iconos y gráficos no se vean pixelados en pantallas 4K/Retina.
+    app.setAttribute(Qt.AA_UseHighDpiPixmaps)
+
+    StyleManager.setup_theme(app)
     window = MainWindow()
     window.show()
     sys.exit(app.exec())

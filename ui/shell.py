@@ -31,9 +31,7 @@ class Ui_MainWindow(object):
         self.verticalLayout.setContentsMargins(0, 0, 0, 0)
         self.frame = QFrame(self.centralwidget)
         self.frame.setObjectName(u"frame")
-        self.frame.setStyleSheet(u"QFrame{\n"
-"	background-color: rgb(29,35,67);\n"
-"}")
+        self.frame.setStyleSheet(u"")
         self.frame.setFrameShape(QFrame.Shape.StyledPanel)
         self.frame.setFrameShadow(QFrame.Shadow.Raised)
         self.playlistLayout = QHBoxLayout(self.frame)
@@ -44,9 +42,7 @@ class Ui_MainWindow(object):
 
         self.frame_2 = QFrame(self.centralwidget)
         self.frame_2.setObjectName(u"frame_2")
-        self.frame_2.setStyleSheet(u"QFrame{\n"
-"	background-color: rgb(43,52,95);\n"
-"}")
+        self.frame_2.setStyleSheet(u"")
         self.frame_2.setFrameShape(QFrame.Shape.StyledPanel)
         self.frame_2.setFrameShadow(QFrame.Shadow.Raised)
         self.waveformLayout = QVBoxLayout(self.frame_2)
@@ -57,9 +53,7 @@ class Ui_MainWindow(object):
 
         self.frame_3 = QFrame(self.centralwidget)
         self.frame_3.setObjectName(u"frame_3")
-        self.frame_3.setStyleSheet(u"QFrame{\n"
-"	background-color: rgb(29,35,67);\n"
-"}")
+        self.frame_3.setStyleSheet(u"")
         self.frame_3.setFrameShape(QFrame.Shape.StyledPanel)
         self.frame_3.setFrameShadow(QFrame.Shadow.Raised)
         self.horizontalLayout = QHBoxLayout(self.frame_3)
@@ -85,9 +79,7 @@ class Ui_MainWindow(object):
         sizePolicy1.setVerticalStretch(0)
         sizePolicy1.setHeightForWidth(self.frame_6_master.sizePolicy().hasHeightForWidth())
         self.frame_6_master.setSizePolicy(sizePolicy1)
-        self.frame_6_master.setStyleSheet(u"QFrame{\n"
-"	background-color: rgb(43,52,95);\n"
-"}")
+        self.frame_6_master.setStyleSheet(u"")
         self.frame_6_master.setFrameShape(QFrame.Shape.StyledPanel)
         self.frame_6_master.setFrameShadow(QFrame.Shadow.Raised)
         self.masterLayout = QHBoxLayout(self.frame_6_master)
@@ -100,9 +92,7 @@ class Ui_MainWindow(object):
 
         self.frame_4 = QFrame(self.centralwidget)
         self.frame_4.setObjectName(u"frame_4")
-        self.frame_4.setStyleSheet(u"QFrame{\n"
-"	background-color: rgb(43,52,95);\n"
-"}")
+        self.frame_4.setStyleSheet(u"")
         self.frame_4.setFrameShape(QFrame.Shape.StyledPanel)
         self.frame_4.setFrameShadow(QFrame.Shadow.Raised)
         self.controlsLayout = QHBoxLayout(self.frame_4)
