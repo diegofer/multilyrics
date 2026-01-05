@@ -1,4 +1,4 @@
-from PySide6.QtGui import QPalette, QColor, QFontDatabase
+from PySide6.QtGui import QPalette, QColor, QFontDatabase, QFont
 from PySide6.QtCore import Qt
 import os
 
@@ -38,9 +38,31 @@ class StyleManager:
     }
 
     @classmethod
+    def get_color(cls, color_name):
+        """Devuelve un objeto QColor basado en la PALETTE."""
+        color_str = cls.PALETTE.get(color_name, "#FFFFFF")
+        if "rgba" in color_str:
+            # Extraer valores de rgba(r, g, b, a)
+            parts = color_str.replace("rgba(", "").replace(")", "").split(",")
+            return QColor(int(parts[0]), int(parts[1]), int(parts[2]), int(float(parts[3]) * 255))
+        elif "rgb" in color_str:
+            # Extraer valores de rgb(r, g, b)
+            parts = color_str.replace("rgb(", "").replace(")", "").split(",")
+            return QColor(int(parts[0]), int(parts[1]), int(parts[2]))
+        return QColor(color_str)
+
+    @classmethod
+    def get_font(cls, mono=False, size=10, bold=False):
+        """Devuelve un objeto QFont configurado con las fuentes del tema."""
+        family = "Roboto" if not mono else "JetBrains Mono"
+        weight = QFont.Bold if bold else QFont.Normal
+        font = QFont(family, size)
+        font.setWeight(weight)
+        return font
+
+    @classmethod
     def load_fonts(cls):
         """Carga los archivos TTF de la carpeta assets/fonts/"""
-        # Ajusta la ruta según tu estructura de carpetas
         font_path = os.path.join(os.path.dirname(__file__), "assets", "fonts")
         
         fonts = [
@@ -57,26 +79,22 @@ class StyleManager:
     @classmethod
     def setup_theme(cls, app):
         """Configuración integral del tema y fuentes."""
-        # 1. Cargar fuentes antes de aplicar el estilo
         cls.load_fonts()
         
-        # 2. Configurar Paleta
         palette = QPalette()
-        base_color = QColor(29, 35, 67)
-        text_color = QColor(209, 213, 219)
+        base_color = cls.get_color("bg_base")
+        text_color = cls.get_color("text_normal")
         
         palette.setColor(QPalette.Window, base_color)
         palette.setColor(QPalette.WindowText, text_color)
-        palette.setColor(QPalette.Base, QColor(22, 27, 51))
+        palette.setColor(QPalette.Base, cls.get_color("bg_workspace"))
         palette.setColor(QPalette.Text, text_color)
-        palette.setColor(QPalette.Button, QColor(43, 52, 95))
+        palette.setColor(QPalette.Button, cls.get_color("bg_panel"))
         palette.setColor(QPalette.ButtonText, Qt.white)
-        palette.setColor(QPalette.Highlight, QColor(255, 171, 0))
+        palette.setColor(QPalette.Highlight, cls.get_color("accent"))
         palette.setColor(QPalette.HighlightedText, Qt.black)
         
         app.setPalette(palette)
-        
-        # 3. Aplicar Hoja de Estilos
         app.setStyleSheet(cls.get_stylesheet())
 
     @classmethod

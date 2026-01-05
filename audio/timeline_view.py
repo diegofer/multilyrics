@@ -15,6 +15,7 @@ from audio.tracks.playhead_track import PlayheadTrack
 from audio.tracks.waveform_track import WaveformTrack
 from audio.tracks.lyrics_track import LyricsTrack
 from audio.lyrics.model import LyricsModel
+from ui.style_manager import StyleManager
 
 # Performance & zoom/downsampling settings
 MIN_SAMPLES_PER_PIXEL = 10   # Do not allow fewer than 10 samples per pixel (visual limit)
@@ -729,6 +730,9 @@ class TimelineView(QWidget):
         # ----------------------------------------------------------
         if self._lyrics_edit_mode:
             # Draw subtle overlay in top-left corner to indicate edit mode is active
-            painter.setFont(QFont("Arial", 10, QFont.Bold))
-            painter.setPen(QColor(255, 200, 0))  # Amber color for visibility
+            # el painter también se actualizará automáticamente.
+            edit_font = StyleManager.get_font(size=12, mono=True, bold=True)
+            color_acento = StyleManager.get_color("accent_play") # Acceder al COLOR de acento (Amber)
+            painter.setFont(edit_font)
+            painter.setPen(color_acento)
             painter.drawText(10, 10, 200, 30, Qt.AlignLeft | Qt.AlignTop, "LYRICS EDIT MODE")
