@@ -56,42 +56,34 @@ class ControlsWidget(QWidget):
         self.frame_7.setObjectName(u"frame_7")
 
 
-        # Etiqueta para mostrar el tiempo
-        self.total_duration_label_style = "QLabel { color: white; font-size: 30px; line-height: 30px; font-weight: bold; background: transparent; padding: 0; }"
-        self.current_time_label_style = "QLabel { color: white; font-size: 30px; line-height: 30px; font-weight: bold; background: transparent; padding: 0; }"
+        # Etiqueta para mostrar el tiempo transcurrido y duración total
         self.total_duration_label = QLabel("00:00") 
+        self.total_duration_label.setObjectName("label_time")
         self.total_duration_label.setFixedSize(100, 30)
         self.current_time_label = QLabel("00:00")
+        self.current_time_label.setObjectName("label_time")
         self.current_time_label.setFixedSize(100, 30)
-        self.total_duration_label.setStyleSheet(self.total_duration_label_style)
+
         self.total_duration_label.setAlignment(Qt.AlignCenter) 
-        self.current_time_label.setStyleSheet(self.current_time_label_style)
         self.current_time_label.setAlignment(Qt.AlignCenter) 
 
         self.tempo_label = QLabel("120")
-        self.tempo_label.setStyleSheet("QLabel { color: white; font-size: 20px; line-height: 20px; font-weight: bold; background: transparent; padding: 0; }")
         self.tempo_label.setAlignment(Qt.AlignCenter)
         self.compass_label = QLabel("4/4")
-        self.compass_label.setStyleSheet("QLabel { color: white; font-size: 20px; line-height: 20px; font-weight: bold; background: transparent; padding: 0; }")
+        
         self.compass_label.setAlignment(Qt.AlignCenter)
-
-        button_style = """
-                QPushButton { margin:0px; border-radius: 5px; background-color: rgb(29,35,67); color: white; } 
-                QPushButton:hover { background-color: rgb(50, 60, 100); } """
         
         # Single toggle button for play/pause/resume
         self.play_toggle_btn = QPushButton()
         self.play_toggle_btn.setCheckable(True)
         self.play_toggle_btn.setIcon(QIcon("assets/img/play.svg"))
         self.play_toggle_btn.setIconSize(QSize(50, 50))
-        self.play_toggle_btn.setStyleSheet(button_style)
         self.play_toggle_btn.toggled.connect(self._on_play_toggle)
 
         # Toggle button for editing mode
         self.edit_toggle_btn = QPushButton("Editar")
         self.edit_toggle_btn.setCheckable(True)
         self.edit_toggle_btn.setFixedSize(80, 50)
-        self.edit_toggle_btn.setStyleSheet(button_style)
         self.edit_toggle_btn.setEnabled(False)  # Disabled by default
         self.edit_toggle_btn.toggled.connect(self._on_edit_toggle)
 
@@ -99,7 +91,6 @@ class ControlsWidget(QWidget):
         self.menu_btn = QPushButton()
         self.menu_btn.setIcon(QIcon("assets/img/settings.svg"))
         self.menu_btn.setIconSize(QSize(50, 50))
-        self.menu_btn.setStyleSheet(button_style)
 
         self.menu = QMenu()
         action_1 = self.menu.addAction("Crear")
@@ -160,6 +151,11 @@ class ControlsWidget(QWidget):
         
         When checked -> activate edit mode, when unchecked -> deactivate.
         """
+        self.edit_toggle_btn.setProperty("editing", checked)
+        self.edit_toggle_btn.style().unpolish(self.edit_toggle_btn)
+        self.edit_toggle_btn.style().polish(self.edit_toggle_btn)
+        #self.edit_toggle_btn.update()
+
         # cambia el texto del botón según el estado
         if checked:
             self.edit_toggle_btn.setText("Hecho")
