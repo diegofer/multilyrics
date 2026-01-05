@@ -732,7 +732,7 @@ class TimelineView(QWidget):
             # Draw subtle overlay in top-left corner to indicate edit mode is active
             # el painter también se actualizará automáticamente.
             edit_font = StyleManager.get_font(size=12, mono=True, bold=True)
-            color_acento = StyleManager.get_color("accent_play") # Acceder al COLOR de acento (Amber)
+            color_acento = StyleManager.get_color("accent") # Acceder al COLOR de acento (Amber)
             painter.setFont(edit_font)
             painter.setPen(color_acento)
             painter.drawText(10, 10, 200, 30, Qt.AlignLeft | Qt.AlignTop, "LYRICS EDIT MODE")

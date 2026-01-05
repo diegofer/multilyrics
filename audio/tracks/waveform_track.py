@@ -2,6 +2,7 @@ import numpy as np
 from PySide6.QtGui import QPainter, QColor, QPen
 
 from audio.tracks.beat_track import ViewContext
+from ui.style_manager import StyleManager
 
 
 class WaveformTrack:
@@ -13,6 +14,7 @@ class WaveformTrack:
     def __init__(self) -> None:
         self._last_params = None  # (start, end, width)
         self._last_envelope = None  # (mins, maxs)
+        self.pen_waveform = QPen(StyleManager.get_color("waveform"), 1)
 
     def reset_cache(self) -> None:
         self._last_params = None
@@ -60,9 +62,9 @@ class WaveformTrack:
             w = max(1, ctx.width)
             h = max(2, ctx.height)
             mid = h // 2
-
-            pen = QPen(QColor(0, 200, 255), 1)
-            painter.setPen(pen)
+            
+            
+            painter.setPen(self.pen_waveform)
 
             mins, maxs = self._compute_envelope(samples, ctx.start_sample, ctx.end_sample, w, None)
             for x in range(w):
