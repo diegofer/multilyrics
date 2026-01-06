@@ -10,6 +10,7 @@ from PySide6.QtCore import Qt
 
 from audio.tracks.beat_track import ViewContext
 from audio.lyrics.model import LyricsModel, LyricLine
+from ui.style_manager import StyleManager
 
 
 class LyricsTrack:
@@ -22,11 +23,11 @@ class LyricsTrack:
     
     def __init__(self):
         # Default colors and styling for lyrics rendering
-        self.active_color = QColor(255, 255, 255, 255)      # White, full opacity
+        self.active_color = StyleManager.get_color("text_bright")      # White, full opacity
         self.active_font_size = 15
         self.active_font_weight = QFont.Bold
         
-        self.inactive_color = QColor(255, 255, 255, 255)    # White, full opacity
+        self.inactive_color = StyleManager.get_color("text_normal")    # White, full opacity
         self.inactive_font_size = 13
         self.inactive_font_weight = QFont.Normal
         
@@ -128,11 +129,11 @@ class LyricsTrack:
         # Configure styling based on active state
         if is_active:
             # Active line: use configured active styling
-            font = QFont("Arial", self.active_font_size, self.active_font_weight)
+            font = StyleManager.get_font(mono=False, size=self.active_font_size, bold=True)
             color = self.active_color
         else:
             # Inactive line: use configured inactive styling
-            font = QFont("Arial", self.inactive_font_size, self.inactive_font_weight)
+            font = StyleManager.get_font(mono=False, size=self.inactive_font_size, bold=False)
             color = self.inactive_color
         
         painter.setFont(font)

@@ -47,7 +47,7 @@ class PlayheadTrack:
             # Draw elapsed time text next to the playhead
             current_time_str = format_time(playhead_time)
             painter.setPen(StyleManager.get_color("text_bright"))
-            painter.setFont(StyleManager.get_font(mono=True, size=10, bold=True))
+            painter.setFont(StyleManager.get_font(mono=True, size=10, bold=False))
 
             # Position text to the right of playhead; move left if not enough space
             text_x = x_pos + 5

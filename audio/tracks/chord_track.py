@@ -2,6 +2,7 @@ from typing import Optional
 from PySide6.QtGui import QFont, QColor
 
 from audio.tracks.beat_track import ViewContext
+from ui.style_manager import StyleManager
 
 
 class ChordTrack:
@@ -34,7 +35,7 @@ class ChordTrack:
 
         painter.save()  # Save painter state
         try:
-            font = QFont("Arial", 8, QFont.Bold)
+            font = StyleManager.get_font(mono=True, size=8, bold=True)
             painter.setFont(font)
             box_h = min(18, max(12, h // 10))
             box_y = h - box_h - 2  # Position at bottom instead of top
@@ -59,14 +60,14 @@ class ChordTrack:
 
                 # color: empty chord 'N' shown grey; others greenish
                 if str(name).strip().upper() == 'N':
-                    fill = QColor(80, 80, 80, 120)
-                    text_col = QColor(200, 200, 200)
+                    fill = StyleManager.get_color("chord_bg")
+                    text_col = StyleManager.get_color("text_normal")
                 else:
-                    fill = QColor(0, 120, 80, 150)
-                    text_col = QColor(255, 255, 255)
+                    fill = StyleManager.get_color("chord_bg")
+                    text_col = StyleManager.get_color("text_bright")
 
                 painter.fillRect(x0, box_y, x1 - x0, box_h, fill)
-                painter.setPen(QColor(0, 0, 0, 100))
+                painter.setPen(StyleManager.get_color("chord_bg"))
                 painter.drawRect(x0, box_y, x1 - x0, box_h)
                 painter.setPen(text_col)
                 # Draw chord name left-aligned at chord start with a small padding

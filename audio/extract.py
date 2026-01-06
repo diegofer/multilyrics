@@ -95,11 +95,13 @@ class AudioExtractWorker(QObject):
             title = tags.get('title') or tags.get('TITLE') or "Desconocido"
             artist = tags.get('artist') or tags.get('ARTIST') or "Desconocido"
             year = tags.get('date') or tags.get('DATE') or ""
+            duration = float(probe.get('format', {}).get('duration', 0.0))
 
             metadatos = {
                 "title": title,
                 "artist": artist,
-                "year": year
+                "year": year,
+                "duration": duration
             }
 
             return metadatos

@@ -25,12 +25,27 @@ class StyleManager:
         "accent_play": "rgb(46, 204, 113)", # Emerald Green (Reproducción activa)
         "border_light": "rgba(255, 255, 255, 0.12)", # Crystal White (Bordes sutiles)
         "border_disabled": "rgba(255, 255, 255, 0.05)", # Ghost White (Borde desactivado)
+
+        # OTROS ACENTOS NEÓN
+        "neon_purple": "rgb(191, 0, 255)",  # Electric Purple (Efectos/Marcadores)
+        "neon_yellow": "rgb(238, 255, 0)",  # Lemon Neon (Alertas/Modos especiales)
         
         # AUDIO VISUALS (Nuevos colores sugeridos)
         "waveform": "rgb(0, 210, 255)",     # Electric Cyan (Onda de audio nítida)
         "waveform_dim": "rgba(0, 210, 255, 0.4)", # Onda de audio en segundo plano
         "playhead": "rgb(255, 50, 50)",     # Neon Red (Línea de tiempo/cursor)
         
+        # GRID RÍTMICO (Líneas verticales)
+        "beat": "rgba(200, 200, 200, 0.25)",     # Light Gray (Más opaco)
+        "downbeat": "rgba(0, 255, 255, 0.6)",    # Pure Cyan Neon (Muy visible)
+
+        # CAPAS DE DATOS (Backgrounds transparentes)
+        "chord_bg": "rgba(155, 89, 182, 0.25)", # Amethyst Purple (Fondo de acordes)
+        "chord_text": "rgb(200, 150, 255)",     # Soft Purple (Texto de acordes)
+        
+        "lyrics_bg": "rgba(46, 204, 113, 0.15)", # Emerald Trans (Fondo de letras)
+        "lyrics_text": "rgb(255, 255, 255)",     # White (Texto de letras)
+
         # TEXTO
         "text_bright": "#FFFFFF",           # Pure White (Títulos y botones activos)
         "text_normal": "#D1D5DB",           # Cool Gray (Texto general legible)

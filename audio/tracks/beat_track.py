@@ -1,9 +1,10 @@
 from dataclasses import dataclass
 from typing import Optional
 
-from PySide6.QtGui import QPen, QColor
+from PySide6.QtGui import QPen
 
 from core.timeline_model import TimelineModel
+from ui.style_manager import StyleManager
 
 
 @dataclass
@@ -40,10 +41,10 @@ class BeatTrack:
             h = max(2, ctx.height)
 
             # Pens match previous WaveformWidget styling
-            beat_pen = QPen(QColor(0, 150, 255, 150))  # cyan, semi-transparent
-            beat_pen.setWidth(1)
-            down_pen = QPen(QColor(255, 200, 0, 120))  # yellow/orange, less opaque
-            down_pen.setWidth(1)
+            beat_pen = QPen(StyleManager.get_color("beat"), 2)  # cyan, semi-transparent
+            #beat_pen.setWidth(1)
+            down_pen = QPen(StyleManager.get_color("downbeat"), 1)  # yellow/orange, less opaque
+            #down_pen.setWidth(1)
 
             beats_samples = []
             downbeat_samples = []

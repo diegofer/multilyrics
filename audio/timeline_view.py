@@ -718,8 +718,8 @@ class TimelineView(QWidget):
         # ----------------------------------------------------------
         # DIBUJAR TIEMPO TOTAL (Opcional, pero útil)
         # ----------------------------------------------------------
-        painter.setFont(QFont("Arial", 8))
-        painter.setPen(QColor(200, 200, 200)) # Color gris claro
+        painter.setFont(StyleManager.get_font(size=10, mono=True))
+        painter.setPen(StyleManager.get_color("text_bright")) # Color gris claro
         
         total_time_str = format_time(self.duration_seconds)
         # Dibujar en la esquina superior derecha
@@ -731,8 +731,6 @@ class TimelineView(QWidget):
         if self._lyrics_edit_mode:
             # Draw subtle overlay in top-left corner to indicate edit mode is active
             # el painter también se actualizará automáticamente.
-            edit_font = StyleManager.get_font(size=12, mono=True, bold=True)
-            color_acento = StyleManager.get_color("accent") # Acceder al COLOR de acento (Amber)
-            painter.setFont(edit_font)
-            painter.setPen(color_acento)
+            painter.setFont(StyleManager.get_font(size=12, mono=True, bold=True))
+            painter.setPen(StyleManager.get_color("accent"))
             painter.drawText(10, 10, 200, 30, Qt.AlignLeft | Qt.AlignTop, "LYRICS EDIT MODE")
