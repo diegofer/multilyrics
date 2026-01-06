@@ -1,4 +1,4 @@
-from PySide6.QtWidgets import QWidget, QHBoxLayout, QVBoxLayout, QFrame, QLabel,QPushButton, QMenu, QButtonGroup
+from PySide6.QtWidgets import QWidget, QHBoxLayout, QVBoxLayout, QFrame, QLabel,QPushButton, QMenu, QButtonGroup, QSizePolicy
 from PySide6.QtCore import Qt, QSize, Signal, Slot, QPoint
 from PySide6.QtGui import QIcon
 from core.utils import clamp_menu_to_window, format_time
@@ -21,37 +21,40 @@ class ControlsWidget(QWidget):
     def initUi(self):
         self.main_layout = QHBoxLayout(self)
         self.main_layout.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        self.main_layout.setSpacing(5)
-        self.main_layout.setContentsMargins(0, 0, 0, 0)
+        #self.main_layout.setSpacing(5)
+        self.main_layout.setContentsMargins(10, 10, 10, 10)
 
         self.frame_1 = QFrame(self)
-        self.frame_1_layout = QVBoxLayout()
-        self.frame_1.setLayout(self.frame_1_layout)
-        self.frame_1.setObjectName(u"frame_1")
+        self.frame_1.setLayout(QVBoxLayout())
+        self.frame_1.setObjectName(u"controls_frame_1")
 
         self.frame_2 = QFrame(self)
         self.frame_2.setLayout(QVBoxLayout())
-        self.frame_2.setObjectName(u"frame_2")
+        self.frame_2.setObjectName(u"controls_frame_2")
 
         self.frame_3 = QFrame(self)
         self.frame_3.setLayout(QHBoxLayout())
-        self.frame_3.setObjectName(u"frame_3")
+        self.frame_3.setObjectName(u"controls_frame_3")
 
         self.frame_4 = QFrame(self)
         self.frame_4.setLayout(QHBoxLayout())
-        self.frame_4.setObjectName(u"frame_4")
+        self.frame_4.setObjectName(u"controls_frame_4")
+        self.frame_4.layout().setContentsMargins(0, 0, 0, 0)
+        self.frame_4.layout().setSpacing(0)
 
         self.frame_5 = QFrame(self)
         self.frame_5.setLayout(QHBoxLayout())
-        self.frame_5.setObjectName(u"frame_5")
+        self.frame_5.setObjectName(u"controls_frame_5")
         
         self.frame_6 = QFrame(self)
         self.frame_6.setLayout(QHBoxLayout())
-        self.frame_6.setObjectName(u"frame_6")
+        self.frame_6.setObjectName(u"controls_frame_6")
+        self.frame_6.layout().setContentsMargins(0, 0, 0, 0)
+        self.frame_6.layout().setSpacing(0)
 
         self.frame_7 = QFrame(self)
         self.frame_7.setLayout(QHBoxLayout())
-        self.frame_7.setObjectName(u"frame_7")
+        self.frame_7.setObjectName(u"controls_frame_7")
 
         # Etiqueta para mostrar el tiempo transcurrido y duración total
         self.total_duration_label = QLabel("00:00") 
@@ -59,16 +62,9 @@ class ControlsWidget(QWidget):
         self.current_time_label = QLabel("00:00")
         self.current_time_label.setObjectName("label_time")
 
-        self.total_duration_label.setAlignment(Qt.AlignCenter) 
-        self.current_time_label.setAlignment(Qt.AlignCenter) 
+        self.tempo_compass_label = QLabel("120\n4/4")
+        self.tempo_compass_label.setObjectName("tempo_compass_label")
 
-        self.tempo_label = QLabel("120")
-        self.tempo_label.setObjectName("label_time")
-        self.tempo_label.setAlignment(Qt.AlignCenter)
-        self.compass_label = QLabel("4/4")
-        self.compass_label.setObjectName("label_time")
-        self.compass_label.setAlignment(Qt.AlignCenter)
-        
         # Single toggle button for play/pause/resume
         self.play_toggle_btn = QPushButton()
         self.play_toggle_btn.setObjectName("play_mode")
@@ -82,9 +78,13 @@ class ControlsWidget(QWidget):
         self.edit_toggle_btn = QPushButton("Editar")
         self.edit_toggle_btn.setObjectName("edit_mode")
         self.edit_toggle_btn.setCheckable(True)
-        self.edit_toggle_btn.setFixedSize(80, 50)
+        #self.edit_toggle_btn.setFixedSize(80, 50)
         self.edit_toggle_btn.setEnabled(False)  # Disabled by default
         self.edit_toggle_btn.toggled.connect(self._on_edit_toggle)
+        self.edit_toggle_btn.setSizePolicy(
+            QSizePolicy.Policy.Preferred, # O la que ya tenga en horizontal
+            QSizePolicy.Policy.Expanding  # Aquí está el valor correcto
+        )
         
         # Botones para cambiar modo de zoom
         #self.zoom_general_btn = QPushButton("Z1")
@@ -132,8 +132,7 @@ class ControlsWidget(QWidget):
         # agregar botones a frames
         self.frame_1.layout().addWidget(self.total_duration_label)
         self.frame_1.layout().addWidget(self.current_time_label)
-        self.frame_2.layout().addWidget(self.tempo_label)
-        self.frame_2.layout().addWidget(self.compass_label)
+        self.frame_2.layout().addWidget(self.tempo_compass_label)
         self.frame_4.layout().addWidget(self.play_toggle_btn)
         self.frame_6.layout().addWidget(self.edit_toggle_btn)
         self.frame_7.layout().addWidget(self.menu_btn)

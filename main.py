@@ -36,8 +36,8 @@ class MainWindow(QMainWindow):
         # Agregar y settear Ui principal
         self.ui = Ui_MainWindow()
         self.ui.setupUi(self)
-        self.ui.tracksLayout.setAlignment(Qt.AlignmentFlag.AlignLeft)
-        self.ui.playlistLayout.setAlignment(Qt.AlignmentFlag.AlignLeft)
+        self.ui.mixer_tracks_layout.setAlignment(Qt.AlignmentFlag.AlignLeft)
+        self.ui.playlist_layout.setAlignment(Qt.AlignmentFlag.AlignLeft)
 
         #Agregar plus buttom
         self.plus_btn = QPushButton()
@@ -45,20 +45,18 @@ class MainWindow(QMainWindow):
         self.plus_btn.setIcon(QIcon("assets/img/plus-circle.svg"))
         self.plus_btn.setIconSize(self.plus_btn.size()  * 0.7)
 
-        self.ui.playlistLayout.addWidget(self.plus_btn)
+        self.ui.playlist_layout.addWidget(self.plus_btn)
         
         #Agregar waveform widget
         self.timeline_view = TimelineView("example.wav")
-        self.ui.waveformLayout.addWidget(self.timeline_view)
-
+        self.ui.timeline_layout.addWidget(self.timeline_view)
         #Agregar tracks widgets
         self.master_track = TrackWidget("Master", True)
-        self.ui.masterLayout.addWidget(self.master_track)
+        self.ui.mixer_master_layout.addWidget(self.master_track)
 
         #Agregar controls widget
         self.controls = ControlsWidget()
-        self.ui.controlsLayout.addWidget(self.controls)
-
+        self.ui.controls_layout.addWidget(self.controls)
         #Agregar modals
         self.loader = SpinnerDialog(self)
         self.add_dialog = AddDialog()
@@ -256,8 +254,7 @@ class MainWindow(QMainWindow):
         # actualizar controlWidgets
         tempo = meta_data.get("tempo", 120.0)
         compass = meta_data.get("compass", "?/?")
-        self.controls.tempo_label.setText(f"{int(tempo)} BPM")
-        self.controls.compass_label.setText(compass)
+        self.controls.tempo_compass_label.setText(f"{int(tempo)} BPM\n{compass}")
 
         tracks_paths_final = []
 
@@ -270,14 +267,14 @@ class MainWindow(QMainWindow):
         self.audio_player.load_tracks(tracks_paths_final)  # Cargar tracks o master
         self.playback.set_duration(self.audio_player.get_duration_seconds()) # Notificar a PlaybackManager
            
-        clear_layout(self.ui.tracksLayout)  # Limpiar layout de tracks
+        clear_layout(self.ui.mixer_tracks_layout)  # Limpiar layout de tracks
        
         for i, track in enumerate(tracks_paths_final):
             track_widget = TrackWidget(Path(track).stem, False)
             track_widget.volume_changed.connect(lambda gain, index=i: self.set_gain(index, gain))
             track_widget.mute_toggled.connect(lambda checked, index=i: self.set_mute(index, checked))
             track_widget.solo_toggled.connect(lambda checked, index=i: self.set_solo(index, checked))
-            self.ui.tracksLayout.addWidget(track_widget)
+            self.ui.mixer_tracks_layout.addWidget(track_widget)
         
         # Actualizar Waveform TimelineModel
         if master_path.exists():

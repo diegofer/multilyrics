@@ -13,8 +13,8 @@
   <property name="windowTitle">
    <string>MainWindow</string>
   </property>
-  <widget class="QWidget" name="centralwidget">
-   <layout class="QVBoxLayout" name="verticalLayout" stretch="1,2,5,1">
+  <widget class="QWidget" name="central_widget">
+   <layout class="QVBoxLayout" name="central_widget_layout" stretch="1,2,5,1">
     <property name="spacing">
      <number>0</number>
     </property>
@@ -31,7 +31,7 @@
      <number>0</number>
     </property>
     <item>
-     <widget class="QFrame" name="frame">
+     <widget class="QFrame" name="frame_playlist">
       <property name="styleSheet">
        <string notr="true"/>
       </property>
@@ -41,7 +41,7 @@
       <property name="frameShadow">
        <enum>QFrame::Shadow::Raised</enum>
       </property>
-      <layout class="QHBoxLayout" name="playlistLayout">
+      <layout class="QHBoxLayout" name="playlist_layout">
        <property name="leftMargin">
         <number>2</number>
        </property>
@@ -58,7 +58,7 @@
      </widget>
     </item>
     <item>
-     <widget class="QFrame" name="frame_2">
+     <widget class="QFrame" name="frame_timeline">
       <property name="styleSheet">
        <string notr="true"/>
       </property>
@@ -68,7 +68,7 @@
       <property name="frameShadow">
        <enum>QFrame::Shadow::Raised</enum>
       </property>
-      <layout class="QVBoxLayout" name="waveformLayout">
+      <layout class="QVBoxLayout" name="timeline_layout">
        <property name="leftMargin">
         <number>5</number>
        </property>
@@ -85,7 +85,7 @@
      </widget>
     </item>
     <item>
-     <widget class="QFrame" name="frame_3">
+     <widget class="QFrame" name="frame_mixer">
       <property name="styleSheet">
        <string notr="true"/>
       </property>
@@ -95,9 +95,9 @@
       <property name="frameShadow">
        <enum>QFrame::Shadow::Raised</enum>
       </property>
-      <layout class="QHBoxLayout" name="horizontalLayout">
+      <layout class="QHBoxLayout" name="mixerLayout">
        <item>
-        <widget class="QFrame" name="frame_5_tracks">
+        <widget class="QFrame" name="frame_mixer_tracks">
          <property name="sizePolicy">
           <sizepolicy hsizetype="Expanding" vsizetype="Preferred">
            <horstretch>1</horstretch>
@@ -110,11 +110,11 @@
          <property name="frameShadow">
           <enum>QFrame::Shadow::Raised</enum>
          </property>
-         <layout class="QHBoxLayout" name="tracksLayout"/>
+         <layout class="QHBoxLayout" name="mixer_tracks_layout"/>
         </widget>
        </item>
        <item>
-        <widget class="QFrame" name="frame_6_master">
+        <widget class="QFrame" name="frame_mixer_master">
          <property name="sizePolicy">
           <sizepolicy hsizetype="Minimum" vsizetype="Preferred">
            <horstretch>0</horstretch>
@@ -130,14 +130,14 @@
          <property name="frameShadow">
           <enum>QFrame::Shadow::Raised</enum>
          </property>
-         <layout class="QHBoxLayout" name="masterLayout"/>
+         <layout class="QHBoxLayout" name="mixer_master_layout"/>
         </widget>
        </item>
       </layout>
      </widget>
     </item>
     <item>
-     <widget class="QFrame" name="frame_4">
+     <widget class="QFrame" name="frame_controls">
       <property name="styleSheet">
        <string notr="true"/>
       </property>
@@ -147,7 +147,7 @@
       <property name="frameShadow">
        <enum>QFrame::Shadow::Raised</enum>
       </property>
-      <layout class="QHBoxLayout" name="controlsLayout">
+      <layout class="QHBoxLayout" name="controls_layout">
        <property name="leftMargin">
         <number>4</number>
        </property>

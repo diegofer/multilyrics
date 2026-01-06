@@ -6,6 +6,14 @@ class StyleManager:
     """
     Gestor de estilos centralizado para el Editor Multitrack.
     Incluye registro de fuentes externas para consistencia cross-platform.
+
+    frame -> frame_playlist
+    frame_2 -> frame_timeline
+    frame_3 -> frame_mixer
+        frame_5_tracks -> frame_mixer_tracks
+        frame_6_master -> frame_mixer_master
+    frame_4 -> frame_controls
+
     """
     
     PALETTE = {
@@ -119,11 +127,11 @@ class StyleManager:
         QMainWindow {{ background-color: {cls.PALETTE['bg_base']}; }}
         QWidget#centralwidget {{ background-color: {cls.PALETTE['bg_base']}; }}
         QFrame {{ background-color: transparent; border: none; }}
-        QFrame#frame_4, QFrame#frame_6_master {{
+        QFrame#frame_controls, QFrame#frame_mixer_master {{
             background-color: {cls.PALETTE['bg_panel']};
             border-top: 1px solid {cls.PALETTE['border_light']};
         }}
-        QFrame#frame_2, QFrame#frame_5_tracks {{
+        QFrame#frame_timeline, QFrame#frame_mixer_tracks {{
             background-color: {cls.PALETTE['bg_workspace']};
             border-radius: 4px;
             margin: 2px;
@@ -160,11 +168,20 @@ class StyleManager:
         }}
         QLabel#time_display, QLabel#label_time {{
             font-family: {cls.PALETTE['font_mono']};
-            font-size: 20pt;
+            font-size: 15pt;
             color: {cls.PALETTE['waveform']};
             background: rgba(0, 0, 0, 0.2);
             padding: 4px;
             border-radius: 3px;
-            text-align: center;
+            qproperty-alignment: 'AlignCenter';
+        }}
+        QLabel#tempo_compass_label {{
+            font-family: {cls.PALETTE['font_mono']};
+            font-size: 15pt;
+            color: {cls.PALETTE['text_dim']};
+            background: rgba(0, 0, 0, 0.1);
+            padding: 2px;
+            border-radius: 3px;
+            qproperty-alignment: 'AlignCenter';
         }}
         """
