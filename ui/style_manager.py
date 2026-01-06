@@ -137,6 +137,16 @@ class StyleManager:
         }}
         QPushButton:hover {{
             background-color: {cls.PALETTE['btn_hover']};
+            border: 1px solid {cls.PALETTE['waveform']};
+        }}
+        QPushButton:checked {{
+            background-color: {cls.PALETTE['btn_hover']};
+            border: 2px solid {cls.PALETTE['waveform']};
+        }}
+        QPushButton#play_mode {{
+        }}
+        QPushButton#edit_mode:hover {{
+            background-color: {cls.PALETTE['btn_hover']};
             border: 1px solid {cls.PALETTE['accent']};
         }}
         QPushButton:disabled {{
@@ -150,10 +160,11 @@ class StyleManager:
         }}
         QLabel#time_display, QLabel#label_time {{
             font-family: {cls.PALETTE['font_mono']};
-            font-size: 18px;
+            font-size: 20pt;
             color: {cls.PALETTE['waveform']};
             background: rgba(0, 0, 0, 0.2);
             padding: 4px;
             border-radius: 3px;
+            text-align: center;
         }}
         """

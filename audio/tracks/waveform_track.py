@@ -20,13 +20,21 @@ class WaveformTrack:
         self._last_params = None
         self._last_envelope = None
 
-    def _compute_envelope(self, samples: np.ndarray, start: int, end: int, w: int, zoom_factor=None):
-        key = (start, end, w, zoom_factor)
+    def _compute_envelope(self, samples: np.ndarray, start: int, end: int, w: int, zoom_factor=None, downsample_factor=None):
+        key = (start, end, w, zoom_factor, downsample_factor)
         if self._last_params == key and self._last_envelope is not None:
             return self._last_envelope
 
         window = samples[start:end + 1]
         L = len(window)
+        
+        # Aplicar downsample si está habilitado (modo GENERAL)
+        if downsample_factor and downsample_factor > 1 and L > w * 10:
+            # Downsampling: tomar cada N muestras para reducir carga
+            step = downsample_factor
+            window = window[::step]
+            L = len(window)
+        
         if L == 0:
             mins = np.zeros(w, dtype=np.float32)
             maxs = np.zeros(w, dtype=np.float32)
@@ -55,8 +63,15 @@ class WaveformTrack:
         self._last_envelope = (mins, maxs)
         return mins, maxs
 
-    def paint(self, painter: QPainter, ctx: ViewContext, samples: np.ndarray) -> None:
-        """Draw waveform envelope for the current viewport."""
+    def paint(self, painter: QPainter, ctx: ViewContext, samples: np.ndarray, downsample_factor=None) -> None:
+        """Draw waveform envelope for the current viewport.
+        
+        Args:
+            painter: Qt painter
+            ctx: View context with viewport info
+            samples: Audio samples
+            downsample_factor: Optional downsampling for performance (used in GENERAL mode)
+        """
         painter.save()  # Save painter state
         try:
             w = max(1, ctx.width)
@@ -66,7 +81,7 @@ class WaveformTrack:
             
             painter.setPen(self.pen_waveform)
 
-            mins, maxs = self._compute_envelope(samples, ctx.start_sample, ctx.end_sample, w, None)
+            mins, maxs = self._compute_envelope(samples, ctx.start_sample, ctx.end_sample, w, None, downsample_factor)
             for x in range(w):
                 y1 = int(mins[x] * (h / 2 - 2))
                 y2 = int(maxs[x] * (h / 2 - 2))

@@ -1,6 +1,7 @@
 # Waveform Widget with Zoom, Scroll, and Animated Playhead
 
 import numpy as np
+from enum import Enum, auto
 from PySide6.QtWidgets import QWidget
 from PySide6.QtGui import QPainter, QColor, QPen, QFont
 from PySide6.QtCore import Qt, Signal
@@ -22,6 +23,19 @@ MIN_SAMPLES_PER_PIXEL = 10   # Do not allow fewer than 10 samples per pixel (vis
 MAX_ZOOM_LEVEL = 500.0      # Max zoom factor multiplier
 GLOBAL_DOWNSAMPLE_FACTOR = 1024  # For global view, aggregate at least this many samples per visual bucket
 
+class ZoomMode(Enum):
+    """Tres modos de zoom predefinidos con diferentes comportamientos"""
+    GENERAL = auto()    # Vista completa de la forma de onda
+    PLAYBACK = auto()   # Zoom adaptado para ver letras durante reproducción
+    EDIT = auto()       # Zoom libre para edición precisa
+    
+# Rangos de zoom factor para cada modo
+ZOOM_RANGES = {
+    ZoomMode.GENERAL: (1.0, 5.0),      # Vista panorámica completa
+    ZoomMode.PLAYBACK: (8.0, 30.0),    # Vista enfocada en letras (±5-15 segundos)
+    ZoomMode.EDIT: (1.0, 500.0)        # Rango completo para edición
+}
+
 class TimelineView(QWidget):
     """
     Widget pasivo para dibujar la onda y manejar eventos de usuario (zoom, scroll, doble clic para seek).
@@ -29,6 +43,8 @@ class TimelineView(QWidget):
     """
     # Señal para notificar que el usuario ha cambiado la posición (segundos)
     position_changed = Signal(float)
+    # Señal para notificar cambios de modo de zoom
+    zoom_mode_changed = Signal(object)  # ZoomMode
 
     def __init__(self, audio_path=None, parent=None, timeline: Optional[TimelineModel] = None): # audio_path ahora es opcional
         super().__init__(parent)
@@ -43,6 +59,11 @@ class TimelineView(QWidget):
         # --- View parameters ---
         self.zoom_factor = 1.0
         self.center_sample = 0 # Centro inicial (se ajustará si se carga audio)
+        
+        # --- Zoom Mode System ---
+        self.current_zoom_mode = ZoomMode.GENERAL
+        self._auto_zoom_mode_enabled = True  # Auto-switch to PLAYBACK on play
+        self._user_zoom_override = False     # True if user manually changed zoom in current mode
 
         # --- Playhead ---
         # NOTE: TimelineModel is the canonical source of time; the widget keeps a
@@ -253,6 +274,9 @@ class TimelineView(QWidget):
         old_zoom = self.zoom_factor
         tentative_zoom = max(1.0, old_zoom * ratio)
         w = max(1, self.width())
+        
+        # Aplicar límites del modo actual
+        tentative_zoom = self._clamp_zoom_to_mode(tentative_zoom)
         new_zoom = self._clamp_zoom_for_width(tentative_zoom, w)
 
         if cursor_x is None:
@@ -264,6 +288,9 @@ class TimelineView(QWidget):
             new_center = int(sample_at_cursor + (w/2 - cursor_x) * new_spp)
             self.center_sample = int(np.clip(new_center, 0, len(self.samples)-1))
             self.zoom_factor = new_zoom
+        
+        # Marcar que el usuario ha hecho zoom manual
+        self._user_zoom_override = True
 
         # After zoom, ensure the playhead remains visible in the current viewport
         try:
@@ -287,6 +314,93 @@ class TimelineView(QWidget):
         visible_samples = max(1.0, total_samples / zoom_factor)
         spp = visible_samples / width_pixels
         return max(1e-6, spp)
+
+    # ==============================================================
+    # ZOOM MODE SYSTEM
+    # ==============================================================
+    
+    def set_zoom_mode(self, mode: ZoomMode, auto: bool = True):
+        """
+        Cambia el modo de zoom y ajusta la vista según el modo.
+        
+        Args:
+            mode: Modo de zoom a aplicar (GENERAL, PLAYBACK, EDIT)
+            auto: Si es True, es un cambio automático; si es False, es manual del usuario
+        """
+        if self.total_samples == 0:
+            return
+            
+        if self.current_zoom_mode == mode:
+            return
+            
+        old_mode = self.current_zoom_mode
+        self.current_zoom_mode = mode
+        
+        # Calcular zoom y centro apropiados para el nuevo modo
+        self._calculate_zoom_for_mode(mode, auto)
+        
+        # Marcar si el usuario hizo un cambio manual
+        if not auto:
+            self._user_zoom_override = False
+        
+        # Notificar cambio de modo
+        self.zoom_mode_changed.emit(mode)
+        
+        # Invalidar cache y redibujar
+        self._reset_waveform_cache()
+        self.update()
+    
+    def _calculate_zoom_for_mode(self, mode: ZoomMode, auto: bool):
+        """
+        Calcula el zoom_factor y center_sample apropiados para el modo dado.
+        """
+        w = max(1, self.width())
+        
+        if mode == ZoomMode.GENERAL:
+            # Modo GENERAL: mostrar toda la forma de onda
+            self.zoom_factor = 1.0
+            self.center_sample = self.total_samples // 2
+            
+        elif mode == ZoomMode.PLAYBACK:
+            # Modo PLAYBACK: zoom para ver letras (±10 segundos alrededor del playhead)
+            # Aproximadamente 20 segundos visibles en pantalla
+            target_visible_seconds = 20.0
+            target_visible_samples = target_visible_seconds * self.sr
+            self.zoom_factor = self.total_samples / target_visible_samples
+            
+            # Clamp al rango del modo
+            min_zoom, max_zoom = ZOOM_RANGES[mode]
+            self.zoom_factor = np.clip(self.zoom_factor, min_zoom, max_zoom)
+            
+            # Centrar en el playhead
+            self.center_sample = int(np.clip(self.playhead_sample, 0, self.total_samples - 1))
+            
+        elif mode == ZoomMode.EDIT:
+            # Modo EDIT: mantener zoom actual si viene de otro modo, o usar zoom moderado
+            if auto:
+                # Si es cambio automático, usar un zoom moderado
+                self.zoom_factor = 20.0
+            # Si es manual, mantener el zoom actual
+            
+            # Clamp al rango del modo
+            min_zoom, max_zoom = ZOOM_RANGES[mode]
+            self.zoom_factor = np.clip(self.zoom_factor, min_zoom, max_zoom)
+        
+        # Asegurar que el zoom sea válido para el ancho actual
+        self.zoom_factor = self._clamp_zoom_for_width(self.zoom_factor, w)
+    
+    def _clamp_zoom_to_mode(self, zoom: float) -> float:
+        """Restringe el zoom al rango permitido por el modo actual."""
+        min_zoom, max_zoom = ZOOM_RANGES[self.current_zoom_mode]
+        return np.clip(zoom, min_zoom, max_zoom)
+    
+    def get_auto_zoom_enabled(self) -> bool:
+        """Retorna si el cambio automático de modo está habilitado."""
+        return self._auto_zoom_mode_enabled
+    
+    def set_auto_zoom_enabled(self, enabled: bool):
+        """Habilita o deshabilita el cambio automático de modo al reproducir."""
+        self._auto_zoom_mode_enabled = enabled
 
     # Waveform envelope computation moved to WaveformTrack
 
@@ -603,6 +717,17 @@ class TimelineView(QWidget):
         if self._lyrics_edit_mode:
             # TODO: Handle edit-mode-specific keyboard shortcuts
             pass
+        
+        # Atajos de teclado para cambiar modo de zoom
+        if event.key() == Qt.Key_1:
+            self.set_zoom_mode(ZoomMode.GENERAL, auto=False)
+            return
+        elif event.key() == Qt.Key_2:
+            self.set_zoom_mode(ZoomMode.PLAYBACK, auto=False)
+            return
+        elif event.key() == Qt.Key_3:
+            self.set_zoom_mode(ZoomMode.EDIT, auto=False)
+            return
             
         w = max(1, self.width())
         spp = self._samples_per_pixel(self.zoom_factor, w)
@@ -684,9 +809,15 @@ class TimelineView(QWidget):
         # Paint all tracks in order (bottom to top layering)
         # ----------------------------------------------------------
         
+        # Determinar downsample_factor para optimización en modo GENERAL
+        downsample_factor = None
+        if self.current_zoom_mode == ZoomMode.GENERAL:
+            # En modo GENERAL, usar downsample para mejor performance
+            downsample_factor = GLOBAL_DOWNSAMPLE_FACTOR
+        
         # 1. Waveform (base layer)
         try:
-            self._waveform_track.paint(painter, ctx, self.samples)
+            self._waveform_track.paint(painter, ctx, self.samples, downsample_factor)
         except Exception:
             pass
         
@@ -724,6 +855,27 @@ class TimelineView(QWidget):
         total_time_str = format_time(self.duration_seconds)
         # Dibujar en la esquina superior derecha
         painter.drawText(w - 150, 20, 140, 20, Qt.AlignRight, total_time_str)
+        
+        # ----------------------------------------------------------
+        # ZOOM MODE INDICATOR
+        # ----------------------------------------------------------
+        mode_names = {
+            ZoomMode.GENERAL: "Vista General",
+            ZoomMode.PLAYBACK: "Reproducción",
+            ZoomMode.EDIT: "Edición"
+        }
+        mode_colors = {
+            ZoomMode.GENERAL: QColor(100, 180, 255, 180),
+            ZoomMode.PLAYBACK: QColor(100, 255, 100, 180),
+            ZoomMode.EDIT: QColor(255, 200, 100, 180)
+        }
+        
+        mode_name = mode_names.get(self.current_zoom_mode, "")
+        mode_color = mode_colors.get(self.current_zoom_mode, QColor(200, 200, 200, 180))
+        
+        painter.setFont(StyleManager.get_font(size=10, mono=True))
+        painter.setPen(mode_color)
+        painter.drawText(10, h - 25, 150, 20, Qt.AlignLeft, f"Zoom: {mode_name}")
         
         # ----------------------------------------------------------
         # LYRICS EDIT MODE INDICATOR

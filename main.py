@@ -19,7 +19,7 @@ from ui.widgets.track_widget import TrackWidget
 from ui.widgets.spinner_dialog import SpinnerDialog
 from ui.widgets.add import AddDialog
 
-from audio.timeline_view import TimelineView
+from audio.timeline_view import TimelineView, ZoomMode
 from audio.extract import AudioExtractWorker
 from audio.beats import BeatsExtractorWorker
 from audio.chords import ChordExtractorWorker
@@ -108,6 +108,10 @@ class MainWindow(QMainWindow):
         self.controls.play_clicked.connect(self.on_play_clicked)
         self.controls.pause_clicked.connect(self.on_pause_clicked)
         self.controls.edit_mode_toggled.connect(self.on_edit_mode_toggled)
+        
+        # Connect zoom mode controls
+        self.controls.zoom_mode_changed.connect(self.on_zoom_mode_changed)
+        self.timeline_view.zoom_mode_changed.connect(self.on_timeline_zoom_mode_changed)
 
 
         # definir thread y worker para extraccion de audio
@@ -133,6 +137,10 @@ class MainWindow(QMainWindow):
         self.video_player.start_playback()
         # Update UI toggle
         self.controls.set_playing_state(True)
+        
+        # Auto-switch to PLAYBACK zoom mode if enabled
+        if self.timeline_view.get_auto_zoom_enabled():
+            self.timeline_view.set_zoom_mode(ZoomMode.PLAYBACK, auto=True)
     
     @Slot()
     def on_pause_clicked(self):
@@ -145,6 +153,28 @@ class MainWindow(QMainWindow):
     @Slot()
     def on_edit_mode_toggled(self, enabled: bool):
         self.timeline_view.set_lyrics_edit_mode(enabled)
+    
+    @Slot(str)
+    def on_zoom_mode_changed(self, mode: str):
+        """Handler para cuando el usuario cambia el modo desde la UI."""
+        zoom_mode_map = {
+            "GENERAL": ZoomMode.GENERAL,
+            "PLAYBACK": ZoomMode.PLAYBACK,
+            "EDIT": ZoomMode.EDIT
+        }
+        if mode in zoom_mode_map:
+            self.timeline_view.set_zoom_mode(zoom_mode_map[mode], auto=False)
+    
+    @Slot(object)
+    def on_timeline_zoom_mode_changed(self, mode):
+        """Handler para cuando el timeline cambia de modo (actualizar UI)."""
+        mode_str_map = {
+            ZoomMode.GENERAL: "GENERAL",
+            ZoomMode.PLAYBACK: "PLAYBACK",
+            ZoomMode.EDIT: "EDIT"
+        }
+        if mode in mode_str_map:
+            self.controls.set_zoom_mode(mode_str_map[mode])
 
     @Slot()
     def extraction_process(self, video_path: str):

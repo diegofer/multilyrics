@@ -8,7 +8,7 @@ ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
 if ROOT not in sys.path:
     sys.path.insert(0, ROOT)
 
-from audio.waveform import WaveformWidget, MIN_SAMPLES_PER_PIXEL, MAX_ZOOM_LEVEL
+from audio.timeline_view import TimelineView, MIN_SAMPLES_PER_PIXEL, MAX_ZOOM_LEVEL
 from PySide6.QtWidgets import QApplication
 
 
@@ -21,7 +21,7 @@ def qapp():
 
 
 def make_widget_with_samples(length=1000, sr=44100):
-    w = WaveformWidget(None)
+    w = TimelineView(None)
     w.samples = np.linspace(-1.0, 1.0, num=length).astype(np.float32)
     w.sr = sr
     w.total_samples = len(w.samples)
@@ -159,14 +159,14 @@ def test_compute_envelope_cache_hits(qapp):
     if getattr(w, '_waveform_track', None) is None:
         w._waveform_track = WaveformTrack()
 
-    a1, b1 = w._waveform_track._compute_envelope(w.samples, 0, len(samples)-1, 100, w.zoom_factor)
+    a1, b1 = w._waveform_track._compute_envelope(w.samples, 0, len(samples)-1, 100, w.zoom_factor, downsample_factor=None)
     # After call, cache should be populated
     assert w._waveform_track._last_params is not None
     assert w._waveform_track._last_envelope is not None
 
-    a2, b2 = w._waveform_track._compute_envelope(w.samples, 0, len(samples)-1, 100, w.zoom_factor)
+    a2, b2 = w._waveform_track._compute_envelope(w.samples, 0, len(samples)-1, 100, w.zoom_factor, downsample_factor=None)
     # second call should hit cache and return same values
     assert np.array_equal(a1, a2)
     assert np.array_equal(b1, b2)
-    assert w._waveform_track._last_params == (0, len(samples)-1, 100, w.zoom_factor)
+    assert w._waveform_track._last_params == (0, len(samples)-1, 100, w.zoom_factor, None)
 

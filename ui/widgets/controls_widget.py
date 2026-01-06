@@ -1,4 +1,4 @@
-from PySide6.QtWidgets import QWidget, QHBoxLayout, QVBoxLayout, QFrame, QLabel,QPushButton, QMenu
+from PySide6.QtWidgets import QWidget, QHBoxLayout, QVBoxLayout, QFrame, QLabel,QPushButton, QMenu, QButtonGroup
 from PySide6.QtCore import Qt, QSize, Signal, Slot, QPoint
 from PySide6.QtGui import QIcon
 from core.utils import clamp_menu_to_window, format_time
@@ -9,6 +9,7 @@ class ControlsWidget(QWidget):
     pause_clicked = Signal()
     action_1_clicked = Signal()
     edit_mode_toggled = Signal(bool)  # Signal for edit mode state
+    zoom_mode_changed = Signal(str)  # Signal for zoom mode change: "GENERAL", "PLAYBACK", "EDIT"
 
 
     def __init__(self,  control_name="ControlsWidget", parent=None):
@@ -22,12 +23,9 @@ class ControlsWidget(QWidget):
         self.main_layout.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self.main_layout.setSpacing(5)
         self.main_layout.setContentsMargins(0, 0, 0, 0)
-        self.main_layout.setObjectName(u"horizontallLayout")
 
         self.frame_1 = QFrame(self)
         self.frame_1_layout = QVBoxLayout()
-        self.frame_1_layout.setSpacing(0)
-        self.frame_1_layout.setContentsMargins(6, 6, 6, 6)
         self.frame_1.setLayout(self.frame_1_layout)
         self.frame_1.setObjectName(u"frame_1")
 
@@ -55,37 +53,67 @@ class ControlsWidget(QWidget):
         self.frame_7.setLayout(QHBoxLayout())
         self.frame_7.setObjectName(u"frame_7")
 
-
         # Etiqueta para mostrar el tiempo transcurrido y duración total
         self.total_duration_label = QLabel("00:00") 
         self.total_duration_label.setObjectName("label_time")
-        self.total_duration_label.setFixedSize(100, 30)
         self.current_time_label = QLabel("00:00")
         self.current_time_label.setObjectName("label_time")
-        self.current_time_label.setFixedSize(100, 30)
 
         self.total_duration_label.setAlignment(Qt.AlignCenter) 
         self.current_time_label.setAlignment(Qt.AlignCenter) 
 
         self.tempo_label = QLabel("120")
+        self.tempo_label.setObjectName("label_time")
         self.tempo_label.setAlignment(Qt.AlignCenter)
         self.compass_label = QLabel("4/4")
-        
+        self.compass_label.setObjectName("label_time")
         self.compass_label.setAlignment(Qt.AlignCenter)
         
         # Single toggle button for play/pause/resume
         self.play_toggle_btn = QPushButton()
+        self.play_toggle_btn.setObjectName("play_mode")
         self.play_toggle_btn.setCheckable(True)
         self.play_toggle_btn.setIcon(QIcon("assets/img/play.svg"))
         self.play_toggle_btn.setIconSize(QSize(50, 50))
         self.play_toggle_btn.toggled.connect(self._on_play_toggle)
 
+        
         # Toggle button for editing mode
         self.edit_toggle_btn = QPushButton("Editar")
+        self.edit_toggle_btn.setObjectName("edit_mode")
         self.edit_toggle_btn.setCheckable(True)
         self.edit_toggle_btn.setFixedSize(80, 50)
         self.edit_toggle_btn.setEnabled(False)  # Disabled by default
         self.edit_toggle_btn.toggled.connect(self._on_edit_toggle)
+        
+        # Botones para cambiar modo de zoom
+        #self.zoom_general_btn = QPushButton("Z1")
+        #self.zoom_general_btn.setCheckable(True)
+        #self.zoom_general_btn.setChecked(True)  # Modo por defecto
+        #self.zoom_general_btn.setFixedSize(100, 40)
+        #self.zoom_general_btn.setToolTip("Modo General: Ver toda la forma de onda")
+        
+        #self.zoom_playback_btn = QPushButton("Z2")
+        #self.zoom_playback_btn.setCheckable(True)
+        #self.zoom_playback_btn.setFixedSize(100, 40)
+        #self.zoom_playback_btn.setToolTip("Modo Reproducción: Zoom adaptado para ver letras")
+        
+        #self.zoom_edit_btn = QPushButton("Z3")
+        #self.zoom_edit_btn.setCheckable(True)
+        #self.zoom_edit_btn.setFixedSize(100, 40)
+        #self.zoom_edit_btn.setToolTip("Modo Edición: Zoom libre para edición precisa")
+        
+        # Agrupar botones de zoom para que sean mutuamente exclusivos
+        #self.zoom_button_group = QButtonGroup(self)
+        #self.zoom_button_group.addButton(self.zoom_general_btn, 0)
+        #self.zoom_button_group.addButton(self.zoom_playback_btn, 1)
+        #self.zoom_button_group.addButton(self.zoom_edit_btn, 2)
+        #self.zoom_button_group.setExclusive(True)
+        
+        # Conectar señales
+        #self.zoom_general_btn.clicked.connect(lambda: self._on_zoom_mode_changed("GENERAL"))
+        #self.zoom_playback_btn.clicked.connect(lambda: self._on_zoom_mode_changed("PLAYBACK"))
+        #self.zoom_edit_btn.clicked.connect(lambda: self._on_zoom_mode_changed("EDIT"))
 
         # button for settings menu
         self.menu_btn = QPushButton()
@@ -109,12 +137,18 @@ class ControlsWidget(QWidget):
         self.frame_4.layout().addWidget(self.play_toggle_btn)
         self.frame_6.layout().addWidget(self.edit_toggle_btn)
         self.frame_7.layout().addWidget(self.menu_btn)
+        
+        # Agregar botones de zoom a su frame
+        #self.frame_zoom.layout().addWidget(self.zoom_general_btn)
+        #self.frame_zoom.layout().addWidget(self.zoom_playback_btn)
+        #self.frame_zoom.layout().addWidget(self.zoom_edit_btn)
 
         self.main_layout.addWidget(self.frame_1)
         self.main_layout.addWidget(self.frame_2)
         self.main_layout.addWidget(self.frame_3)
         self.main_layout.addWidget(self.frame_4)
         self.main_layout.addWidget(self.frame_5)
+        #self.main_layout.addWidget(self.frame_zoom)
         self.main_layout.addWidget(self.frame_6)
         self.main_layout.addWidget(self.frame_7)
 
@@ -123,8 +157,9 @@ class ControlsWidget(QWidget):
         self.main_layout.setStretch(2, 1)
         self.main_layout.setStretch(3, 2)
         self.main_layout.setStretch(4, 1)
-        self.main_layout.setStretch(5, 1)
+        self.main_layout.setStretch(5, 2)
         self.main_layout.setStretch(6, 1)
+        self.main_layout.setStretch(7, 1)
 
     def _emit_play(self):
         self.play_clicked.emit()
@@ -212,3 +247,23 @@ class ControlsWidget(QWidget):
         final_pos = clamp_menu_to_window(self.menu, desired_pos, self.window())
 
         self.menu.popup(final_pos)
+    
+    def _on_zoom_mode_changed(self, mode: str):
+        """Handler para cambios de modo de zoom."""
+        self.zoom_mode_changed.emit(mode)
+    
+    def set_zoom_mode(self, mode: str):
+        """Actualiza visualmente el botón de zoom activo.
+        
+        Args:
+            mode: "GENERAL", "PLAYBACK", o "EDIT"
+        """
+        if mode == "GENERAL":
+            #self.zoom_general_btn.setChecked(True)
+            pass
+        elif mode == "PLAYBACK":
+            #self.zoom_playback_btn.setChecked(True)
+            pass
+        elif mode == "EDIT":
+            #self.zoom_edit_btn.setChecked(True)
+            pass 
