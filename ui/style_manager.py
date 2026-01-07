@@ -7,13 +7,14 @@ class StyleManager:
     Gestor de estilos centralizado para el Editor Multitrack.
     Incluye registro de fuentes externas para consistencia cross-platform.
 
-    frame -> frame_playlist
-    frame_2 -> frame_timeline
-    frame_3 -> frame_mixer
-        frame_5_tracks -> frame_mixer_tracks
-        frame_6_master -> frame_mixer_master
-    frame_4 -> frame_controls
-
+    Estructura de la UI en Shell.py:
+    ---------------------
+    frame_playlist
+    frame_timeline
+    frame_mixer
+        frame_mixer_tracks
+        frame_mixer_master
+    frame_controls
     """
     
     PALETTE = {
@@ -121,30 +122,27 @@ class StyleManager:
         QWidget {{
             color: {cls.PALETTE['text_normal']};
             font-family: {cls.PALETTE['font_main']};
-            font-size: 12px;
+            font-size: 14px;
             outline: none;
         }}
-        QMainWindow {{ background-color: {cls.PALETTE['bg_base']}; }}
-        QWidget#centralwidget {{ background-color: {cls.PALETTE['bg_base']}; }}
+        QMainWindow {{ background-color: {cls.PALETTE['bg_workspace']}; }}
+        QWidget#centralwidget {{ background-color: {cls.PALETTE['bg_workspace']}; }}
         QFrame {{ background-color: transparent; border: none; }}
-        QFrame#frame_controls, QFrame#frame_mixer_master {{
-            background-color: {cls.PALETTE['bg_panel']};
-            border-top: 1px solid {cls.PALETTE['border_light']};
-        }}
-        QFrame#frame_timeline, QFrame#frame_mixer_tracks {{
-            background-color: {cls.PALETTE['bg_workspace']};
+        
+        QFrame#frame_mixer_tracks {{
+            border: 1px solid {cls.PALETTE['border_light']};
             border-radius: 4px;
-            margin: 2px;
         }}
+
         QPushButton {{
-            background-color: {cls.PALETTE['btn_normal']};
+            background-color: rgba(0, 0, 0, 0.1);
             color: {cls.PALETTE['text_bright']};
             border: 1px solid {cls.PALETTE['border_light']};
             border-radius: 4px;
             padding: 5px 12px;
         }}
         QPushButton:hover {{
-            background-color: {cls.PALETTE['btn_hover']};
+            background-color: {cls.PALETTE['bg_panel']};
             border: 1px solid {cls.PALETTE['waveform']};
         }}
         QPushButton:checked {{
@@ -178,10 +176,34 @@ class StyleManager:
         QLabel#tempo_compass_label {{
             font-family: {cls.PALETTE['font_mono']};
             font-size: 15pt;
-            color: {cls.PALETTE['text_dim']};
+            color: {cls.PALETTE['accent_play']};
             background: rgba(0, 0, 0, 0.1);
             padding: 2px;
             border-radius: 3px;
             qproperty-alignment: 'AlignCenter';
         }}
         """
+    
+"""         
+QFrame#frame_controls, QFrame#frame_mixer_master {{
+    background-color: {cls.PALETTE['bg_panel']};
+    border-top: 1px solid {cls.PALETTE['border_light']};
+}}
+QFrame#frame_timeline, QFrame#frame_mixer_tracks {{
+    background-color: {cls.PALETTE['bg_workspace']};
+    border-radius: 4px;
+    margin: 2px;
+}} 
+"""
+
+"""
+Estilo temporal para depuración de la estructura de la UI:
+        QFrame#frame_playlist {{ background-color: red; }}
+        QFrame#frame_timeline {{ background-color: green; }}
+        QFrame#frame_mixer {{ background-color: pink; }}
+            QFrame#frame_mixer_tracks {{ background-color: yellow; }}
+            QFrame#frame_mixer_master {{ background-color: aquamarine; }}
+        QFrame#frame_controls {{ background-color: green; }}
+            QWidget#controls_widget {{ background-color: pink; }}
+                QWidget#controls_widget QFrame {{ background-color: red; }}
+"""

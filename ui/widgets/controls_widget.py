@@ -19,18 +19,21 @@ class ControlsWidget(QWidget):
         self.initUi()
 
     def initUi(self):
+        self.setObjectName(u"controls_widget")
         self.main_layout = QHBoxLayout(self)
         self.main_layout.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        #self.main_layout.setSpacing(5)
-        self.main_layout.setContentsMargins(10, 10, 10, 10)
+        self.main_layout.setSpacing(10)
+        self.main_layout.setContentsMargins(10, 10, 10, 20)
 
         self.frame_1 = QFrame(self)
         self.frame_1.setLayout(QVBoxLayout())
         self.frame_1.setObjectName(u"controls_frame_1")
+        self.frame_1.layout().setContentsMargins(0, 0, 0, 0)
 
         self.frame_2 = QFrame(self)
         self.frame_2.setLayout(QVBoxLayout())
         self.frame_2.setObjectName(u"controls_frame_2")
+        self.frame_2.layout().setContentsMargins(0, 0, 0, 0)
 
         self.frame_3 = QFrame(self)
         self.frame_3.setLayout(QHBoxLayout())
@@ -40,7 +43,6 @@ class ControlsWidget(QWidget):
         self.frame_4.setLayout(QHBoxLayout())
         self.frame_4.setObjectName(u"controls_frame_4")
         self.frame_4.layout().setContentsMargins(0, 0, 0, 0)
-        self.frame_4.layout().setSpacing(0)
 
         self.frame_5 = QFrame(self)
         self.frame_5.setLayout(QHBoxLayout())
@@ -50,11 +52,11 @@ class ControlsWidget(QWidget):
         self.frame_6.setLayout(QHBoxLayout())
         self.frame_6.setObjectName(u"controls_frame_6")
         self.frame_6.layout().setContentsMargins(0, 0, 0, 0)
-        self.frame_6.layout().setSpacing(0)
 
         self.frame_7 = QFrame(self)
         self.frame_7.setLayout(QHBoxLayout())
         self.frame_7.setObjectName(u"controls_frame_7")
+        self.frame_7.layout().setContentsMargins(0, 0, 0, 0)
 
         # Etiqueta para mostrar el tiempo transcurrido y duración total
         self.total_duration_label = QLabel("00:00") 
@@ -71,6 +73,7 @@ class ControlsWidget(QWidget):
         self.play_toggle_btn.setCheckable(True)
         self.play_toggle_btn.setIcon(QIcon("assets/img/play.svg"))
         self.play_toggle_btn.setIconSize(QSize(50, 50))
+        self.play_toggle_btn.setSizePolicy(QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Expanding)
         self.play_toggle_btn.toggled.connect(self._on_play_toggle)
 
         
@@ -81,10 +84,7 @@ class ControlsWidget(QWidget):
         #self.edit_toggle_btn.setFixedSize(80, 50)
         self.edit_toggle_btn.setEnabled(False)  # Disabled by default
         self.edit_toggle_btn.toggled.connect(self._on_edit_toggle)
-        self.edit_toggle_btn.setSizePolicy(
-            QSizePolicy.Policy.Preferred, # O la que ya tenga en horizontal
-            QSizePolicy.Policy.Expanding  # Aquí está el valor correcto
-        )
+        self.edit_toggle_btn.setSizePolicy(QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Expanding)
         
         # Botones para cambiar modo de zoom
         #self.zoom_general_btn = QPushButton("Z1")
@@ -119,6 +119,7 @@ class ControlsWidget(QWidget):
         self.menu_btn = QPushButton()
         self.menu_btn.setIcon(QIcon("assets/img/settings.svg"))
         self.menu_btn.setIconSize(QSize(50, 50))
+        self.menu_btn.setSizePolicy(QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Expanding)
 
         self.menu = QMenu()
         action_1 = self.menu.addAction("Crear")
@@ -153,12 +154,11 @@ class ControlsWidget(QWidget):
 
         self.main_layout.setStretch(0, 1)
         self.main_layout.setStretch(1, 1)
-        self.main_layout.setStretch(2, 1)
+        self.main_layout.setStretch(2, 2)
         self.main_layout.setStretch(3, 2)
-        self.main_layout.setStretch(4, 1)
-        self.main_layout.setStretch(5, 2)
+        self.main_layout.setStretch(4, 2)
+        self.main_layout.setStretch(5, 1)
         self.main_layout.setStretch(6, 1)
-        self.main_layout.setStretch(7, 1)
 
     def _emit_play(self):
         self.play_clicked.emit()
