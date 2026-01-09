@@ -26,7 +26,7 @@ class Ui_MainWindow(object):
         self.central_widget = QWidget(MainWindow)
         self.central_widget.setObjectName(u"central_widget")
         self.central_widget_layout = QVBoxLayout(self.central_widget)
-        self.central_widget_layout.setSpacing(0)
+        self.central_widget_layout.setSpacing(6)
         self.central_widget_layout.setObjectName(u"central_widget_layout")
         self.central_widget_layout.setContentsMargins(0, 0, 0, 0)
         self.frame_playlist = QFrame(self.central_widget)
@@ -36,7 +36,7 @@ class Ui_MainWindow(object):
         self.frame_playlist.setFrameShadow(QFrame.Shadow.Raised)
         self.playlist_layout = QHBoxLayout(self.frame_playlist)
         self.playlist_layout.setObjectName(u"playlist_layout")
-        self.playlist_layout.setContentsMargins(2, 2, 2, 2)
+        self.playlist_layout.setContentsMargins(9, 9, 9, 0)
 
         self.central_widget_layout.addWidget(self.frame_playlist)
 
@@ -47,7 +47,7 @@ class Ui_MainWindow(object):
         self.frame_timeline.setFrameShadow(QFrame.Shadow.Raised)
         self.timeline_layout = QVBoxLayout(self.frame_timeline)
         self.timeline_layout.setObjectName(u"timeline_layout")
-        self.timeline_layout.setContentsMargins(5, 2, 2, 2)
+        self.timeline_layout.setContentsMargins(9, 0, 9, 0)
 
         self.central_widget_layout.addWidget(self.frame_timeline)
 
@@ -56,8 +56,9 @@ class Ui_MainWindow(object):
         self.frame_mixer.setStyleSheet(u"")
         self.frame_mixer.setFrameShape(QFrame.Shape.StyledPanel)
         self.frame_mixer.setFrameShadow(QFrame.Shadow.Raised)
-        self.mixerLayout = QHBoxLayout(self.frame_mixer)
-        self.mixerLayout.setObjectName(u"mixerLayout")
+        self.mixer_layout = QHBoxLayout(self.frame_mixer)
+        self.mixer_layout.setObjectName(u"mixer_layout")
+        self.mixer_layout.setContentsMargins(9, 0, 9, 0)
         self.frame_mixer_tracks = QFrame(self.frame_mixer)
         self.frame_mixer_tracks.setObjectName(u"frame_mixer_tracks")
         sizePolicy = QSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Preferred)
@@ -68,9 +69,11 @@ class Ui_MainWindow(object):
         self.frame_mixer_tracks.setFrameShape(QFrame.Shape.StyledPanel)
         self.frame_mixer_tracks.setFrameShadow(QFrame.Shadow.Raised)
         self.mixer_tracks_layout = QHBoxLayout(self.frame_mixer_tracks)
+        self.mixer_tracks_layout.setSpacing(6)
         self.mixer_tracks_layout.setObjectName(u"mixer_tracks_layout")
+        self.mixer_tracks_layout.setContentsMargins(0, 0, 0, 0)
 
-        self.mixerLayout.addWidget(self.frame_mixer_tracks)
+        self.mixer_layout.addWidget(self.frame_mixer_tracks)
 
         self.frame_mixer_master = QFrame(self.frame_mixer)
         self.frame_mixer_master.setObjectName(u"frame_mixer_master")
@@ -84,8 +87,9 @@ class Ui_MainWindow(object):
         self.frame_mixer_master.setFrameShadow(QFrame.Shadow.Raised)
         self.mixer_master_layout = QHBoxLayout(self.frame_mixer_master)
         self.mixer_master_layout.setObjectName(u"mixer_master_layout")
+        self.mixer_master_layout.setContentsMargins(0, 0, 0, 0)
 
-        self.mixerLayout.addWidget(self.frame_mixer_master)
+        self.mixer_layout.addWidget(self.frame_mixer_master)
 
 
         self.central_widget_layout.addWidget(self.frame_mixer)
@@ -97,7 +101,7 @@ class Ui_MainWindow(object):
         self.frame_controls.setFrameShadow(QFrame.Shadow.Raised)
         self.controls_layout = QHBoxLayout(self.frame_controls)
         self.controls_layout.setObjectName(u"controls_layout")
-        self.controls_layout.setContentsMargins(4, 4, 4, 4)
+        self.controls_layout.setContentsMargins(9, 0, 9, 9)
 
         self.central_widget_layout.addWidget(self.frame_controls)
 

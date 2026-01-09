@@ -16,7 +16,7 @@
   <widget class="QWidget" name="central_widget">
    <layout class="QVBoxLayout" name="central_widget_layout" stretch="1,2,5,1">
     <property name="spacing">
-     <number>0</number>
+     <number>6</number>
     </property>
     <property name="leftMargin">
      <number>0</number>
@@ -43,16 +43,16 @@
       </property>
       <layout class="QHBoxLayout" name="playlist_layout">
        <property name="leftMargin">
-        <number>2</number>
+        <number>9</number>
        </property>
        <property name="topMargin">
-        <number>2</number>
+        <number>9</number>
        </property>
        <property name="rightMargin">
-        <number>2</number>
+        <number>9</number>
        </property>
        <property name="bottomMargin">
-        <number>2</number>
+        <number>0</number>
        </property>
       </layout>
      </widget>
@@ -70,16 +70,16 @@
       </property>
       <layout class="QVBoxLayout" name="timeline_layout">
        <property name="leftMargin">
-        <number>5</number>
+        <number>9</number>
        </property>
        <property name="topMargin">
-        <number>2</number>
+        <number>0</number>
        </property>
        <property name="rightMargin">
-        <number>2</number>
+        <number>9</number>
        </property>
        <property name="bottomMargin">
-        <number>2</number>
+        <number>0</number>
        </property>
       </layout>
      </widget>
@@ -95,7 +95,19 @@
       <property name="frameShadow">
        <enum>QFrame::Shadow::Raised</enum>
       </property>
-      <layout class="QHBoxLayout" name="mixerLayout">
+      <layout class="QHBoxLayout" name="mixer_layout">
+       <property name="leftMargin">
+        <number>9</number>
+       </property>
+       <property name="topMargin">
+        <number>0</number>
+       </property>
+       <property name="rightMargin">
+        <number>9</number>
+       </property>
+       <property name="bottomMargin">
+        <number>0</number>
+       </property>
        <item>
         <widget class="QFrame" name="frame_mixer_tracks">
          <property name="sizePolicy">
@@ -110,7 +122,23 @@
          <property name="frameShadow">
           <enum>QFrame::Shadow::Raised</enum>
          </property>
-         <layout class="QHBoxLayout" name="mixer_tracks_layout"/>
+         <layout class="QHBoxLayout" name="mixer_tracks_layout">
+          <property name="spacing">
+           <number>6</number>
+          </property>
+          <property name="leftMargin">
+           <number>0</number>
+          </property>
+          <property name="topMargin">
+           <number>0</number>
+          </property>
+          <property name="rightMargin">
+           <number>0</number>
+          </property>
+          <property name="bottomMargin">
+           <number>0</number>
+          </property>
+         </layout>
         </widget>
        </item>
        <item>
@@ -130,7 +158,20 @@
          <property name="frameShadow">
           <enum>QFrame::Shadow::Raised</enum>
          </property>
-         <layout class="QHBoxLayout" name="mixer_master_layout"/>
+         <layout class="QHBoxLayout" name="mixer_master_layout">
+          <property name="leftMargin">
+           <number>0</number>
+          </property>
+          <property name="topMargin">
+           <number>0</number>
+          </property>
+          <property name="rightMargin">
+           <number>0</number>
+          </property>
+          <property name="bottomMargin">
+           <number>0</number>
+          </property>
+         </layout>
         </widget>
        </item>
       </layout>
@@ -149,16 +190,16 @@
       </property>
       <layout class="QHBoxLayout" name="controls_layout">
        <property name="leftMargin">
-        <number>4</number>
+        <number>9</number>
        </property>
        <property name="topMargin">
-        <number>4</number>
+        <number>0</number>
        </property>
        <property name="rightMargin">
-        <number>4</number>
+        <number>9</number>
        </property>
        <property name="bottomMargin">
-        <number>4</number>
+        <number>9</number>
        </property>
       </layout>
      </widget>

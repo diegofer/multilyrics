@@ -758,7 +758,7 @@ class TimelineView(QWidget):
     # ==============================================================
     def paintEvent(self, event):
         painter = QPainter(self)
-        painter.fillRect(self.rect(), QColor(30, 30, 30))
+        #painter.fillRect(self.rect(), StyleManager.get_color("bg_workspace"))
 
         w = max(1, self.width())
         h = max(2, self.height())

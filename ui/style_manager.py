@@ -4,75 +4,101 @@ import os
 
 class StyleManager:
     """
-    Gestor de estilos centralizado para el Editor Multitrack.
-    Incluye registro de fuentes externas para consistencia cross-platform.
-
-    Estructura de la UI en Shell.py:
-    ---------------------
-    frame_playlist
-    frame_timeline
-    frame_mixer
-        frame_mixer_tracks
-        frame_mixer_master
-    frame_controls
+    Tema visual basado en:
+    - Azules profundos dominantes
+    - Botones integrados al fondo (bajo contraste)
+    - Neón solo como acento y estado activo
+    - Transparencias para sensación de fusión con el fondo
     """
-    
+ 
     PALETTE = {
-        # COLORES DE FONDO (Jerarquía)
-        "bg_base": "rgb(29, 35, 67)",       # Deep Midnight Blue (Fondo principal)
-        "bg_panel": "rgb(43, 52, 95)",      # Royal Blue Dark (Paneles y herramientas)
-        "bg_workspace": "rgb(22, 27, 51)",  # Abyss Blue (Área de edición/tracks)
-        
-        # INTERACCIÓN
-        "btn_normal": "rgb(58, 70, 128)",   # Slate Blue (Botón estado normal)
-        "btn_hover": "rgb(75, 88, 155)",    # Soft Indigo (Botón al pasar el mouse)
-        "btn_pressed": "rgb(15, 20, 40)",   # Charcoal Blue (Botón al presionar)
-        "btn_disabled": "rgb(45, 50, 80)",  # Muted Steel Blue (Botón desactivado)
-        
-        # ACENTOS Y ESTADOS
-        "accent": "rgb(255, 171, 0)",       # Amber/Orange (Selección, edición, enfoque)
-        "accent_play": "rgb(46, 204, 113)", # Emerald Green (Reproducción activa)
-        "border_light": "rgba(255, 255, 255, 0.12)", # Crystal White (Bordes sutiles)
-        "border_disabled": "rgba(255, 255, 255, 0.05)", # Ghost White (Borde desactivado)
+        # ==========================
+        # BACKGROUND AZULES PROFUNDOS
+        # ==========================
+        "bg_workspace": "rgb(11, 18, 36)",  # Azul más profundo (casi negro azulado). Área de trabajo, máxima concentración y mínima fatiga visual.
+        "bg_base": "rgb(14, 22, 48)",       # Azul muy oscuro. Fondo base de ventanas; ligeramente más visible que workspace.
+        "bg_panel": "rgb(20, 32, 74)",      # Azul oscuro claramente perceptible. Ideal para paneles, barras y módulos diferenciados.
+        "blue_deep_medium": "rgb(30, 50, 110)",  # Azul medio profundo. Excelente para botones activos, tabs, hover sin salir del tema oscuro.
+        "blue_highlight_soft": "rgb(48, 78, 150)",  # Azul de mayor brillo pero controlado. Bueno para bordes, panel enfocado o secciones resaltadas.
 
-        # OTROS ACENTOS NEÓN
-        "neon_purple": "rgb(191, 0, 255)",  # Electric Purple (Efectos/Marcadores)
-        "neon_yellow": "rgb(238, 255, 0)",  # Lemon Neon (Alertas/Modos especiales)
-        
-        # AUDIO VISUALS (Nuevos colores sugeridos)
-        "waveform": "rgb(0, 210, 255)",     # Electric Cyan (Onda de audio nítida)
-        "waveform_dim": "rgba(0, 210, 255, 0.4)", # Onda de audio en segundo plano
-        "playhead": "rgb(255, 50, 50)",     # Neon Red (Línea de tiempo/cursor)
-        
-        # GRID RÍTMICO (Líneas verticales)
-        "beat": "rgba(200, 200, 200, 0.25)",     # Light Gray (Más opaco)
-        "downbeat": "rgba(0, 255, 255, 0.6)",    # Pure Cyan Neon (Muy visible)
+        # ==========================
+        # BOTONES FUNDIDOS CON EL FONDO
+        # ==========================
+        # mismos tonos que panel, pero más transparentes
+        "btn_normal": "rgba(25, 40, 90, 0.55)",
+        "btn_hover": "rgba(35, 55, 120, 0.65)",
+        "btn_pressed": "rgba(10, 16, 34, 0.85)",
+        "btn_disabled": "rgba(25, 32, 60, 0.35)",
 
-        # CAPAS DE DATOS (Backgrounds transparentes)
-        "chord_bg": "rgba(155, 89, 182, 0.25)", # Amethyst Purple (Fondo de acordes)
-        "chord_text": "rgb(200, 150, 255)",     # Soft Purple (Texto de acordes)
-        
-        "lyrics_bg": "rgba(46, 204, 113, 0.15)", # Emerald Trans (Fondo de letras)
-        "lyrics_text": "rgb(255, 255, 255)",     # White (Texto de letras)
+        # ==========================
+        # ACENTOS NEÓN (SOLO BORDES/TEXTO ACTIVO)
+        # ==========================
+        "accent": "rgb(255, 180, 0)",
+        "accent_play": "rgb(0, 230, 140)",
+        "neon_cyan": "rgb(0, 220, 255)",
+        "neon_purple": "rgb(200, 0, 255)",
+        "neon_red": "rgb(255, 60, 60)",
 
+        # ==========================
+        # BORDES
+        # ==========================
+        "border_light": "rgba(255, 255, 255, 0.12)",
+        "border_disabled": "rgba(255, 255, 255, 0.04)",
+
+        # ==========================
+        # OVERLAYS OSCUROS (antes estaban hardcodeados)
+        # ==========================
+        "overlay_light": "rgba(0, 0, 0, 0.35)",
+        "overlay_mid": "rgba(0, 0, 0, 0.45)",
+        "overlay_strong": "rgba(0, 0, 0, 0.55)",
+
+        # ==========================
+        # AUDIO VISUAL
+        # ==========================
+        "waveform": "rgb(0, 220, 255)",
+        "waveform_dim": "rgba(0, 220, 255, 0.35)",
+        "playhead": "rgb(255, 60, 60)",
+
+        # ==========================
+        # GRID
+        # ==========================
+        "beat": "rgba(200, 200, 200, 0.20)",
+        "downbeat": "rgba(0, 255, 255, 0.55)",
+
+        # ==========================
+        # CAPAS
+        # ==========================
+        "chord_bg": "rgba(155, 89, 182, 0.25)",
+        "chord_text": "rgb(200, 160, 255)",
+        "lyrics_bg": "rgba(46, 204, 113, 0.15)",
+        "lyrics_text": "rgb(255, 255, 255)",
+
+        # ==========================
         # TEXTO
-        "text_bright": "#FFFFFF",           # Pure White (Títulos y botones activos)
-        "text_normal": "#D1D5DB",           # Cool Gray (Texto general legible)
-        "text_dim": "#6B7280",              # Slate Gray (Texto secundario/ayuda)
-        "text_disabled": "rgba(255, 255, 255, 0.25)", # Faded White (Texto inactivo)
-        
+        # ==========================
+        "text_bright": "#FFFFFF",
+        "text_normal": "#D0D6E8",
+        "text_dim": "#7A8298",
+        "text_disabled": "rgba(255, 255, 255, 0.25)",
+
+        # ==========================
         # FUENTES
-        "font_main": "'Roboto', 'Segoe UI', 'Arial', sans-serif", 
+        # ==========================
+        "font_main": "'Roboto', 'Segoe UI', 'Arial', sans-serif",
         "font_mono": "'JetBrains Mono', 'Cascadia Code', 'Consolas', monospace"
     }
 
     @classmethod
     def get_color(cls, color_name):
-        """Devuelve un objeto QColor basado en la PALETTE."""
         color_str = cls.PALETTE.get(color_name, "#FFFFFF")
         if "rgba" in color_str:
             parts = color_str.replace("rgba(", "").replace(")", "").split(",")
-            return QColor(int(parts[0]), int(parts[1]), int(parts[2]), int(float(parts[3]) * 255))
+            return QColor(
+                int(parts[0]),
+                int(parts[1]),
+                int(parts[2]),
+                int(float(parts[3]) * 255)
+            )
         elif "rgb" in color_str:
             parts = color_str.replace("rgb(", "").replace(")", "").split(",")
             return QColor(int(parts[0]), int(parts[1]), int(parts[2]))
@@ -80,7 +106,6 @@ class StyleManager:
 
     @classmethod
     def get_font(cls, mono=False, size=10, bold=False):
-        """Devuelve un objeto QFont configurado con las fuentes del tema."""
         family = "Roboto" if not mono else "JetBrains Mono"
         weight = QFont.Bold if bold else QFont.Normal
         font = QFont(family, size)
@@ -89,9 +114,12 @@ class StyleManager:
 
     @classmethod
     def load_fonts(cls):
-        """Carga los archivos TTF de la carpeta assets/fonts/"""
         font_path = os.path.join(os.path.dirname(__file__), "assets", "fonts")
-        fonts = ["Roboto-Regular.ttf", "Roboto-Bold.ttf", "JetBrainsMono-Regular.ttf"]
+        fonts = [
+            "Roboto-Regular.ttf",
+            "Roboto-Bold.ttf",
+            "JetBrainsMono-Regular.ttf"
+        ]
         for font in fonts:
             full_path = os.path.join(font_path, font)
             if os.path.exists(full_path):
@@ -99,11 +127,12 @@ class StyleManager:
 
     @classmethod
     def setup_theme(cls, app):
-        """Configuración integral del tema y fuentes."""
         cls.load_fonts()
+
         palette = QPalette()
         base_color = cls.get_color("bg_base")
         text_color = cls.get_color("text_normal")
+
         palette.setColor(QPalette.Window, base_color)
         palette.setColor(QPalette.WindowText, text_color)
         palette.setColor(QPalette.Base, cls.get_color("bg_workspace"))
@@ -112,89 +141,100 @@ class StyleManager:
         palette.setColor(QPalette.ButtonText, Qt.white)
         palette.setColor(QPalette.Highlight, cls.get_color("accent"))
         palette.setColor(QPalette.HighlightedText, Qt.black)
+
         app.setPalette(palette)
         app.setStyleSheet(cls.get_stylesheet())
 
     @classmethod
     def get_stylesheet(cls):
         return f"""
-        /* Estilos base omitidos para brevedad, se mantienen iguales */
         QWidget {{
             color: {cls.PALETTE['text_normal']};
             font-family: {cls.PALETTE['font_main']};
             font-size: 14px;
-            outline: none;
+            background-color: transparent;
         }}
-        QMainWindow {{ background-color: {cls.PALETTE['bg_workspace']}; }}
-        QWidget#centralwidget {{ background-color: {cls.PALETTE['bg_workspace']}; }}
-        QFrame {{ background-color: transparent; border: none; }}
-        
+
+        QMainWindow, QWidget#centralwidget {{
+            background-color: red;
+        }}
+
+        QFrame {{
+            background-color: transparent;
+            border: none;
+        }}
+
+        QFrame#frame_playlist, QFrame#frame_controls, QWidget#frame_mixer {{
+            
+        }}
+
+        QFrame#frame_timeline {{
+            background-color: aquamarine;
+        }}
+
         QFrame#frame_mixer_tracks {{
-            border: 1px solid {cls.PALETTE['border_light']};
+            background-color: {cls.PALETTE['bg_workspace']};
             border-radius: 4px;
         }}
 
+        /* Botones fundidos con el fondo */
         QPushButton {{
-            background-color: rgba(0, 0, 0, 0.1);
+            background-color: {cls.PALETTE['btn_normal']};
             color: {cls.PALETTE['text_bright']};
+            border-radius: 6px;
             border: 1px solid {cls.PALETTE['border_light']};
-            border-radius: 4px;
-            padding: 5px 12px;
+            padding: 6px 14px;
         }}
+
         QPushButton:hover {{
-            background-color: {cls.PALETTE['bg_panel']};
-            border: 1px solid {cls.PALETTE['waveform']};
+            background-color: {cls.PALETTE['btn_hover']};
+            border: 1px solid {cls.PALETTE['neon_cyan']};
         }}
+
+        QPushButton:pressed {{
+            background-color: {cls.PALETTE['btn_pressed']};
+        }}
+
         QPushButton:checked {{
             background-color: {cls.PALETTE['btn_hover']};
-            border: 2px solid {cls.PALETTE['waveform']};
+            color: {cls.PALETTE['neon_cyan']};
+            border: 2px solid {cls.PALETTE['neon_cyan']};
         }}
-        QPushButton#play_mode {{
-        }}
-        QPushButton#edit_mode:hover {{
-            background-color: {cls.PALETTE['btn_hover']};
-            border: 1px solid {cls.PALETTE['accent']};
-        }}
+
         QPushButton:disabled {{
             background-color: {cls.PALETTE['btn_disabled']};
             color: {cls.PALETTE['text_disabled']};
+            border: 1px solid {cls.PALETTE['border_disabled']};
         }}
+
         QPushButton[editing="true"] {{
             border: 2px solid {cls.PALETTE['accent']};
-            background-color: rgba(255, 171, 0, 0.15);
+            background-color: rgba(255, 180, 0, 0.10);
             color: {cls.PALETTE['accent']};
         }}
+
         QLabel#time_display, QLabel#label_time {{
             font-family: {cls.PALETTE['font_mono']};
             font-size: 15pt;
-            color: {cls.PALETTE['waveform']};
-            background: rgba(0, 0, 0, 0.2);
-            padding: 4px;
-            border-radius: 3px;
+            color: {cls.PALETTE['neon_cyan']};
+            background: {cls.PALETTE['overlay_strong']};
+            padding: 4px 6px;
+            border-radius: 4px;
             qproperty-alignment: 'AlignCenter';
         }}
+
         QLabel#tempo_compass_label {{
             font-family: {cls.PALETTE['font_mono']};
             font-size: 15pt;
             color: {cls.PALETTE['accent_play']};
-            background: rgba(0, 0, 0, 0.1);
-            padding: 2px;
-            border-radius: 3px;
+            background: {cls.PALETTE['overlay_strong']};
+            padding: 4px 6px;
+            border-radius: 4px;
             qproperty-alignment: 'AlignCenter';
         }}
         """
-    
-"""         
-QFrame#frame_controls, QFrame#frame_mixer_master {{
-    background-color: {cls.PALETTE['bg_panel']};
-    border-top: 1px solid {cls.PALETTE['border_light']};
-}}
-QFrame#frame_timeline, QFrame#frame_mixer_tracks {{
-    background-color: {cls.PALETTE['bg_workspace']};
-    border-radius: 4px;
-    margin: 2px;
-}} 
-"""
+
+
 
 """
 Estilo temporal para depuración de la estructura de la UI:
