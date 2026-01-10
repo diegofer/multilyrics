@@ -34,6 +34,7 @@ class StyleManager:
         # ACENTOS NEÓN (SOLO BORDES/TEXTO ACTIVO)
         # ==========================
         "accent": "rgb(255, 180, 0)",
+        "accent_edit": "rgba(255, 180, 0, 0.10);",
         "accent_play": "rgb(0, 230, 140)",
         "neon_cyan": "rgb(0, 220, 255)",
         "neon_purple": "rgb(200, 0, 255)",
@@ -154,14 +155,13 @@ class StyleManager:
             font-size: 14px;
             background-color: transparent;
         }}
-
-        QMainWindow, QWidget#centralwidget {{
-            background-color: red;
-        }}
-
         QFrame {{
             background-color: transparent;
             border: none;
+        }}
+
+        QWidget#central_widget{{
+            background-color: {cls.PALETTE['bg_base']};
         }}
 
         QFrame#frame_playlist, QFrame#frame_controls, QWidget#frame_mixer {{
@@ -169,11 +169,10 @@ class StyleManager:
         }}
 
         QFrame#frame_timeline {{
-            background-color: aquamarine;
         }}
 
         QFrame#frame_mixer_tracks {{
-            background-color: {cls.PALETTE['bg_workspace']};
+            background-color: {cls.PALETTE['bg_panel']};
             border-radius: 4px;
         }}
 
@@ -209,7 +208,7 @@ class StyleManager:
 
         QPushButton[editing="true"] {{
             border: 2px solid {cls.PALETTE['accent']};
-            background-color: rgba(255, 180, 0, 0.10);
+            background-color: {cls.PALETTE['accent_edit']};
             color: {cls.PALETTE['accent']};
         }}
 
@@ -217,7 +216,7 @@ class StyleManager:
             font-family: {cls.PALETTE['font_mono']};
             font-size: 15pt;
             color: {cls.PALETTE['neon_cyan']};
-            background: {cls.PALETTE['overlay_strong']};
+            background: {cls.PALETTE['bg_panel']};
             padding: 4px 6px;
             border-radius: 4px;
             qproperty-alignment: 'AlignCenter';

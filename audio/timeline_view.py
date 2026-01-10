@@ -48,7 +48,8 @@ class TimelineView(QWidget):
 
     def __init__(self, audio_path=None, parent=None, timeline: Optional[TimelineModel] = None): # audio_path ahora es opcional
         super().__init__(parent)
-
+        self.setContentsMargins(9, 0, 9, 0) # Margen horizontal consistente
+        self.setObjectName("timeline_view")
         # --- Estado inicial por defecto (sin audio) ---
         self.samples = np.array([], dtype=np.float32)
         self.sr = 44100
@@ -758,7 +759,7 @@ class TimelineView(QWidget):
     # ==============================================================
     def paintEvent(self, event):
         painter = QPainter(self)
-        #painter.fillRect(self.rect(), StyleManager.get_color("bg_workspace"))
+        painter.fillRect(self.rect(), StyleManager.get_color("bg_panel"))
 
         w = max(1, self.width())
         h = max(2, self.height())
