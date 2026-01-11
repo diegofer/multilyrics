@@ -30,6 +30,7 @@ class LyricsLoader:
         Args:
             song_folder: Path to the folder containing the song
             metadata: Dictionary with keys: 'track_name', 'artist_name', 'duration_seconds'
+                     Also supports legacy keys: 'title', 'artist', 'duration'
             
         Returns:
             LyricsModel if lyrics were found, None otherwise
@@ -40,9 +41,10 @@ class LyricsLoader:
             return model
         
         # Step 2: Try LRCLIB API
-        track_name = metadata.get('track_name')
-        artist_name = metadata.get('artist_name')
-        duration = metadata.get('duration_seconds')
+        # Normalize metadata keys (support both new and legacy formats)
+        track_name = metadata.get('track_name') or metadata.get('title')
+        artist_name = metadata.get('artist_name') or metadata.get('artist')
+        duration = metadata.get('duration_seconds') or metadata.get('duration')
         
         if not track_name or not artist_name:
             return None

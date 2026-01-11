@@ -101,7 +101,11 @@ class AudioExtractWorker(QObject):
                 "title": title,
                 "artist": artist,
                 "year": year,
-                "duration": duration
+                "duration": duration,
+                # Claves normalizadas para LRCLIB API
+                "track_name": title,
+                "artist_name": artist,
+                "duration_seconds": duration
             }
 
             return metadatos
