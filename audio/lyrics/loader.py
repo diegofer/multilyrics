@@ -1,10 +1,11 @@
 """LyricsLoader service for loading and parsing synchronized lyrics.
 
-Implements a strict loading order:
-1. Check for local lyrics.lrc file
-2. Query LRCLIB API if not found
-3. Filter results by duration
-4. Download and save synchronized lyrics
+Provides modular API for lyrics operations:
+- load(): High-level method with automatic fallback (local → API → filter → save)
+- search_all(): Search API without duration filtering (for manual selection)
+- auto_download(): Automatic download with duration filtering
+- download_and_save(): Download specific result and save locally
+- load_from_local(): Load from existing lyrics.lrc file
 """
 
 import re
@@ -18,14 +19,24 @@ from .model import LyricsModel, LyricLine
 
 
 class LyricsLoader:
-    """Service for loading synchronized lyrics from local files or LRCLIB API."""
+    """Service for loading synchronized lyrics from local files or LRCLIB API.
+    
+    Architecture:
+    - Public API methods: load(), search_all(), auto_download(), download_and_save()
+    - Private helper methods: _search_lrclib_api(), _select_best_match(), _save_lrc()
+    """
     
     # LRCLIB API configuration
     LRCLIB_BASE_URL = "https://lrclib.net"
     DURATION_TOLERANCE_SECONDS = 2.0
     
+    # === HIGH-LEVEL API (Public Methods) ===
+    
     def load(self, song_folder: Path, metadata: dict) -> Optional[LyricsModel]:
-        """Load lyrics following the strict loading order.
+        """Load lyrics with automatic fallback: local file → API search → save.
+        
+        This is a convenience method that combines local loading and auto-download.
+        For more control, use load_from_local() or auto_download() directly.
         
         Args:
             song_folder: Path to the folder containing the song
@@ -35,32 +46,65 @@ class LyricsLoader:
         Returns:
             LyricsModel if lyrics were found, None otherwise
         """
-        # Step 1: Try local file
+        # Step 1: Try local file first
         model = self.load_from_local(song_folder)
         if model:
             return model
         
-        # Step 2: Try LRCLIB API
+        # Step 2: Try auto-download from API
         # Normalize metadata keys (support both new and legacy formats)
         track_name = metadata.get('track_name') or metadata.get('title')
         artist_name = metadata.get('artist_name') or metadata.get('artist')
         duration = metadata.get('duration_seconds') or metadata.get('duration')
         
+        return self.auto_download(song_folder, track_name, artist_name, duration)
+    
+    def search_all(self, track_name: str, artist_name: str) -> list[dict]:
+        """Search all lyrics without duration filtering.
+        
+        Returns only results with synchronized lyrics.
+        Useful for manual selection by user when auto-download fails.
+        
+        Args:
+            track_name: Name of the track
+            artist_name: Name of the artist
+            
+        Returns:
+            List of results with syncedLyrics, empty list if none found
+        """
+        results = self._search_lrclib_api(track_name, artist_name)
+        return [r for r in results if r.get('syncedLyrics')]
+    
+    def auto_download(self, song_folder: Path, track_name: str, 
+                     artist_name: str, duration_seconds: float = None) -> Optional[LyricsModel]:
+        """Automatically download and save best matching lyrics.
+        
+        Filters by duration tolerance if provided, otherwise selects first result
+        with synchronized lyrics. Saves to lyrics.lrc automatically.
+        
+        Args:
+            song_folder: Path to save lyrics.lrc
+            track_name: Name of the track
+            artist_name: Name of the artist
+            duration_seconds: Optional duration for filtering (uses DURATION_TOLERANCE_SECONDS)
+            
+        Returns:
+            LyricsModel if successful, None if no suitable match found
+        """
         if not track_name or not artist_name:
             return None
         
         try:
-            results = self.search_lrclib(track_name, artist_name)
-            
+            results = self._search_lrclib_api(track_name, artist_name)
             if not results:
                 return None
             
-            # Step 3: Filter by duration if available
+            # Select best match
             best_match = None
-            if duration is not None:
-                best_match = self.select_best_match(results, duration)
+            if duration_seconds is not None:
+                best_match = self._select_best_match(results, duration_seconds)
             else:
-                # No duration filtering possible, take first result with synced lyrics
+                # No duration filtering, take first result with synced lyrics
                 for result in results:
                     if result.get('syncedLyrics'):
                         best_match = result
@@ -69,20 +113,35 @@ class LyricsLoader:
             if not best_match:
                 return None
             
-            # Step 4: Download synchronized lyrics
-            lrc_text = self.download_synced_lyrics(best_match)
-            if not lrc_text:
-                return None
-            
-            # Step 5: Save locally
-            self.save_lrc(lrc_text, song_folder)
-            
-            # Step 6: Parse and return
-            return self.parse_lrc(lrc_text)
+            # Download and save
+            return self.download_and_save(best_match, song_folder)
             
         except Exception:
             # Network failures fail gracefully
             return None
+    
+    def download_and_save(self, result: dict, song_folder: Path) -> Optional[LyricsModel]:
+        """Download and save a specific result.
+        
+        Use this after manual selection from search_all() results.
+        
+        Args:
+            result: A single search result dictionary from LRCLIB
+            song_folder: Path to save lyrics.lrc
+            
+        Returns:
+            LyricsModel if successful, None if result has no syncedLyrics
+        """
+        lrc_text = result.get('syncedLyrics')
+        if not lrc_text:
+            return None
+        
+        self._save_lrc(lrc_text, song_folder)
+        return self.parse_lrc(lrc_text)
+    
+    # === FILE I/O ===
+    
+    # === FILE I/O ===
     
     def load_from_local(self, song_folder: Path) -> Optional[LyricsModel]:
         """Load lyrics from local lyrics.lrc file.
@@ -104,8 +163,10 @@ class LyricsLoader:
         except Exception:
             return None
     
-    def search_lrclib(self, track_name: str, artist_name: str) -> list[dict]:
-        """Search LRCLIB API for lyrics.
+    # === LRCLIB API ACCESS (Internal) ===
+    
+    def _search_lrclib_api(self, track_name: str, artist_name: str) -> list[dict]:
+        """Search LRCLIB API for lyrics (internal method).
         
         Args:
             track_name: Name of the track
@@ -127,8 +188,8 @@ class LyricsLoader:
         except Exception:
             return []
     
-    def select_best_match(self, results: list[dict], duration_seconds: float) -> Optional[dict]:
-        """Select the best matching result based on duration.
+    def _select_best_match(self, results: list[dict], duration_seconds: float) -> Optional[dict]:
+        """Select the best matching result based on duration (internal method).
         
         Filters results by duration tolerance and prefers synchronized lyrics.
         
@@ -164,8 +225,60 @@ class LyricsLoader:
         candidates.sort(key=lambda x: x[0])
         return candidates[0][1]
     
+    def _save_lrc(self, text: str, song_folder: Path) -> None:
+        """Save LRC text to lyrics.lrc in the song folder (internal method).
+        
+        Args:
+            text: LRC format text content
+            song_folder: Path to the folder containing the song
+        """
+        lrc_path = song_folder / "lyrics.lrc"
+        
+        try:
+            # Ensure the folder exists
+            song_folder.mkdir(parents=True, exist_ok=True)
+            lrc_path.write_text(text, encoding='utf-8')
+        except Exception:
+            # Fail gracefully if save fails
+            pass
+    
+    # === LEGACY API (Deprecated, maintained for backward compatibility) ===
+    
+    def search_lrclib(self, track_name: str, artist_name: str) -> list[dict]:
+        """Search LRCLIB API for lyrics.
+        
+        DEPRECATED: Use search_all() or _search_lrclib_api() instead.
+        Maintained for backward compatibility.
+        
+        Args:
+            track_name: Name of the track
+            artist_name: Name of the artist
+            
+        Returns:
+            List of result dictionaries from the API
+        """
+        return self._search_lrclib_api(track_name, artist_name)
+    
+    def select_best_match(self, results: list[dict], duration_seconds: float) -> Optional[dict]:
+        """Select the best matching result based on duration.
+        
+        DEPRECATED: Use _select_best_match() instead.
+        Maintained for backward compatibility.
+        
+        Args:
+            results: List of search results from LRCLIB
+            duration_seconds: Duration of the local song in seconds
+            
+        Returns:
+            Best matching result, or None if no suitable match found
+        """
+        return self._select_best_match(results, duration_seconds)
+    
     def download_synced_lyrics(self, result: dict) -> Optional[str]:
         """Extract synchronized lyrics content from a result.
+        
+        DEPRECATED: Use download_and_save() instead.
+        Maintained for backward compatibility.
         
         Args:
             result: A single search result dictionary from LRCLIB
@@ -175,6 +288,22 @@ class LyricsLoader:
         """
         synced_lyrics = result.get('syncedLyrics')
         return synced_lyrics if synced_lyrics else None
+    
+    def save_lrc(self, text: str, song_folder: Path) -> None:
+        """Save LRC text to lyrics.lrc in the song folder.
+        
+        DEPRECATED: Use _save_lrc() instead.
+        Maintained for backward compatibility.
+        
+        Args:
+            text: LRC format text content
+            song_folder: Path to the folder containing the song
+        """
+        self._save_lrc(text, song_folder)
+    
+    # === PARSING ===
+    
+    # === PARSING ===
     
     def parse_lrc(self, text: str) -> LyricsModel:
         """Parse LRC format text into a LyricsModel.
