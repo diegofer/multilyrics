@@ -919,6 +919,12 @@ class TimelineView(QWidget):
             painter.setFont(StyleManager.get_font(size=12, mono=True, bold=True))
             painter.setPen(StyleManager.get_color("accent"))
             painter.drawText(10, 10, 200, 30, Qt.AlignLeft | Qt.AlignTop, "LYRICS EDIT MODE")
+
+        # ----------------------------------------------------------
+        # EDIT MODE BUTTONS (right edge)
+        # ----------------------------------------------------------
+        if self._edit_buttons_visible:
+            self._paint_edit_buttons(painter, w, h)
     
     # ==============================================================
     # EDIT MODE BUTTONS (Helper methods)
@@ -1003,8 +1009,4 @@ class TimelineView(QWidget):
         
         painter.restore()
         
-        # ----------------------------------------------------------
-        # EDIT MODE BUTTONS (right edge)
-        # ----------------------------------------------------------
-        if self._edit_buttons_visible:
-            self._paint_edit_buttons(painter, w, h)
+        

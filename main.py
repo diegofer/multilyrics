@@ -18,6 +18,8 @@ from ui.widgets.controls_widget import ControlsWidget
 from ui.widgets.track_widget import TrackWidget
 from ui.widgets.spinner_dialog import SpinnerDialog
 from ui.widgets.add import AddDialog
+from ui.widgets.metadata_editor_dialog import MetadataEditorDialog
+from ui.widgets.lyrics_selector_dialog import LyricsSelectorDialog
 
 from audio.timeline_view import TimelineView, ZoomMode
 from audio.extract import AudioExtractWorker
@@ -219,20 +221,145 @@ class MainWindow(QMainWindow):
 
     @Slot()
     def on_extraction_process(self, audio_path):
+        """
+        Callback after audio/beats/chords extraction completes.
+        Shows MetadataEditorDialog for user to refine metadata before lyrics search.
+        """
         print(f"AUDIO_PATH: {audio_path}")
-        muti_path = Path(audio_path).parent
-
-        # Obtener lyrics por primera vez
-        meta_path = muti_path / global_state.META_FILE_PATH
+        multi_path = Path(audio_path).parent
+        
+        # Load metadata
+        meta_path = multi_path / global_state.META_FILE_PATH
         self.meta = MetaJson(meta_path)
         meta_data = self.meta.read_meta()
-        lyrics_model = self.lyrics_loader.load(muti_path, meta_data)
-        self.timeline_model.set_lyrics_model(lyrics_model)
-
-        self.set_active_song(muti_path)
+        
+        # Store for later use
+        self._current_multi_path = multi_path
+        self._current_meta_data = meta_data
+        
+        # Hide spinner before showing dialog
         self.loader.hide()
-        #actualizar lista de multis en el buscador. Se puede optimizar solo agregrando este multi a la lista en vez de llamar todos de nuevo
+        
+        # Show MetadataEditorDialog for user to refine metadata
+        self._show_metadata_editor_dialog(meta_data)
+    
+    def _show_metadata_editor_dialog(self, meta_data: dict):
+        """Show dialog for editing metadata before lyrics search"""
+        dialog = MetadataEditorDialog(meta_data, parent=self)
+        
+        # Connect signals
+        dialog.metadata_confirmed.connect(self._on_metadata_confirmed)
+        dialog.search_skipped.connect(self._on_lyrics_search_skipped)
+        
+        # Show modal dialog
+        dialog.exec()
+    
+    @Slot(dict)
+    def _on_metadata_confirmed(self, edited_metadata: dict):
+        """User confirmed metadata - proceed with lyrics download"""
+        # Update metadata with edited values (for future use)
+        self._current_meta_data.update(edited_metadata)
+        
+        # Show spinner during lyrics search
+        self.loader.show()
+        
+        # Try automatic download with edited metadata
+        lyrics_model = self.lyrics_loader.auto_download(
+            self._current_multi_path,
+            edited_metadata['track_name'],
+            edited_metadata['artist_name'],
+            edited_metadata.get('duration_seconds')
+        )
+        
+        self.loader.hide()
+        
+        if lyrics_model is not None:
+            # Success: lyrics downloaded automatically
+            self._finalize_multi_creation(lyrics_model)
+        else:
+            # No automatic match - try manual selection
+            self._try_manual_lyrics_selection(edited_metadata)
+    
+    def _try_manual_lyrics_selection(self, metadata: dict):
+        """Show selector dialog when auto-download fails"""
+        # Search all results without duration filtering
+        results = self.lyrics_loader.search_all(
+            metadata['track_name'],
+            metadata['artist_name']
+        )
+        
+        if not results:
+            # No results at all - proceed without lyrics
+            print(f"No synced lyrics found for: {metadata['track_name']} - {metadata['artist_name']}")
+            self._finalize_multi_creation(None)
+            return
+        
+        if len(results) == 1:
+            # Only one result - download it directly
+            lyrics_model = self.lyrics_loader.download_and_save(
+                results[0],
+                self._current_multi_path
+            )
+            self._finalize_multi_creation(lyrics_model)
+            return
+        
+        # Multiple results - show selector dialog
+        dialog = LyricsSelectorDialog(
+            results,
+            metadata.get('duration_seconds'),
+            parent=self
+        )
+        
+        # Connect signals
+        dialog.lyrics_selected.connect(self._on_lyrics_selected)
+        dialog.selection_cancelled.connect(self._on_lyrics_selection_cancelled)
+        
+        # Show modal dialog
+        dialog.exec()
+    
+    @Slot(dict)
+    def _on_lyrics_selected(self, result: dict):
+        """User selected specific lyrics from multiple results"""
+        self.loader.show()
+        
+        lyrics_model = self.lyrics_loader.download_and_save(
+            result,
+            self._current_multi_path
+        )
+        
+        self.loader.hide()
+        self._finalize_multi_creation(lyrics_model)
+    
+    @Slot()
+    def _on_lyrics_selection_cancelled(self):
+        """User cancelled lyrics selection - proceed without lyrics"""
+        print("User cancelled lyrics selection")
+        self._finalize_multi_creation(None)
+    
+    @Slot()
+    def _on_lyrics_search_skipped(self):
+        """User skipped lyrics search in metadata editor"""
+        print("User skipped lyrics search")
+        self.loader.hide()
+        self._finalize_multi_creation(None)
+    
+    def _finalize_multi_creation(self, lyrics_model):
+        """Complete multi creation and load it into the player"""
+        # Set lyrics model (may be None)
+        self.timeline_model.set_lyrics_model(lyrics_model)
+        
+        # Reload lyrics track in timeline view
+        self.timeline_view.reload_lyrics_track()
+        
+        # Load the multi into player
+        self.set_active_song(self._current_multi_path)
+        
+        # Update multis list in search widget
         self.add_dialog.search_widget.get_fresh_multis_list()
+        
+        # Clean up stored state
+        self._current_multi_path = None
+        self._current_meta_data = None
     
     @Slot()
     def handle_error(self, msg):
