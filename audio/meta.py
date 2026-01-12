@@ -12,12 +12,17 @@ class MetaJson:
 
     def _create_initial_meta(self):
         initial_data = {
-            "title": "",
-            "artist": "",
+            "title": "",  # Legacy - kept for compatibility
+            "artist": "",  # Legacy - kept for compatibility
+            "track_name": "",  # Original metadata for lyrics search (immutable)
+            "artist_name": "",  # Original metadata for lyrics search (immutable)
+            "track_name_display": "",  # Clean display name (user-editable)
+            "artist_name_display": "",  # Clean display name (user-editable)
             "year": "",
             "key": "",
             "tempo": 0.0,
-            "duration": 0.0,
+            "duration": 0.0,  # Legacy format
+            "duration_seconds": 0.0,  # Normalized duration for API
             "compass": "?/?",
             "tracks": {},
             "chords": [],

@@ -1,6 +1,6 @@
-from PySide6.QtWidgets import QApplication, QMainWindow, QPushButton
+from PySide6.QtWidgets import QApplication, QMainWindow, QPushButton, QMessageBox
 from PySide6.QtGui import QIcon, QCloseEvent
-from PySide6.QtCore import Qt, QThread, Slot
+from PySide6.QtCore import Qt, QThread, Slot, QTimer
 from pathlib import Path
 import os
 
@@ -18,8 +18,6 @@ from ui.widgets.controls_widget import ControlsWidget
 from ui.widgets.track_widget import TrackWidget
 from ui.widgets.spinner_dialog import SpinnerDialog
 from ui.widgets.add import AddDialog
-from ui.widgets.metadata_editor_dialog import MetadataEditorDialog
-from ui.widgets.lyrics_selector_dialog import LyricsSelectorDialog
 
 from audio.timeline_view import TimelineView, ZoomMode
 from audio.extract import AudioExtractWorker
@@ -112,6 +110,10 @@ class MainWindow(QMainWindow):
         # Connect zoom mode controls
         self.controls.zoom_mode_changed.connect(self.on_zoom_mode_changed)
         self.timeline_view.zoom_mode_changed.connect(self.on_timeline_zoom_mode_changed)
+        
+        # Connect edit mode buttons from timeline
+        self.timeline_view.edit_metadata_clicked.connect(self._on_edit_metadata_clicked)
+        self.timeline_view.reload_lyrics_clicked.connect(self._on_reload_lyrics_clicked)
 
 
         # definir thread y worker para extraccion de audio
@@ -119,6 +121,9 @@ class MainWindow(QMainWindow):
         self.extract_worker = None
         self.beats_worker = None
         self.chords_worker = None
+        
+        # Track active multi path for edit mode operations
+        self.active_multi_path = None
 
 
     @Slot()
@@ -223,7 +228,7 @@ class MainWindow(QMainWindow):
     def on_extraction_process(self, audio_path):
         """
         Callback after audio/beats/chords extraction completes.
-        Shows MetadataEditorDialog for user to refine metadata before lyrics search.
+        Attempts silent auto-download first, shows dialog only if needed.
         """
         print(f"AUDIO_PATH: {audio_path}")
         multi_path = Path(audio_path).parent
@@ -237,111 +242,99 @@ class MainWindow(QMainWindow):
         self._current_multi_path = multi_path
         self._current_meta_data = meta_data
         
-        # Hide spinner before showing dialog
-        self.loader.hide()
-        
-        # Show MetadataEditorDialog for user to refine metadata
-        self._show_metadata_editor_dialog(meta_data)
-    
-    def _show_metadata_editor_dialog(self, meta_data: dict):
-        """Show dialog for editing metadata before lyrics search"""
-        dialog = MetadataEditorDialog(meta_data, parent=self)
-        
-        # Connect signals
-        dialog.metadata_confirmed.connect(self._on_metadata_confirmed)
-        dialog.search_skipped.connect(self._on_lyrics_search_skipped)
-        
-        # Show modal dialog
-        dialog.exec()
-    
-    @Slot(dict)
-    def _on_metadata_confirmed(self, edited_metadata: dict):
-        """User confirmed metadata - proceed with lyrics download"""
-        # Update metadata with edited values (for future use)
-        self._current_meta_data.update(edited_metadata)
-        
-        # Show spinner during lyrics search
-        self.loader.show()
-        
-        # Try automatic download with edited metadata
-        lyrics_model = self.lyrics_loader.auto_download(
-            self._current_multi_path,
-            edited_metadata['track_name'],
-            edited_metadata['artist_name'],
-            edited_metadata.get('duration_seconds')
-        )
-        
-        self.loader.hide()
-        
-        if lyrics_model is not None:
-            # Success: lyrics downloaded automatically
-            self._finalize_multi_creation(lyrics_model)
-        else:
-            # No automatic match - try manual selection
-            self._try_manual_lyrics_selection(edited_metadata)
-    
-    def _try_manual_lyrics_selection(self, metadata: dict):
-        """Show selector dialog when auto-download fails"""
-        # Search all results without duration filtering
+        # Try silent auto-download with original metadata
+        print("🔍 Attempting silent auto-download with original metadata...")
         results = self.lyrics_loader.search_all(
-            metadata['track_name'],
-            metadata['artist_name']
+            meta_data.get('track_name', ''),
+            meta_data.get('artist_name', '')
         )
         
-        if not results:
-            # No results at all - proceed without lyrics
-            print(f"No synced lyrics found for: {metadata['track_name']} - {metadata['artist_name']}")
-            self._finalize_multi_creation(None)
-            return
+        if results:
+            # Filter by exact duration match (≤1s tolerance)
+            duration = meta_data.get('duration_seconds', 0)
+            exact_matches = [
+                r for r in results 
+                if r.get('duration') and abs(r['duration'] - duration) <= 1.0
+            ]
+            
+            if len(exact_matches) == 1:
+                # ✨ SUCCESS: Single exact match - download automatically
+                print(f"✓ Found exact match! Downloading automatically...")
+                self.loader.show()
+                lyrics_model = self.lyrics_loader.download_and_save(
+                    exact_matches[0],
+                    self._current_multi_path
+                )
+                self.loader.hide()
+                print(f"✓ Lyrics downloaded: {len(lyrics_model.lines) if lyrics_model else 0} lines")
+                self._finalize_multi_creation(lyrics_model)
+                return
         
-        if len(results) == 1:
-            # Only one result - download it directly
-            lyrics_model = self.lyrics_loader.download_and_save(
-                results[0],
-                self._current_multi_path
-            )
-            self._finalize_multi_creation(lyrics_model)
-            return
+        # Auto-download failed or multiple matches - show search dialog
+        print(f"⚠ Auto-download failed. Showing search dialog... ({len(results)} results)")
+        self.loader.hide()
+        self._show_lyrics_search_dialog(meta_data, results)
+    
+    def _show_lyrics_search_dialog(self, meta_data: dict, initial_results: list = None, is_reload: bool = False):
+        """Show unified search dialog with metadata editing and results selection
         
-        # Multiple results - show selector dialog
-        dialog = LyricsSelectorDialog(
-            results,
-            metadata.get('duration_seconds'),
+        Args:
+            meta_data: Metadata dictionary with track/artist info
+            initial_results: Pre-fetched search results (optional)
+            is_reload: True if called from reload button (edit mode), False for creation flow
+        """
+        from ui.widgets.lyrics_search_dialog import LyricsSearchDialog
+        
+        dialog = LyricsSearchDialog(
+            meta_data,
+            initial_results or [],
+            self.lyrics_loader,
             parent=self
         )
         
         # Connect signals
-        dialog.lyrics_selected.connect(self._on_lyrics_selected)
-        dialog.selection_cancelled.connect(self._on_lyrics_selection_cancelled)
+        def on_lyrics_selected(result: dict):
+            """User selected specific lyrics from search dialog"""
+            self.loader.show()
+            
+            if is_reload:
+                # Reload mode: download to existing multi
+                lyrics_model = self.lyrics_loader.download_and_save(
+                    result,
+                    self.active_multi_path
+                )
+                
+                self.loader.hide()
+                
+                if lyrics_model:
+                    print(f"✓ Lyrics reloaded: {len(lyrics_model.lines)} lines")
+                    self._reload_lyrics_track(lyrics_model)
+            else:
+                # Creation mode: download to new multi
+                lyrics_model = self.lyrics_loader.download_and_save(
+                    result,
+                    self._current_multi_path
+                )
+                
+                self.loader.hide()
+                
+                if lyrics_model:
+                    print(f"✓ Lyrics downloaded: {len(lyrics_model.lines)} lines")
+                    self._finalize_multi_creation(lyrics_model)
         
-        # Show modal dialog
+        def on_search_skipped():
+            """User skipped lyrics"""
+            if is_reload:
+                # Reload mode: just close dialog
+                print("⊘ User skipped lyrics reload")
+            else:
+                # Creation mode: load multi without lyrics
+                print("⊘ User skipped lyrics search - loading multi without lyrics")
+                self._finalize_multi_creation(None)
+        
+        dialog.lyrics_selected.connect(on_lyrics_selected)
+        dialog.search_skipped.connect(on_search_skipped)
         dialog.exec()
-    
-    @Slot(dict)
-    def _on_lyrics_selected(self, result: dict):
-        """User selected specific lyrics from multiple results"""
-        self.loader.show()
-        
-        lyrics_model = self.lyrics_loader.download_and_save(
-            result,
-            self._current_multi_path
-        )
-        
-        self.loader.hide()
-        self._finalize_multi_creation(lyrics_model)
-    
-    @Slot()
-    def _on_lyrics_selection_cancelled(self):
-        """User cancelled lyrics selection - proceed without lyrics"""
-        print("User cancelled lyrics selection")
-        self._finalize_multi_creation(None)
-    
-    @Slot()
-    def _on_lyrics_search_skipped(self):
-        """User skipped lyrics search in metadata editor"""
-        print("User skipped lyrics search")
-        self.loader.hide()
-        self._finalize_multi_creation(None)
     
     def _finalize_multi_creation(self, lyrics_model):
         """Complete multi creation and load it into the player"""
@@ -362,6 +355,120 @@ class MainWindow(QMainWindow):
         self._current_meta_data = None
     
     @Slot()
+    def _on_edit_metadata_clicked(self):
+        """Edit mode button: Edit display metadata (clean names for UI)"""
+        if self.active_multi_path is None:
+            print("No active multi loaded")
+            return
+        
+        # Load current metadata
+        meta_path = self.active_multi_path / global_state.META_FILE_PATH
+        if not meta_path.exists():
+            print(f"Metadata file not found: {meta_path}")
+            return
+        
+        meta_json = MetaJson(meta_path)
+        meta_data = meta_json.read_meta()
+        
+        # Lazy import to avoid circular dependencies
+        from ui.widgets.multi_metadata_editor_dialog import MultiMetadataEditorDialog
+        
+        # Show simple metadata editor for display fields only
+        dialog = MultiMetadataEditorDialog(meta_data, self)
+        dialog.metadata_saved.connect(self._on_display_metadata_saved)
+        dialog.exec()
+    
+    @Slot()
+    def _on_reload_lyrics_clicked(self):
+        """Edit mode button: Search and reload lyrics using original search metadata"""
+        if self.active_multi_path is None:
+            print("No active multi loaded")
+            return
+        
+        # Load current metadata
+        meta_path = self.active_multi_path / global_state.META_FILE_PATH
+        if not meta_path.exists():
+            print(f"Metadata file not found: {meta_path}")
+            return
+        
+        meta_json = MetaJson(meta_path)
+        meta_data = meta_json.read_meta()
+        
+        # Use ORIGINAL search fields (immutable) - not display fields
+        search_metadata = {
+            'track_name': meta_data.get('track_name', meta_data.get('title', '')),
+            'artist_name': meta_data.get('artist_name', meta_data.get('artist', '')),
+            'duration_seconds': meta_data.get('duration_seconds', meta_data.get('duration', 0.0))
+        }
+        
+        # Show spinner
+        self.loader.show()
+        
+        # Search for lyrics using original metadata (search_all doesn't take duration)
+        results = self.lyrics_loader.search_all(
+            search_metadata['track_name'],
+            search_metadata['artist_name']
+        )
+        
+        self.loader.hide()
+        
+        if not results:
+            # No results found
+            print("No lyrics found for reload")
+            self._show_info_message(
+                "No Lyrics Found",
+                "No synchronized lyrics found for this song."
+            )
+            return
+        
+        # Show LyricsSearchDialog (reuse from creation flow)
+        self._show_lyrics_search_dialog(search_metadata, results, is_reload=True)
+    
+    @Slot(dict)
+    def _on_display_metadata_saved(self, display_data: dict):
+        """User saved edited display metadata - update meta.json"""
+        if self.active_multi_path is None:
+            return
+        
+        meta_path = self.active_multi_path / global_state.META_FILE_PATH
+        if not meta_path.exists():
+            return
+        
+        meta_json = MetaJson(meta_path)
+        
+        # Update only display fields (track_name and artist_name remain unchanged)
+        meta_json.update_meta({
+            'track_name_display': display_data['track_name_display'],
+            'artist_name_display': display_data['artist_name_display']
+        })
+        
+        print(f"✓ Display metadata updated: {display_data['track_name_display']} - {display_data['artist_name_display']}")
+        
+        # TODO: Refresh UI to show new display names
+    
+    def _reload_lyrics_track(self, lyrics_model):
+        """Reload the lyrics track in timeline with new lyrics model"""
+        self.timeline_model.set_lyrics_model(lyrics_model)
+        self.timeline_view.reload_lyrics_track()
+        print(f"Lyrics reloaded: {len(lyrics_model.lines) if lyrics_model else 0} lines")
+
+    def _show_info_message(self, title: str, message: str):
+        """Show a brief informational message to the user"""
+        msg_box = QMessageBox(self)
+        msg_box.setIcon(QMessageBox.Information)
+        msg_box.setWindowTitle(title)
+        msg_box.setText(message)
+        msg_box.setStandardButtons(QMessageBox.Ok)
+        msg_box.setWindowModality(Qt.NonModal)
+        
+        # Auto-close after 4 seconds
+        QTimer.singleShot(4000, msg_box.close)
+        
+        msg_box.show()
+    
+        
+    
+    @Slot()
     def handle_error(self, msg):
         print(f"ERROR: {msg}")
 
@@ -373,6 +480,7 @@ class MainWindow(QMainWindow):
     def set_active_song(self, song_path):
         #obtener rutas
         song_path = Path(song_path)
+        self.active_multi_path = song_path  # Track active multi for edit operations
         meta_path = song_path / global_state.META_FILE_PATH
         master_path = song_path / global_state.MASTER_TRACK
         tracks_folder_path = song_path / global_state.TRACKS_PATH

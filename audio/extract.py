@@ -95,17 +95,18 @@ class AudioExtractWorker(QObject):
             title = tags.get('title') or tags.get('TITLE') or "Desconocido"
             artist = tags.get('artist') or tags.get('ARTIST') or "Desconocido"
             year = tags.get('date') or tags.get('DATE') or ""
-            duration = float(probe.get('format', {}).get('duration', 0.0))
+            duration = round(float(probe.get('format', {}).get('duration', 0.0)), 2)  # Round to 2 decimals
 
             metadatos = {
-                "title": title,
-                "artist": artist,
+                "title": title,  # Legacy
+                "artist": artist,  # Legacy
+                "track_name": title,  # Original for search (immutable)
+                "artist_name": artist,  # Original for search (immutable)
+                "track_name_display": title,  # Clean display (starts same, user can edit)
+                "artist_name_display": artist,  # Clean display (starts same, user can edit)
                 "year": year,
-                "duration": duration,
-                # Claves normalizadas para LRCLIB API
-                "track_name": title,
-                "artist_name": artist,
-                "duration_seconds": duration
+                "duration": duration,  # Legacy
+                "duration_seconds": duration  # Normalized
             }
 
             return metadatos

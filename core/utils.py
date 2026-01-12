@@ -48,6 +48,11 @@ def clamp_menu_to_window(menu, desired_pos, window):
     return QPoint(x, y)
 
 def get_multis_list(library_path):
+    """
+    Get list of multis with display names from metadata.
+    Returns list of tuples (display_name, path).
+    Uses track_name_display with fallback to track_name, then folder name.
+    """
     result = []
     
     # evitar fallar si no hay carpetas
@@ -58,7 +63,26 @@ def get_multis_list(library_path):
         item_path = os.path.join(library_path, item)
 
         if os.path.isdir(item_path):
-            result.append((item, item_path))
+            # Try to read display name from metadata
+            display_name = item  # Fallback to folder name
+            meta_path = Path(item_path) / "meta.json"
+            
+            if meta_path.exists():
+                try:
+                    import json
+                    with open(meta_path, 'r', encoding='utf-8') as f:
+                        meta_data = json.load(f)
+                    # Use display name with fallback chain: display -> original -> folder name
+                    display_name = (
+                        meta_data.get('track_name_display') or 
+                        meta_data.get('track_name') or 
+                        item
+                    )
+                except Exception as e:
+                    # If reading fails, use folder name
+                    print(f"Warning: Could not read metadata for {item}: {e}")
+                    
+            result.append((display_name, item_path))
 
     return result
 

@@ -28,7 +28,7 @@ class LyricsLoader:
     
     # LRCLIB API configuration
     LRCLIB_BASE_URL = "https://lrclib.net"
-    DURATION_TOLERANCE_SECONDS = 2.0
+    DURATION_TOLERANCE_SECONDS = 1.0
     
     # === HIGH-LEVEL API (Public Methods) ===
     

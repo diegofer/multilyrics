@@ -34,11 +34,16 @@ class StyleManager:
         # ACENTOS NEÓN (SOLO BORDES/TEXTO ACTIVO)
         # ==========================
         "accent": "rgb(255, 180, 0)",
+        "accent_hover": "rgb(255, 200, 50)",
         "accent_edit": "rgba(255, 180, 0, 0.10);",
         "accent_play": "rgb(0, 230, 140)",
         "neon_cyan": "rgb(0, 220, 255)",
         "neon_purple": "rgb(200, 0, 255)",
         "neon_red": "rgb(255, 60, 60)",
+        
+        # Success/Error colors
+        "success": "rgb(0, 230, 140)",
+        "error": "rgb(255, 100, 100)",
 
         # ==========================
         # BORDES
@@ -81,6 +86,13 @@ class StyleManager:
         "text_normal": "#D0D6E8",
         "text_dim": "#7A8298",
         "text_disabled": "rgba(255, 255, 255, 0.25)",
+        
+        # UI elements
+        "background": "rgb(14, 22, 48)",
+        "surface": "rgb(20, 32, 74)",
+        "surface_hover": "rgb(30, 50, 110)",
+        "text": "#D0D6E8",
+        "border": "rgba(255, 255, 255, 0.12)",
 
         # ==========================
         # FUENTES
