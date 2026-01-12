@@ -141,6 +141,43 @@ class TimelineView(QWidget):
             with safe_operation("Resetting waveform cache", silent=True):
                 self._waveform_track.reset_cache()
 
+    def reset_view_state(self) -> None:
+        """Reset view state when loading a new song.
+        
+        This ensures that zoom mode, user overrides, and playhead position
+        are reset to defaults, fixing the bug where PLAYBACK zoom mode
+        stops working after changing songs.
+        """
+        logger.debug("Resetting TimelineView state for new song")
+        
+        # Reset zoom mode to GENERAL
+        self.current_zoom_mode = ZoomMode.GENERAL
+        
+        # Clear user zoom override flag (critical for PLAYBACK mode to work)
+        self._user_zoom_override = False
+        
+        # Re-enable auto zoom mode
+        self._auto_zoom_mode_enabled = True
+        
+        # Reset playhead to start
+        self.playhead_sample = 0
+        
+        # Reset zoom and center if we have audio loaded
+        if self.total_samples > 0:
+            self.center_sample = self.total_samples // 2
+            self.zoom_factor = 1.0
+        
+        # Clear lyrics edit mode state
+        self._lyrics_edit_mode = False
+        self._edit_buttons_visible = False
+        self._hovered_button = None
+        
+        # Clear dragging state
+        self._dragging = False
+        self._last_mouse_x = None
+        
+        # Trigger repaint
+        self.update()
 
     def load_audio(self, audio_path: str) -> bool:
         """Carga nuevos datos de audio en el widget desde una ruta de archivo."""

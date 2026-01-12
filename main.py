@@ -530,6 +530,14 @@ class MainWindow(QMainWindow):
     # ----------------------------
 
     def set_active_song(self, song_path: str | Path) -> None:
+        # Stop current playback if any (fixes audio overlap and state issues)
+        if self.audio_player and hasattr(self.audio_player, 'is_playing') and self.audio_player.is_playing():
+            self.audio_player.pause()
+            self.controls.set_playing_state(False)
+        
+        # Reset playback position to start
+        self.playback.request_seek(0.0)
+        
         #obtener rutas
         song_path = Path(song_path)
         self.active_multi_path = song_path  # Track active multi for edit operations
@@ -572,6 +580,9 @@ class MainWindow(QMainWindow):
         
         # Actualizar Waveform TimelineModel
         if master_path.exists():
+            # Reset timeline view state for new song (fixes zoom mode bug)
+            self.timeline_view.reset_view_state()
+            
             # Reuse existing timeline instance, just update its metadata
             self.timeline_view.load_audio_from_master(master_path)
             self.timeline_view.load_metadata(meta_data)
