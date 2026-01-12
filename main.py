@@ -4,6 +4,10 @@ from PySide6.QtCore import Qt, QThread, Slot, QTimer
 from pathlib import Path
 import os
 
+from core.logger import get_logger
+
+logger = get_logger(__name__)
+
 from ui.shell import Ui_MainWindow
 from ui.style_manager import StyleManager
 
@@ -132,7 +136,7 @@ class MainWindow(QMainWindow):
 
     @Slot()
     def on_multi_selected(self, path):
-        print(path)
+        logger.debug(f"Multi selected: {path}")
         self.set_active_song(path)
 
     @Slot()
@@ -184,7 +188,7 @@ class MainWindow(QMainWindow):
     @Slot()
     def extraction_process(self, video_path: str):
         self.loader.show()
-        print("Archivo importado y empezando extraccion de audio, metadatos, beats y acordes")
+        logger.info("Iniciando extracción: audio, metadatos, beats y acordes")
         
         # Instanciar thread y workers
         self.edit_thread = QThread()
@@ -210,9 +214,9 @@ class MainWindow(QMainWindow):
         self.chords_worker.signals.error.connect(self.handle_error)
        
         # Finalización ordenada
-        self.extract_worker.signals.finished.connect(lambda: print("Extracción terminada"))
-        self.beats_worker.signals.finished.connect(lambda: print("Extracción de beats terminada"))
-        self.chords_worker.signals.finished.connect(lambda: print("Extracción de acordes terminada"))
+        self.extract_worker.signals.finished.connect(lambda: logger.debug("Extracción de audio completada"))
+        self.beats_worker.signals.finished.connect(lambda: logger.debug("Análisis de beats completado"))
+        self.chords_worker.signals.finished.connect(lambda: logger.debug("Análisis de acordes completado"))
 
         # Cerrar hilo solo cuando todo haya terminado
         self.chords_worker.signals.finished.connect(self.edit_thread.quit)
@@ -230,7 +234,7 @@ class MainWindow(QMainWindow):
         Callback after audio/beats/chords extraction completes.
         Attempts silent auto-download first, shows dialog only if needed.
         """
-        print(f"AUDIO_PATH: {audio_path}")
+        logger.info(f"Procesando audio extraído: {audio_path}")
         multi_path = Path(audio_path).parent
         
         # Load metadata
@@ -243,7 +247,7 @@ class MainWindow(QMainWindow):
         self._current_meta_data = meta_data
         
         # Try silent auto-download with original metadata
-        print("🔍 Attempting silent auto-download with original metadata...")
+        logger.info("Intentando descarga automática de letras con metadata original...")
         results = self.lyrics_loader.search_all(
             meta_data.get('track_name', ''),
             meta_data.get('artist_name', '')
@@ -259,19 +263,19 @@ class MainWindow(QMainWindow):
             
             if len(exact_matches) == 1:
                 # ✨ SUCCESS: Single exact match - download automatically
-                print(f"✓ Found exact match! Downloading automatically...")
+                logger.info("Coincidencia exacta encontrada - descargando automáticamente")
                 self.loader.show()
                 lyrics_model = self.lyrics_loader.download_and_save(
                     exact_matches[0],
                     self._current_multi_path
                 )
                 self.loader.hide()
-                print(f"✓ Lyrics downloaded: {len(lyrics_model.lines) if lyrics_model else 0} lines")
+                logger.info(f"Letras descargadas: {len(lyrics_model.lines) if lyrics_model else 0} líneas")
                 self._finalize_multi_creation(lyrics_model)
                 return
         
         # Auto-download failed or multiple matches - show search dialog
-        print(f"⚠ Auto-download failed. Showing search dialog... ({len(results)} results)")
+        logger.info(f"Descarga automática no disponible. Mostrando diálogo de búsqueda ({len(results)} resultados)")
         self.loader.hide()
         self._show_lyrics_search_dialog(meta_data, results)
     
@@ -308,7 +312,7 @@ class MainWindow(QMainWindow):
                 self.loader.hide()
                 
                 if lyrics_model:
-                    print(f"✓ Lyrics reloaded: {len(lyrics_model.lines)} lines")
+                    logger.info(f"Letras recargadas: {len(lyrics_model.lines)} líneas")
                     self._reload_lyrics_track(lyrics_model)
             else:
                 # Creation mode: download to new multi
@@ -320,17 +324,17 @@ class MainWindow(QMainWindow):
                 self.loader.hide()
                 
                 if lyrics_model:
-                    print(f"✓ Lyrics downloaded: {len(lyrics_model.lines)} lines")
+                    logger.info(f"Letras descargadas: {len(lyrics_model.lines)} líneas")
                     self._finalize_multi_creation(lyrics_model)
         
         def on_search_skipped():
             """User skipped lyrics"""
             if is_reload:
                 # Reload mode: just close dialog
-                print("⊘ User skipped lyrics reload")
+                logger.info("Usuario omitió recarga de letras")
             else:
                 # Creation mode: load multi without lyrics
-                print("⊘ User skipped lyrics search - loading multi without lyrics")
+                logger.info("Usuario omitió búsqueda de letras - cargando sin letras")
                 self._finalize_multi_creation(None)
         
         dialog.lyrics_selected.connect(on_lyrics_selected)
@@ -359,13 +363,13 @@ class MainWindow(QMainWindow):
     def _on_edit_metadata_clicked(self):
         """Edit mode button: Edit display metadata (clean names for UI)"""
         if self.active_multi_path is None:
-            print("No active multi loaded")
+            logger.warning("No hay multi activo para editar metadata")
             return
         
         # Load current metadata
         meta_path = self.active_multi_path / global_state.META_FILE_PATH
         if not meta_path.exists():
-            print(f"Metadata file not found: {meta_path}")
+            logger.error(f"Archivo de metadata no encontrado: {meta_path}")
             return
         
         meta_json = MetaJson(meta_path)
@@ -383,13 +387,13 @@ class MainWindow(QMainWindow):
     def _on_reload_lyrics_clicked(self):
         """Edit mode button: Search and reload lyrics using original search metadata"""
         if self.active_multi_path is None:
-            print("No active multi loaded")
+            logger.warning("No hay multi activo para recargar letras")
             return
         
         # Load current metadata
         meta_path = self.active_multi_path / global_state.META_FILE_PATH
         if not meta_path.exists():
-            print(f"Metadata file not found: {meta_path}")
+            logger.error(f"Archivo de metadata no encontrado: {meta_path}")
             return
         
         meta_json = MetaJson(meta_path)
@@ -424,7 +428,7 @@ class MainWindow(QMainWindow):
             'artist_name_display': display_data['artist_name_display']
         })
         
-        print(f"✓ Display metadata updated: {display_data['track_name_display']} - {display_data['artist_name_display']}")
+        logger.info(f"Metadata de visualización actualizada: {display_data['track_name_display']} - {display_data['artist_name_display']}")
         
         # Refresh playlist to show new display name
         self.add_dialog.search_widget.refresh_multis_list()
@@ -433,7 +437,7 @@ class MainWindow(QMainWindow):
         """Reload the lyrics track in timeline with new lyrics model"""
         self.timeline_model.set_lyrics_model(lyrics_model)
         self.timeline_view.reload_lyrics_track()
-        print(f"Lyrics reloaded: {len(lyrics_model.lines) if lyrics_model else 0} lines")
+        logger.debug(f"Track de letras recargado: {len(lyrics_model.lines) if lyrics_model else 0} líneas")
 
     def _show_info_message(self, title: str, message: str):
         """Show a brief informational message to the user"""
@@ -453,7 +457,7 @@ class MainWindow(QMainWindow):
     
     @Slot()
     def handle_error(self, msg):
-        print(f"ERROR: {msg}")
+        logger.error(f"Error en procesamiento: {msg}")
 
 
     # ----------------------------
@@ -468,7 +472,6 @@ class MainWindow(QMainWindow):
         master_path = song_path / global_state.MASTER_TRACK
         tracks_folder_path = song_path / global_state.TRACKS_PATH
         tracks_paths = get_tracks(tracks_folder_path)
-        print(f"Cargando multi: {song_path}")
         mp4_path = get_mp4(song_path)
         video_path = song_path / mp4_path
 

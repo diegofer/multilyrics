@@ -5,6 +5,9 @@ from PySide6.QtCore import QObject, Signal
 # TimelineModel is UI-independent and becomes the single source of truth for
 # canonical playhead time when provided to PlaybackManager.
 from .timeline_model import TimelineModel
+from core.logger import get_logger
+
+logger = get_logger(__name__)
 
 
 class PlaybackManager(QObject):
@@ -35,7 +38,7 @@ class PlaybackManager(QObject):
         # Can be injected in the constructor or set later with `set_timeline`.
         self.timeline: Optional[TimelineModel] = timeline
         if timeline is not None:
-            print(f"[PlaybackManager] Attached timeline: {id(timeline)}")
+            logger.debug(f"Timeline adjuntado en constructor: id={id(timeline)}")
 
         # Referencias a reproductores (se asignan desde MainWindow)
         self.audio_player = None
@@ -144,7 +147,7 @@ class PlaybackManager(QObject):
             try:
                 self.timeline.set_playhead_time(float(t))
             except Exception as e:
-                print(f"[PlaybackManager] Error updating timeline: {e}")
+                logger.error(f"Error actualizando timeline: {e}", exc_info=True)
                 pass
 
         # Timeline model notifies observers automatically

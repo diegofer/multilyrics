@@ -11,6 +11,9 @@ from PySide6.QtCore import Qt
 from audio.tracks.beat_track import ViewContext
 from audio.lyrics.model import LyricsModel, LyricLine
 from ui.style_manager import StyleManager
+from core.logger import get_logger
+
+logger = get_logger(__name__)
 
 
 class LyricsTrack:
@@ -90,8 +93,8 @@ class LyricsTrack:
                     )
             
         except Exception as e:
-            # For debugging - print the error but don't crash
-            print(f"[LyricsTrack] Error in paint: {e}")
+            # For debugging - log the error but don't crash
+            logger.error(f"[LyricsTrack] Error in paint: {e}", exc_info=True)
         finally:
             painter.restore()  # Always restore painter state
     

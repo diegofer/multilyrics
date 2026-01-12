@@ -17,6 +17,9 @@ from audio.tracks.waveform_track import WaveformTrack
 from audio.tracks.lyrics_track import LyricsTrack
 from audio.lyrics.model import LyricsModel
 from ui.style_manager import StyleManager
+from core.logger import get_logger
+
+logger = get_logger(__name__)
 
 # Performance & zoom/downsampling settings
 MIN_SAMPLES_PER_PIXEL = 10   # Do not allow fewer than 10 samples per pixel (visual limit)
@@ -173,7 +176,7 @@ class TimelineView(QWidget):
             return True
         
         except Exception as e:
-            print(f"Error al cargar el audio '{audio_path}': {e}")
+            logger.error(f"Error al cargar el audio '{audio_path}': {e}", exc_info=True)
             self._set_empty_state()
             return False
 
@@ -548,7 +551,7 @@ class TimelineView(QWidget):
         for rendering. If a previous timeline was attached, its observer is
         unsubscribed first.
         """
-        print("[TimelineView:set_timeline] timeline id:", id(timeline))
+        logger.debug(f"[TimelineView:set_timeline] timeline id: {id(timeline)}")
         # Unsubscribe previous observer if present
         if getattr(self, '_timeline_unsubscribe', None):
             try:

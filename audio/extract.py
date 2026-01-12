@@ -30,7 +30,7 @@ class AudioExtractWorker(QObject):
 
     @Slot()
     def run(self):
-        print("Iniciando extracción de audio en worker...")
+        logger.info("Iniciando extracción de audio en worker...")
         # 1. Verificar la existencia del archivo de video primero
         if not Path(self.video_path).exists():
             self.signals.error.emit(f"Error: El archivo de video no existe en '{self.video_path}'")
@@ -58,24 +58,25 @@ class AudioExtractWorker(QObject):
             )
 
             metadatos = self._extract_metadata()
-            print(f"[INFO] Metadatos extraídos: {metadatos}")
+            logger.debug(f"Metadatos extraídos: {metadatos}")
            
             # Crear o actualizar el archivo meta.json
             meta_json = MetaJson(meta_file_path)
             meta_json.update_meta(metadatos)
 
-            mensaje_exito = f"✅ Extracción de audio completada con éxito. Archivo guardado en: {master_track_path}"
-            print(mensaje_exito)
+            logger.info(f"Extracción completada: audio={master_track_path}, metadata={meta_file_path}")
             self.signals.result.emit(str(master_track_path))
 
         except ffmpeg.Error as e:
             # Manejar errores específicos de FFmpeg y mostrar su salida de error
-            error_msg = f"❌ Error al ejecutar FFmpeg:\n{e.stderr.decode('utf8', errors='ignore')}"
+            error_msg = f"Error al ejecutar FFmpeg:\n{e.stderr.decode('utf8', errors='ignore')}"
+            logger.error(error_msg)
             self.signals.error.emit(error_msg)
         
         except FileNotFoundError:
             # Manejar el caso donde el ejecutable de FFmpeg no se encuentra
-            error_msg = "❌ Error: Asegúrate de que FFmpeg esté instalado y accesible en el PATH del sistema."
+            error_msg = "Error: Asegúrate de que FFmpeg esté instalado y accesible en el PATH del sistema."
+            logger.error(error_msg)
             self.signals.error.emit(error_msg)
             
         finally:

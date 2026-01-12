@@ -24,6 +24,9 @@ import soundfile as sf
 import sounddevice as sd
 import time
 from typing import List, Optional, Union
+from core.logger import get_logger
+
+logger = get_logger(__name__)
 
 class MultiTrackPlayer:
     def __init__(self, samplerate: int = 44100, blocksize: int = 1024, dtype: str = 'float32'):
@@ -156,8 +159,8 @@ class MultiTrackPlayer:
         outdata is a writable numpy array shape (frames, channels)
         """
         if status:
-            # Print status occasionally; not ideal in tight real-time but useful for debugging.
-            print("Stream status:", status)
+            # Log status occasionally; not ideal in tight real-time but useful for debugging.
+            logger.warning(f"Stream status: {status}")
 
         with self._lock:
             if not self._playing:
@@ -348,23 +351,23 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
     player = MultiTrackPlayer(samplerate=args.sr, blocksize=1024)
-    print("Loading tracks...")
+    logger.info("Loading tracks...")
     player.load_tracks(args.files)
-    print(f"Loaded {player._n_tracks} tracks, length {player._n_frames} frames ({player._n_frames/player.samplerate:.2f} s)")
+    logger.info(f"Loaded {player._n_tracks} tracks, length {player._n_frames} frames ({player._n_frames/player.samplerate:.2f} s)")
 
     # Example: reduce track 0 to 0.6, mute track 2, solo track 1 (uncomment to test)
     # player.set_gain(0, 0.6)
     # player.mute(2, True)
     # player.solo(1, True)
 
-    print("Starting playback...")
+    logger.info("Starting playback...")
     player.play()
     try:
         while player.is_playing():
-            print(f"Pos: {player.get_position_seconds():.2f}s / {player._n_frames/player.samplerate:.2f}s", end='\r')
+            logger.debug(f"Pos: {player.get_position_seconds():.2f}s / {player._n_frames/player.samplerate:.2f}s")
             time.sleep(0.1)
     except KeyboardInterrupt:
-        print("\nStopping...")
+        logger.info("\nStopping...")
         player.stop()
     player.close()
 

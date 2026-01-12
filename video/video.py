@@ -4,6 +4,9 @@ from PySide6.QtWidgets import QApplication, QWidget, QVBoxLayout
 from PySide6.QtCore import QTimer, Slot
 
 from core.global_state import app_state
+from core.logger import get_logger
+
+logger = get_logger(__name__)
 
 class VideoLyrics(QWidget):
     """
@@ -26,7 +29,7 @@ class VideoLyrics(QWidget):
         
         # Detectar SO
         self.system = platform.system()
-        print(f"[INFO] SO detectado: {self.system}")
+        logger.debug(f"SO detectado: {self.system}")
 
         # VLC  
         vlc_args = ['--quiet', '--no-video-title-show', '--log-verbose=2']
@@ -57,7 +60,7 @@ class VideoLyrics(QWidget):
         if self.player.is_playing():
             self.player.stop()
             app_state.video_is_playing = False
-            print("[INFO] Reproductor detenido.") 
+            logger.debug("Reproductor detenido") 
         
         media = self.instance.media_new(video_path)
         self.player.set_media(media)
@@ -66,17 +69,17 @@ class VideoLyrics(QWidget):
     def move_to_screen(self):
         """Mover ventana a pantalla secundaria."""
         screens = QApplication.screens()
-        print("Pantallas detectadas:", len(screens))
+        logger.debug(f"Pantallas detectadas: {len(screens)}")
         for i, screen in enumerate(screens):
-            print(f"  [{i}] {screen.name()}")
+            logger.debug(f"  [{i}] {screen.name()}")
 
         if self.screen_index >= len(screens):
-            print("❌ La pantalla secundaria no existe.")
+            logger.error("La pantalla secundaria no existe.")
             return
 
         target_screen = screens[self.screen_index]
         geo = target_screen.geometry()
-        print("✔ Moviendo a:", geo)
+        logger.debug(f"Moviendo a: {geo}")
 
         self.setGeometry(geo)
         self.showFullScreen()
@@ -84,24 +87,24 @@ class VideoLyrics(QWidget):
         # Obtener window ID según el SO
         if self.system == "Windows":
             hwnd = int(self.winId())
-            print("✔ HWND obtenido:", hwnd)
+            logger.debug(f"HWND obtenido: {hwnd}")
             self.player.set_hwnd(hwnd)
         elif self.system == "Linux":
             xid = int(self.winId())
-            print("✔ XWindow ID obtenido:", xid)
+            logger.debug(f"XWindow ID obtenido: {xid}")
             self.player.set_xwindow(xid)
         elif self.system == "Darwin":  # macOS
-            print("⚠ macOS detectado - usando configuración estándar de VLC")
+            logger.warning("macOS detectado - usando configuración estándar de VLC")
             try:
                 self.player.set_nsobject(self.winId())
             except:
-                print("⚠ set_nsobject no disponible, usando configuración por defecto")
+                logger.warning("set_nsobject no disponible, usando configuración por defecto")
         else:
-            print(f"⚠ SO desconocido: {self.system}, usando configuración por defecto")
+            logger.warning(f"SO desconocido: {self.system}, usando configuración por defecto")
 
     def start_playback(self):
         """Iniciar reproducción y sincronización."""
-        print("⏯ Reproduciendo video...")
+        logger.debug("⏯ Reproduciendo video...")
         self.player.play()
         app_state.video_is_playing = True
         
@@ -164,12 +167,12 @@ class VideoLyrics(QWidget):
             adjustment_ms = correction.get('adjustment_ms', 0)
             diff_ms = correction.get('diff_ms', 0)
             self.player.set_time(int(new_time_ms))
-            print(f"[SOFT] diff={diff_ms}ms adj={adjustment_ms}ms → {new_time_ms}ms")
+            logger.debug(f"[SOFT] diff={diff_ms}ms adj={adjustment_ms}ms → {new_time_ms}ms")
         
         elif corr_type == 'hard':
             diff_ms = correction.get('diff_ms', 0)
             self.player.set_time(int(new_time_ms))
-            print(f"[HARD] diff={diff_ms}ms salto directo → {new_time_ms}ms")
+            logger.debug(f"[HARD] diff={diff_ms}ms salto directo → {new_time_ms}ms")
 
     def closeEvent(self, event):
         """Limpiar recursos al cerrar."""

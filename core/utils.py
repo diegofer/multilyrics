@@ -5,6 +5,10 @@ import os
 import math 
 from typing import List
 
+from core.logger import get_logger
+
+logger = get_logger(__name__)
+
 
 def clear_layout(layout: QLayout):
     """Remove all widgets and child layouts from a Qt layout.
@@ -80,7 +84,7 @@ def get_multis_list(library_path):
                     )
                 except Exception as e:
                     # If reading fails, use folder name
-                    print(f"Warning: Could not read metadata for {item}: {e}")
+                    logger.warning(f"No se pudo leer metadata para {item}: {e}")
                     
             result.append((display_name, item_path))
 
@@ -112,10 +116,10 @@ def get_mp4(folder_path: str) -> str:
         # Convertimos a str para devolver la ruta completa o .name si solo quieres el nombre
         return str(mp4_files[0].name)
     elif len(mp4_files) == 0:
-        print(f"❌ No se encontró ningún archivo .mp4 en: {folder_path}")
+        logger.error(f"No se encontró ningún archivo .mp4 en: {folder_path}")
         return ""
     else:
-        print(f"❌ Se encontraron {len(mp4_files)} archivos .mp4. Se esperaba solo uno.")
+        logger.error(f"Se encontraron {len(mp4_files)} archivos .mp4. Se esperaba solo uno.")
         # Opcionalmente, puedes devolver la lista para inspección
         return ""
 
@@ -141,7 +145,7 @@ def get_tracks(
     if not tracks_folder.is_dir():
         # Puedes cambiar esto a raise FileNotFoundError si prefieres que falle
         # en lugar de devolver una lista vacía.
-        print(f"⚠️ Error: La ruta '{folder_path}' no es un directorio válido o no existe.")
+        logger.error(f"La ruta '{folder_path}' no es un directorio válido o no existe.")
         return []
 
     extensiones_normalizadas = {
@@ -175,7 +179,7 @@ def find_file_by_name(folder_path: str, file_base_name: str) -> Path | None:
     p = Path(folder_path)
 
     if not p.is_dir():
-        print(f"❌ Error: La carpeta '{folder_path}' no existe o no es un directorio.")
+        logger.error(f"La carpeta '{folder_path}' no existe o no es un directorio.")
         return None
     
     # 2. Definir el patrón de búsqueda: 'nombre_base.*'
@@ -192,11 +196,11 @@ def find_file_by_name(folder_path: str, file_base_name: str) -> Path | None:
         return matching_files[0]
     
     elif len(matching_files) == 0:
-        print(f"❌ No se encontró ningún archivo con el nombre base '{file_base_name}' en: {folder_path}")
+        logger.error(f"No se encontró ningún archivo con el nombre base '{file_base_name}' en: {folder_path}")
         return None
         
     else:
-        print(f"❌ Se encontraron {len(matching_files)} archivos con el nombre base '{file_base_name}'. Se esperaba solo uno.")
+        logger.error(f"Se encontraron {len(matching_files)} archivos con el nombre base '{file_base_name}'. Se esperaba solo uno.")
         # Opcionalmente, puedes imprimir la lista de conflictos
         # for file in matching_files:
         #     print(f"   - {file.name}")

@@ -34,41 +34,37 @@ def mock_multi_path(tmp_path):
 class TestEditModeHandlers:
     """Test suite for edit mode button handlers"""
     
-    def test_edit_metadata_clicked_with_no_active_multi(self, window, capsys):
+    def test_edit_metadata_clicked_with_no_active_multi(self, window, caplog):
         """Should return early if no active multi is loaded"""
         window.active_multi_path = None
         
         window._on_edit_metadata_clicked()
         
-        captured = capsys.readouterr()
-        assert "No active multi loaded" in captured.out
+        assert "No hay multi activo para editar metadata" in caplog.text
     
-    def test_edit_metadata_clicked_with_missing_meta_file(self, window, tmp_path, capsys):
+    def test_edit_metadata_clicked_with_missing_meta_file(self, window, tmp_path, caplog):
         """Should return early if meta.json doesn't exist"""
         window.active_multi_path = tmp_path / "nonexistent"
         
         window._on_edit_metadata_clicked()
         
-        captured = capsys.readouterr()
-        assert "Metadata file not found" in captured.out
+        assert "Archivo de metadata no encontrado" in caplog.text
     
-    def test_reload_lyrics_clicked_with_no_active_multi(self, window, capsys):
+    def test_reload_lyrics_clicked_with_no_active_multi(self, window, caplog):
         """Should return early if no active multi is loaded"""
         window.active_multi_path = None
         
         window._on_reload_lyrics_clicked()
         
-        captured = capsys.readouterr()
-        assert "No active multi loaded" in captured.out
+        assert "No hay multi activo para recargar letras" in caplog.text
     
-    def test_reload_lyrics_clicked_with_missing_meta_file(self, window, tmp_path, capsys):
+    def test_reload_lyrics_clicked_with_missing_meta_file(self, window, tmp_path, caplog):
         """Should return early if meta.json doesn't exist"""
         window.active_multi_path = tmp_path / "nonexistent"
         
         window._on_reload_lyrics_clicked()
         
-        captured = capsys.readouterr()
-        assert "Metadata file not found" in captured.out
+        assert "Archivo de metadata no encontrado" in caplog.text
     
     # NOTE: Old tests removed - obsolete methods deleted in Phase 10:
     # - test_reload_lyrics_clicked_success_auto_download (auto_download removed)
@@ -83,8 +79,11 @@ class TestEditModeHandlers:
     # - _on_edit_metadata_clicked -> MultiMetadataEditorDialog (edit display metadata)
     # - _on_reload_lyrics_clicked -> LyricsSearchDialog (reuse with original metadata)
     
-    def test_reload_lyrics_track(self, window, capsys):
+    def test_reload_lyrics_track(self, window, caplog):
         """Should set model and reload timeline view"""
+        import logging
+        caplog.set_level(logging.DEBUG)
+        
         mock_lyrics = Mock(spec=LyricsModel)
         mock_lyrics.lines = ['line1', 'line2', 'line3']
         
@@ -95,8 +94,7 @@ class TestEditModeHandlers:
                 window.timeline_model.set_lyrics_model.assert_called_once_with(mock_lyrics)
                 window.timeline_view.reload_lyrics_track.assert_called_once()
                 
-                captured = capsys.readouterr()
-                assert "3 lines" in captured.out
+                assert "3 líneas" in caplog.text
     
     def test_active_multi_path_updated_in_set_active_song(self, window, mock_multi_path, monkeypatch):
         """Should update active_multi_path when loading a multi"""

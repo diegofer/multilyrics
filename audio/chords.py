@@ -7,6 +7,9 @@ from pathlib import Path
 
 from core import global_state
 from .meta import MetaJson
+from core.logger import get_logger
+
+logger = get_logger(__name__)
 
 
 class WorkerChordsSignals(QObject):
@@ -41,14 +44,14 @@ class ChordExtractorWorker(QObject):
             key_proc = CNNKeyRecognitionProcessor()
             key_feats = key_proc(self.audio_path)
             key_label = key_prediction_to_label(key_feats)
-            print(f"[INFO] Key extracted: {key_label}")
+            logger.info(f"Clave extraída: {key_label}")
 
             # Initialize the chord recognition processor
             feat_proc = CNNChordFeatureProcessor()
             decode_proc = CRFChordRecognitionProcessor()
             feats = feat_proc(self.audio_path)
             chords = decode_proc(feats)
-            print(f"[INFO] Chords extracted: {chords}")
+            logger.info(f"Acordes extraídos: {len(chords)} cambios")
 
             # Clean and format chords for metadata Quitar ':maj' y cambiar ':min' por 'm'
             chord_list = []
@@ -58,7 +61,7 @@ class ChordExtractorWorker(QObject):
                 chord_clean = self.clean_chord_label(label)
                 chord_list.append((start_c, end_c, chord_clean))
 
-            print(f"[DEBUG] Formatted chords: {chord_list}")
+            logger.debug(f"Acordes formateados: {len(chord_list)} progresiones")
             meta_json = MetaJson(Path(self.audio_path).with_name(global_state.META_FILE_PATH))
             meta_json.update_meta({
                 "key": key_label,
@@ -109,9 +112,9 @@ if __name__ == "__main__":
     app = QApplication(sys.argv)
     audio_path = "example.wav"  # Replace with a valid audio file
     def print_chords(chord_data):
-        print(f"Extracted Chords: {chord_data}")
+        logger.info(f"Extracted Chords: {chord_data}")
     def print_error(msg):
-        print(f"Error: {msg}")
+        logger.error(f"Error: {msg}")
     worker = ChordExtractorWorker(audio_path)
     worker.signals.result.connect(print_chords)
     worker.signals.error.connect(print_error)

@@ -8,6 +8,9 @@ from madmom.features.tempo import TempoEstimationProcessor
 
 from .meta import MetaJson
 from core import global_state
+from core.logger import get_logger
+
+logger = get_logger(__name__)
 
 class WorkerBeatsSignals(QObject):
     finished = Signal()
@@ -92,7 +95,7 @@ class BeatsExtractorWorker(QObject):
         except Exception as e:
             # Emitir cualquier error que ocurra durante el proceso
             self.signals.error.emit(str(e))
-            print(f"[ERROR] Error en BeatsExtractorWorker: {e}")
+            logger.error(f"Error en BeatsExtractorWorker: {e}", exc_info=True)
         finally:
             # Señalar que el trabajo ha terminado
             self.signals.finished.emit()
@@ -106,10 +109,10 @@ if __name__ == "__main__":
     app = QApplication(sys.argv)
 
     def print_tempo(bpm):
-        print(f"Estimated Tempo: {bpm} BPM")
+        logger.info(f"Estimated Tempo: {bpm} BPM")
 
     def print_error(msg):
-        print(f"Error: {msg}")
+        logger.error(f"Error: {msg}")
 
     worker = BeatsExtractorWorker("example.wav")
     worker.result.connect(print_tempo)
