@@ -2,8 +2,11 @@ from PySide6.QtCore import QObject, Signal, Slot
 import ffmpeg
 from pathlib import Path
 from core import global_state
+from core.logger import get_logger
 
 from .meta import MetaJson
+
+logger = get_logger(__name__)
 
 class WorkerSignals(QObject):
     finished = Signal()

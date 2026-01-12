@@ -10,6 +10,7 @@ logger = get_logger(__name__)
 
 from ui.shell import Ui_MainWindow
 from ui.style_manager import StyleManager
+from ui import message_helpers
 
 from core.utils import get_mp4, get_tracks, get_logarithmic_volume, clear_layout
 from core import global_state
@@ -61,6 +62,19 @@ class MainWindow(QMainWindow):
         #Agregar controls widget
         self.controls = ControlsWidget()
         self.ui.controls_layout.addWidget(self.controls)
+        
+        # Configurar StatusBar
+        self.statusBar().showMessage("Listo")
+        self.statusBar().setStyleSheet(f"""
+            QStatusBar {{
+                background-color: {StyleManager.get_color('bg_panel').name()};
+                color: {StyleManager.get_color('text_normal').name()};
+                border-top: 1px solid {StyleManager.get_color('blue_deep_medium').name()};
+                font-size: 11px;
+                padding: 4px;
+            }}
+        """)
+        
         #Agregar modals
         self.loader = SpinnerDialog(self)
         self.add_dialog = AddDialog()
@@ -189,6 +203,7 @@ class MainWindow(QMainWindow):
     def extraction_process(self, video_path: str):
         self.loader.show()
         logger.info("Iniciando extracción: audio, metadatos, beats y acordes")
+        self.statusBar().showMessage("Procesando archivo: extrayendo audio...")
         
         # Instanciar thread y workers
         self.edit_thread = QThread()
@@ -205,8 +220,11 @@ class MainWindow(QMainWindow):
 
         # Paso del path de un worker al otro
         self.extract_worker.signals.result.connect(self.beats_worker.run)
+        self.extract_worker.signals.result.connect(lambda: self.statusBar().showMessage("Analizando beats y tempo..."))
         self.beats_worker.signals.result.connect(self.chords_worker.run)
+        self.beats_worker.signals.result.connect(lambda: self.statusBar().showMessage("Detectando acordes..."))
         self.chords_worker.signals.result.connect(self.on_extraction_process)
+        self.chords_worker.signals.result.connect(lambda: self.statusBar().showMessage("Buscando letras..."))
 
         # Manejo de errores
         self.extract_worker.signals.error.connect(self.handle_error)
@@ -264,6 +282,7 @@ class MainWindow(QMainWindow):
             if len(exact_matches) == 1:
                 # ✨ SUCCESS: Single exact match - download automatically
                 logger.info("Coincidencia exacta encontrada - descargando automáticamente")
+                self.statusBar().showMessage("Descargando letras automáticamente...")
                 self.loader.show()
                 lyrics_model = self.lyrics_loader.download_and_save(
                     exact_matches[0],
@@ -271,6 +290,14 @@ class MainWindow(QMainWindow):
                 )
                 self.loader.hide()
                 logger.info(f"Letras descargadas: {len(lyrics_model.lines) if lyrics_model else 0} líneas")
+                
+                if lyrics_model:
+                    message_helpers.show_success_toast(
+                        self, 
+                        f"Letras descargadas: {len(lyrics_model.lines)} líneas"
+                    )
+                    self.statusBar().showMessage(f"Letras cargadas: {len(lyrics_model.lines)} líneas", 5000)
+                
                 self._finalize_multi_creation(lyrics_model)
                 return
         
@@ -313,7 +340,17 @@ class MainWindow(QMainWindow):
                 
                 if lyrics_model:
                     logger.info(f"Letras recargadas: {len(lyrics_model.lines)} líneas")
+                    message_helpers.show_success_toast(
+                        self,
+                        f"Letras recargadas: {len(lyrics_model.lines)} líneas"
+                    )
+                    self.statusBar().showMessage(f"Letras recargadas exitosamente", 4000)
                     self._reload_lyrics_track(lyrics_model)
+                else:
+                    message_helpers.show_error_toast(
+                        self,
+                        "No se pudieron cargar las letras"
+                    )
             else:
                 # Creation mode: download to new multi
                 lyrics_model = self.lyrics_loader.download_and_save(
@@ -325,7 +362,17 @@ class MainWindow(QMainWindow):
                 
                 if lyrics_model:
                     logger.info(f"Letras descargadas: {len(lyrics_model.lines)} líneas")
+                    message_helpers.show_success_toast(
+                        self,
+                        f"Letras descargadas: {len(lyrics_model.lines)} líneas"
+                    )
                     self._finalize_multi_creation(lyrics_model)
+                else:
+                    message_helpers.show_warning_toast(
+                        self,
+                        "No se pudieron descargar las letras"
+                    )
+                    self._finalize_multi_creation(None)
         
         def on_search_skipped():
             """User skipped lyrics"""
@@ -352,6 +399,10 @@ class MainWindow(QMainWindow):
         # Load the multi into player
         self.set_active_song(self._current_multi_path)
         
+        # Update status bar
+        multi_name = self._current_multi_path.name if self._current_multi_path else "Desconocido"
+        self.statusBar().showMessage(f"Multi cargado: {multi_name}", 5000)
+        
         # Update multis list in search widget
         self.add_dialog.search_widget.get_fresh_multis_list()
         
@@ -364,6 +415,7 @@ class MainWindow(QMainWindow):
         """Edit mode button: Edit display metadata (clean names for UI)"""
         if self.active_multi_path is None:
             logger.warning("No hay multi activo para editar metadata")
+            message_helpers.show_warning_toast(self, "No hay multi activo cargado")
             return
         
         # Load current metadata
@@ -430,6 +482,13 @@ class MainWindow(QMainWindow):
         
         logger.info(f"Metadata de visualización actualizada: {display_data['track_name_display']} - {display_data['artist_name_display']}")
         
+        # Mostrar feedback al usuario
+        message_helpers.show_success_toast(
+            self,
+            f"Metadata actualizada: {display_data['track_name_display']}"
+        )
+        self.statusBar().showMessage("Metadata actualizada exitosamente", 4000)
+        
         # Refresh playlist to show new display name
         self.add_dialog.search_widget.refresh_multis_list()
     
@@ -458,6 +517,9 @@ class MainWindow(QMainWindow):
     @Slot()
     def handle_error(self, msg):
         logger.error(f"Error en procesamiento: {msg}")
+        self.loader.hide()
+        message_helpers.show_error(self, "Error de Procesamiento", msg)
+        self.statusBar().showMessage("Error en procesamiento", 10000)
 
 
     # ----------------------------
