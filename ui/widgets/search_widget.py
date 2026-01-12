@@ -31,8 +31,23 @@ class SearchWidget(QWidget):
         self.get_fresh_multis_list()
 
     def get_fresh_multis_list(self):
+        """Reload the multis list from disk and update UI"""
         self.multis_list = get_multis_list(global_state.MULTIS_PATH)
         self.actualizar_lista(self.multis_list) # actualizar QListWidget
+    
+    def refresh_multis_list(self):
+        """Public method to refresh the multis list (e.g., after metadata edit)"""
+        # Save current search text to restore filter
+        current_search = self.search_box.text()
+        
+        # Reload from disk
+        self.get_fresh_multis_list()
+        
+        # Reapply filter if there was one
+        if current_search:
+            self.filtrar_canciones(current_search)
+        else:
+            self.actualizar_lista(self.multis_list)
 
     def filtrar_canciones(self, texto):
         """Filtra las canciones según el texto ingresado en la caja de búsqueda."""

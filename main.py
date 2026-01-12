@@ -426,7 +426,8 @@ class MainWindow(QMainWindow):
         
         print(f"✓ Display metadata updated: {display_data['track_name_display']} - {display_data['artist_name_display']}")
         
-        # TODO: Refresh UI to show new display names
+        # Refresh playlist to show new display name
+        self.add_dialog.search_widget.refresh_multis_list()
     
     def _reload_lyrics_track(self, lyrics_model):
         """Reload the lyrics track in timeline with new lyrics model"""
