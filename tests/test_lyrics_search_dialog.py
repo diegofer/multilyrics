@@ -69,7 +69,7 @@ class TestLyricsSearchDialog:
             mock_lyrics_loader
         )
         
-        assert dialog.windowTitle() == "Search Lyrics"
+        assert dialog.windowTitle() == "Buscar Letras"
         assert dialog.metadata == sample_metadata
         assert dialog.results == sample_results
         # selected_result is auto-set to first exact match
@@ -95,7 +95,7 @@ class TestLyricsSearchDialog:
         )
         
         assert dialog.results_list.count() == 2
-        assert "Results (2)" in dialog.results_label.text()
+        assert "Resultados (2)" in dialog.results_label.text()
     
     def test_exact_match_highlighting(self, qapp, sample_metadata, sample_results, mock_lyrics_loader):
         """Test exact matches (≤1s) are highlighted in green"""
@@ -139,7 +139,7 @@ class TestLyricsSearchDialog:
         )
         
         assert dialog.results_list.count() == 0
-        assert "No synchronized lyrics found" in dialog.info_label.text()
+        assert "No se encontraron letras sincronizadas" in dialog.info_label.text()
         assert not dialog.download_btn.isEnabled()
     
     def test_manual_search(self, qapp, sample_metadata, sample_results, mock_lyrics_loader):
@@ -284,4 +284,4 @@ class TestLyricsSearchDialog:
         
         # Should NOT call search - shows warning instead
         mock_lyrics_loader.search_all.assert_not_called()
-        assert "Please enter both" in dialog.info_label.text()
+        assert "Por favor ingresa" in dialog.info_label.text()

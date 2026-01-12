@@ -29,22 +29,24 @@ class LyricsSearchDialog(QDialog):
     lyrics_selected = Signal(dict)  # Emits selected result
     search_skipped = Signal()       # User skipped lyrics search
     
-    def __init__(self, metadata: dict, initial_results: list, lyrics_loader, parent=None):
+    def __init__(self, metadata: dict, initial_results: list, lyrics_loader, parent=None, skip_initial_search: bool = False):
         """
         Args:
             metadata: Dict with 'track_name', 'artist_name', 'duration_seconds'
             initial_results: List of initial search results (may be empty)
             lyrics_loader: LyricsLoader instance for manual searches
             parent: Parent widget
+            skip_initial_search: If True, ignore initial_results and show empty dialog
         """
         super().__init__(parent)
         
         self.metadata = metadata
         self.lyrics_loader = lyrics_loader
-        self.results = initial_results
+        # If skip_initial_search is True, start with empty results
+        self.results = [] if skip_initial_search else initial_results
         self.selected_result = None
         
-        self.setWindowTitle("Search Lyrics")
+        self.setWindowTitle("Buscar Letras")
         self.setModal(True)
         self.setMinimumWidth(600)
         self.setMinimumHeight(500)
@@ -128,7 +130,7 @@ class LyricsSearchDialog(QDialog):
         layout.setContentsMargins(20, 20, 20, 20)
         
         # Title
-        title = QLabel("Search for Synchronized Lyrics")
+        title = QLabel("Buscar Letras Sincronizadas")
         title_font = StyleManager.get_font()
         title_font.setPointSize(14)
         title_font.setBold(True)
@@ -141,26 +143,26 @@ class LyricsSearchDialog(QDialog):
         fields_layout.setSpacing(8)
         
         # Track Name
-        track_label = QLabel("Track Name:")
+        track_label = QLabel("Nombre de la Canción:")
         fields_layout.addWidget(track_label)
         
         self.track_input = QLineEdit()
         self.track_input.setText(self.metadata.get('track_name', ''))
-        self.track_input.setPlaceholderText("Enter track name...")
+        self.track_input.setPlaceholderText("Ingresa el nombre de la canción...")
         fields_layout.addWidget(self.track_input)
         
         # Artist Name
-        artist_label = QLabel("Artist:")
+        artist_label = QLabel("Artista:")
         fields_layout.addWidget(artist_label)
         
         self.artist_input = QLineEdit()
         self.artist_input.setText(self.metadata.get('artist_name', ''))
-        self.artist_input.setPlaceholderText("Enter artist name...")
+        self.artist_input.setPlaceholderText("Ingresa el nombre del artista...")
         fields_layout.addWidget(self.artist_input)
         
         # Duration info (read-only)
         duration = self.metadata.get('duration_seconds', 0)
-        duration_text = f"Duration: {int(duration // 60):02d}:{int(duration % 60):02d}"
+        duration_text = f"Duración: {int(duration // 60):02d}:{int(duration % 60):02d}"
         duration_label = QLabel(duration_text)
         duration_label.setObjectName("dim_label")
         fields_layout.addWidget(duration_label)
@@ -168,14 +170,14 @@ class LyricsSearchDialog(QDialog):
         layout.addWidget(fields_frame)
         
         # Search button
-        self.search_btn = QPushButton("🔍 Search Lyrics")
+        self.search_btn = QPushButton("🔍 Buscar Letras")
         self.search_btn.setObjectName("primary")
         self.search_btn.clicked.connect(self._on_search_clicked)
         layout.addWidget(self.search_btn)
         
         # Results label
         results_header = QHBoxLayout()
-        self.results_label = QLabel(f"Results ({len(self.results)}):")
+        self.results_label = QLabel(f"Resultados ({len(self.results)}):")
         results_header.addWidget(self.results_label)
         results_header.addStretch()
         layout.addLayout(results_header)
@@ -196,11 +198,11 @@ class LyricsSearchDialog(QDialog):
         buttons_layout = QHBoxLayout()
         buttons_layout.addStretch()
         
-        self.skip_btn = QPushButton("Skip")
+        self.skip_btn = QPushButton("Omitir")
         self.skip_btn.clicked.connect(self._on_skip_clicked)
         buttons_layout.addWidget(self.skip_btn)
         
-        self.download_btn = QPushButton("Download Selected")
+        self.download_btn = QPushButton("Descargar Seleccionada")
         self.download_btn.setObjectName("primary")
         self.download_btn.setEnabled(False)
         self.download_btn.clicked.connect(self._on_download_clicked)
@@ -211,18 +213,18 @@ class LyricsSearchDialog(QDialog):
     def _populate_results(self):
         """Populate results list with highlighting for exact matches"""
         self.results_list.clear()
-        self.results_label.setText(f"Results ({len(self.results)}):")
+        self.results_label.setText(f"Resultados ({len(self.results)}):")
         
         if not self.results:
-            self.info_label.setText("No synchronized lyrics found. Try editing the metadata and searching again.")
+            self.info_label.setText("No se encontraron letras sincronizadas. Intenta editar los metadatos y buscar nuevamente.")
             return
         
         duration = self.metadata.get('duration_seconds', 0)
         exact_match_found = False
         
         for result in self.results:
-            track_name = result.get('trackName', 'Unknown')
-            artist_name = result.get('artistName', 'Unknown')
+            track_name = result.get('trackName', 'Desconocido')
+            artist_name = result.get('artistName', 'Desconocido')
             result_duration = result.get('duration', 0)
             
             # Calculate duration difference
@@ -252,9 +254,9 @@ class LyricsSearchDialog(QDialog):
         
         # Update info label
         if exact_match_found:
-            self.info_label.setText("✓ Green items are exact duration matches (≤1s difference)")
+            self.info_label.setText("✓ Los elementos en verde son coincidencias exactas (≤1s de diferencia)")
         else:
-            self.info_label.setText("No exact duration matches found. You can still select any result.")
+            self.info_label.setText("No se encontraron coincidencias exactas de duración. Aún puedes seleccionar cualquier resultado.")
     
     def _on_search_clicked(self):
         """User clicked search button - perform new search"""
@@ -262,13 +264,13 @@ class LyricsSearchDialog(QDialog):
         artist_name = self.artist_input.text().strip()
         
         if not track_name or not artist_name:
-            self.info_label.setText("⚠ Please enter both track name and artist")
+            self.info_label.setText("⚠ Por favor ingresa el nombre de la canción y el artista")
             return
         
         # Show loading state
         self.search_btn.setEnabled(False)
-        self.search_btn.setText("Searching...")
-        self.info_label.setText("Searching LRCLIB...")
+        self.search_btn.setText("Buscando...")
+        self.info_label.setText("Buscando en LRCLIB...")
         
         # Perform search
         try:
@@ -276,10 +278,10 @@ class LyricsSearchDialog(QDialog):
             self.results = results
             self._populate_results()
         except Exception as e:
-            self.info_label.setText(f"⚠ Search failed: {str(e)}")
+            self.info_label.setText(f"⚠ Error en la búsqueda: {str(e)}")
         finally:
             self.search_btn.setEnabled(True)
-            self.search_btn.setText("🔍 Search Lyrics")
+            self.search_btn.setText("🔍 Buscar Letras")
     
     def _on_result_clicked(self, item: QListWidgetItem):
         """User clicked a result item"""

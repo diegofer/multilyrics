@@ -289,7 +289,8 @@ class MainWindow(QMainWindow):
             meta_data,
             initial_results or [],
             self.lyrics_loader,
-            parent=self
+            parent=self,
+            skip_initial_search=is_reload  # En modo edición, no mostrar búsqueda automática
         )
         
         # Connect signals
@@ -401,28 +402,9 @@ class MainWindow(QMainWindow):
             'duration_seconds': meta_data.get('duration_seconds', meta_data.get('duration', 0.0))
         }
         
-        # Show spinner
-        self.loader.show()
-        
-        # Search for lyrics using original metadata (search_all doesn't take duration)
-        results = self.lyrics_loader.search_all(
-            search_metadata['track_name'],
-            search_metadata['artist_name']
-        )
-        
-        self.loader.hide()
-        
-        if not results:
-            # No results found
-            print("No lyrics found for reload")
-            self._show_info_message(
-                "No Lyrics Found",
-                "No synchronized lyrics found for this song."
-            )
-            return
-        
-        # Show LyricsSearchDialog (reuse from creation flow)
-        self._show_lyrics_search_dialog(search_metadata, results, is_reload=True)
+        # En modo edición: mostrar diálogo vacío, usuario busca manualmente
+        # No hacer búsqueda automática previa
+        self._show_lyrics_search_dialog(search_metadata, [], is_reload=True)
     
     @Slot(dict)
     def _on_display_metadata_saved(self, display_data: dict):

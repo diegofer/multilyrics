@@ -24,7 +24,7 @@ class MultiMetadataEditorDialog(QDialog):
         super().__init__(parent)
         self.metadata = metadata
         
-        self.setWindowTitle("Edit Display Metadata")
+        self.setWindowTitle("Editar Metadatos de Visualización")
         self.setModal(True)
         self.setMinimumWidth(500)
         
@@ -39,14 +39,14 @@ class MultiMetadataEditorDialog(QDialog):
         layout.setContentsMargins(25, 25, 25, 25)
         
         # Title
-        title_label = QLabel("Edit Display Names")
+        title_label = QLabel("Editar Nombres para Visualización")
         title_label.setObjectName("title_label")
         layout.addWidget(title_label)
         
         # Info text
         info_label = QLabel(
-            "Edit the display names shown in the UI. "
-            "Original metadata is preserved for lyrics search."
+            "Edita los nombres que se muestran en la interfaz. "
+            "Los metadatos originales se preservan para la búsqueda de letras."
         )
         info_label.setObjectName("info_label")
         info_label.setWordWrap(True)
@@ -62,7 +62,7 @@ class MultiMetadataEditorDialog(QDialog):
         original_group = QVBoxLayout()
         original_group.setSpacing(10)
         
-        original_header = QLabel("Original Metadata (for lyrics search):")
+        original_header = QLabel("Metadatos Originales (para búsqueda de letras):")
         original_header.setObjectName("section_header")
         original_group.addWidget(original_header)
         
@@ -88,17 +88,17 @@ class MultiMetadataEditorDialog(QDialog):
         display_group = QVBoxLayout()
         display_group.setSpacing(15)
         
-        display_header = QLabel("Display Names (shown in UI):")
+        display_header = QLabel("Nombres para Visualización (mostrados en la interfaz):")
         display_header.setObjectName("section_header")
         display_group.addWidget(display_header)
         
         # Display track name
         track_display_layout = QVBoxLayout()
         track_display_layout.setSpacing(5)
-        track_display_label = QLabel("Track Name:")
+        track_display_label = QLabel("Nombre de la Canción:")
         track_display_label.setObjectName("field_label")
         self.track_display_input = QLineEdit()
-        self.track_display_input.setPlaceholderText("Enter clean track name...")
+        self.track_display_input.setPlaceholderText("Ingresa el nombre limpio de la canción...")
         track_display_layout.addWidget(track_display_label)
         track_display_layout.addWidget(self.track_display_input)
         display_group.addLayout(track_display_layout)
@@ -106,10 +106,10 @@ class MultiMetadataEditorDialog(QDialog):
         # Display artist name
         artist_display_layout = QVBoxLayout()
         artist_display_layout.setSpacing(5)
-        artist_display_label = QLabel("Artist Name:")
+        artist_display_label = QLabel("Nombre del Artista:")
         artist_display_label.setObjectName("field_label")
         self.artist_display_input = QLineEdit()
-        self.artist_display_input.setPlaceholderText("Enter clean artist name...")
+        self.artist_display_input.setPlaceholderText("Ingresa el nombre limpio del artista...")
         artist_display_layout.addWidget(artist_display_label)
         artist_display_layout.addWidget(self.artist_display_input)
         display_group.addLayout(artist_display_layout)
@@ -123,8 +123,8 @@ class MultiMetadataEditorDialog(QDialog):
         button_layout = QHBoxLayout()
         button_layout.setSpacing(10)
         
-        self.cancel_btn = QPushButton("Cancel")
-        self.save_btn = QPushButton("Save")
+        self.cancel_btn = QPushButton("Cancelar")
+        self.save_btn = QPushButton("Guardar")
         self.save_btn.setObjectName("primary_button")
         
         button_layout.addStretch()
