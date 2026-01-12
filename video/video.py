@@ -131,12 +131,77 @@ class VideoLyrics(QWidget):
             self.sync_controller.stop_sync()
 
     def seek_seconds(self, seconds: float):
-        """Seek the video player to the specified time in seconds."""
+        """Seek the video player to the specified time in seconds.
+        
+        Handles edge cases like seeking after video has ended by ensuring
+        the player is in a valid state and forcing a frame update.
+        """
         if self.player is None:
             return
+        
         ms = int(seconds * 1000)
+        
         with safe_operation(f"Seeking video to {seconds:.2f}s", silent=True):
+            # Check if video has ended (VLC state 6 = Ended)
+            state = self.player.get_state()
+            was_playing = self.player.is_playing()
+            
+            # If video ended, need to stop() and play() to fully reset
+            if state == vlc.State.Ended:
+                logger.debug("Video ended, performing full reset before seek")
+                # Stop completely to reset VLC state
+                self.player.stop()
+                # Wait for stop to complete
+                QTimer.singleShot(50, lambda: self._restart_and_seek(ms, was_playing))
+                return
+            
+            # Normal seek (not ended)
             self.player.set_time(ms)
+            
+            # Force frame update if not playing
+            if not was_playing:
+                # Pause to show the frame at seek position
+                self.player.pause()
+    
+    def _restart_and_seek(self, ms: int, was_playing: bool):
+        """Restart player after stop and seek to position.
+        
+        Called after stop() completes to fully reset from ended state.
+        """
+        if self.player is None:
+            return
+        
+        with safe_operation("Restarting player and seeking", silent=True):
+            # Play to restart from beginning
+            self.player.play()
+            # Wait for play to start
+            QTimer.singleShot(150, lambda: self._complete_seek_after_restart(ms, was_playing))
+    
+    def _complete_seek_after_restart(self, ms: int, was_playing: bool):
+        """Complete seek operation after restarting.
+        
+        Called after play() completes to perform actual seek.
+        """
+        if self.player is None:
+            return
+        
+        with safe_operation("Completing seek after restart", silent=True):
+            # Now do the actual seek
+            self.player.set_time(ms)
+            
+            # If wasn't playing before, pause to show frame
+            if not was_playing:
+                # Wait for seek to complete, then pause
+                QTimer.singleShot(100, lambda: self._pause_and_show_frame())
+    
+    def _pause_and_show_frame(self):
+        """Pause player to display current frame.
+        
+        Called after seek completes to ensure frame is visible.
+        """
+        if self.player is not None:
+            self.player.pause()
+            logger.debug("Video paused to show frame after seek")
 
     def _report_position(self):
         """
