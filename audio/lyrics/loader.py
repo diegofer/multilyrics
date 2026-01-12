@@ -11,11 +11,16 @@ Provides modular API for lyrics operations:
 import re
 import urllib.request
 import urllib.parse
+import urllib.error
 import json
+import time
 from pathlib import Path
 from typing import Optional
 
 from .model import LyricsModel, LyricLine
+from core.logger import get_logger
+
+logger = get_logger(__name__)
 
 
 class LyricsLoader:
@@ -29,6 +34,61 @@ class LyricsLoader:
     # LRCLIB API configuration
     LRCLIB_BASE_URL = "https://lrclib.net"
     DURATION_TOLERANCE_SECONDS = 1.0
+    
+    # HTTP request configuration
+    REQUEST_TIMEOUT = 10  # seconds
+    MAX_RETRIES = 3
+    RETRY_DELAY = 1.0  # initial delay in seconds (doubles on each retry)
+    
+    # === PRIVATE HELPERS ===
+    
+    def _make_request(self, url: str, timeout: float = None) -> bytes:
+        """Make HTTP request with retry logic and exponential backoff.
+        
+        Args:
+            url: URL to request
+            timeout: Request timeout in seconds (defaults to REQUEST_TIMEOUT)
+            
+        Returns:
+            Response body as bytes
+            
+        Raises:
+            urllib.error.URLError: After all retries exhausted
+        """
+        if timeout is None:
+            timeout = self.REQUEST_TIMEOUT
+        
+        last_exception = None
+        delay = self.RETRY_DELAY
+        
+        for attempt in range(self.MAX_RETRIES):
+            try:
+                logger.debug(f"HTTP request attempt {attempt + 1}/{self.MAX_RETRIES}: {url}")
+                with urllib.request.urlopen(url, timeout=timeout) as response:
+                    logger.debug(f"Request successful on attempt {attempt + 1}")
+                    return response.read()
+            except urllib.error.URLError as e:
+                last_exception = e
+                
+                # Don't retry on client errors (4xx)
+                if hasattr(e, 'code') and 400 <= e.code < 500:
+                    logger.warning(f"Client error (4xx), not retrying: {e}")
+                    raise
+                
+                # Last attempt - don't wait
+                if attempt == self.MAX_RETRIES - 1:
+                    logger.warning(f"All {self.MAX_RETRIES} retry attempts exhausted: {e}")
+                    break
+                
+                # Log retry with backoff info
+                logger.warning(f"Request failed (attempt {attempt + 1}/{self.MAX_RETRIES}): {e}. Retrying in {delay}s...")
+                
+                # Exponential backoff with jitter
+                time.sleep(delay)
+                delay *= 2  # Double delay for next retry
+        
+        # All retries exhausted
+        raise last_exception
     
     # === METADATA NORMALIZATION ===
     
@@ -215,10 +275,15 @@ class LyricsLoader:
         url = f"{self.LRCLIB_BASE_URL}/api/search?{params}"
         
         try:
-            with urllib.request.urlopen(url, timeout=10) as response:
-                data = json.loads(response.read().decode('utf-8'))
-                return data if isinstance(data, list) else []
-        except Exception:
+            logger.info(f"Searching LRCLIB API: track='{track_name}', artist='{artist_name}'")
+            response_body = self._make_request(url)
+            data = json.loads(response_body.decode('utf-8'))
+            result_count = len(data) if isinstance(data, list) else 0
+            logger.info(f"LRCLIB API returned {result_count} results")
+            return data if isinstance(data, list) else []
+        except (urllib.error.URLError, json.JSONDecodeError, UnicodeDecodeError) as e:
+            # Log error but return empty list for graceful degradation
+            logger.error(f"LRCLIB API search failed: {type(e).__name__}: {e}")
             return []
     
     def _select_best_match(self, results: list[dict], duration_seconds: float) -> Optional[dict]:
