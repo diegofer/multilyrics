@@ -2,6 +2,7 @@ from PySide6.QtWidgets import QApplication, QMainWindow, QPushButton, QMessageBo
 from PySide6.QtGui import QIcon, QCloseEvent
 from PySide6.QtCore import Qt, QThread, Slot, QTimer
 from pathlib import Path
+from typing import Optional
 import os
 
 from core.logger import get_logger
@@ -26,9 +27,7 @@ from ui.widgets.spinner_dialog import SpinnerDialog
 from ui.widgets.add import AddDialog
 
 from audio.timeline_view import TimelineView, ZoomMode
-from audio.extract import AudioExtractWorker
-from audio.beats import BeatsExtractorWorker
-from audio.chords import ChordExtractorWorker
+from core.extraction_orchestrator import ExtractionOrchestrator
 from audio.multitrack_player import MultiTrackPlayer
 from audio.lyrics.loader import LyricsLoader
 from audio.meta import MetaJson
@@ -135,15 +134,43 @@ class MainWindow(QMainWindow):
         self.timeline_view.reload_lyrics_clicked.connect(self._on_reload_lyrics_clicked)
 
 
-        # definir thread y worker para extraccion de audio
-        self.edit_thread = None
-        self.extract_worker = None
-        self.beats_worker = None
-        self.chords_worker = None
+        # Extraction orchestrator (lazily initialized)
+        self.extraction_orchestrator = None
         
         # Track active multi path for edit mode operations
         self.active_multi_path = None
 
+    # ----------------------------
+    # Helper Methods
+    # ----------------------------
+    
+    def _load_metadata(self, multi_path: Path) -> Optional[dict]:
+        """Load metadata from a multi directory.
+        
+        Centralized helper to load meta.json from a multi directory,
+        with error handling and validation.
+        
+        Args:
+            multi_path: Path to the multi directory
+            
+        Returns:
+            Dictionary with metadata, or None if file doesn't exist
+            
+        Raises:
+            Exception: If metadata file exists but can't be read
+        """
+        meta_path = multi_path / global_state.META_FILE_PATH
+        
+        if not meta_path.exists():
+            logger.error(f"Archivo de metadata no encontrado: {meta_path}")
+            return None
+        
+        meta_json = MetaJson(meta_path)
+        return meta_json.read_meta()
+
+    # ----------------------------
+    # Event Handlers
+    # ----------------------------
 
     @Slot()
     def open_add_dialog(self):
@@ -202,49 +229,32 @@ class MainWindow(QMainWindow):
 
     @Slot()
     def extraction_process(self, video_path: str):
+        """Start the extraction pipeline for a video file.
+        
+        Delegates to ExtractionOrchestrator which handles:
+        - Audio extraction (FFmpeg)
+        - Beat/downbeat detection (madmom)
+        - Chord recognition (madmom)
+        
+        Progress updates appear in status bar.
+        """
         self.loader.show()
         logger.info("Iniciando extracción: audio, metadatos, beats y acordes")
-        self.statusBar().showMessage("Procesando archivo: extrayendo audio...")
         
-        # Instanciar thread y workers
-        self.edit_thread = QThread()
-        self.extract_worker = AudioExtractWorker(video_path)
-        self.beats_worker = BeatsExtractorWorker()
-        self.chords_worker = ChordExtractorWorker()
+        # Create orchestrator if needed
+        if not self.extraction_orchestrator:
+            self.extraction_orchestrator = ExtractionOrchestrator(
+                status_callback=lambda msg: self.statusBar().showMessage(msg),
+                parent=self
+            )
+            
+            # Connect completion signals
+            self.extraction_orchestrator.extraction_completed.connect(self.on_extraction_process)
+            self.extraction_orchestrator.extraction_error.connect(self.handle_error)
+        
+        # Start extraction
+        self.extraction_orchestrator.start_extraction(video_path)
 
-        self.extract_worker.moveToThread(self.edit_thread)
-        self.beats_worker.moveToThread(self.edit_thread)
-        self.chords_worker.moveToThread(self.edit_thread)
-
-        # Conectar señales
-        self.edit_thread.started.connect(self.extract_worker.run)
-
-        # Paso del path de un worker al otro
-        self.extract_worker.signals.result.connect(self.beats_worker.run)
-        self.extract_worker.signals.result.connect(lambda: self.statusBar().showMessage("Analizando beats y tempo..."))
-        self.beats_worker.signals.result.connect(self.chords_worker.run)
-        self.beats_worker.signals.result.connect(lambda: self.statusBar().showMessage("Detectando acordes..."))
-        self.chords_worker.signals.result.connect(self.on_extraction_process)
-        self.chords_worker.signals.result.connect(lambda: self.statusBar().showMessage("Buscando letras..."))
-
-        # Manejo de errores
-        self.extract_worker.signals.error.connect(self.handle_error)
-        self.beats_worker.signals.error.connect(self.handle_error)
-        self.chords_worker.signals.error.connect(self.handle_error)
-       
-        # Finalización ordenada
-        self.extract_worker.signals.finished.connect(lambda: logger.debug("Extracción de audio completada"))
-        self.beats_worker.signals.finished.connect(lambda: logger.debug("Análisis de beats completado"))
-        self.chords_worker.signals.finished.connect(lambda: logger.debug("Análisis de acordes completado"))
-
-        # Cerrar hilo solo cuando todo haya terminado
-        self.chords_worker.signals.finished.connect(self.edit_thread.quit)
-        self.chords_worker.signals.finished.connect(self.chords_worker.deleteLater)
-        self.beats_worker.signals.finished.connect(self.beats_worker.deleteLater)
-        self.extract_worker.signals.finished.connect(self.extract_worker.deleteLater)
-        self.edit_thread.finished.connect(self.edit_thread.deleteLater)
-
-        self.edit_thread.start()
 
 
     @Slot()
@@ -420,13 +430,9 @@ class MainWindow(QMainWindow):
             return
         
         # Load current metadata
-        meta_path = self.active_multi_path / global_state.META_FILE_PATH
-        if not meta_path.exists():
-            logger.error(f"Archivo de metadata no encontrado: {meta_path}")
+        meta_data = self._load_metadata(self.active_multi_path)
+        if meta_data is None:
             return
-        
-        meta_json = MetaJson(meta_path)
-        meta_data = meta_json.read_meta()
         
         # Lazy import to avoid circular dependencies
         from ui.widgets.multi_metadata_editor_dialog import MultiMetadataEditorDialog
@@ -444,13 +450,9 @@ class MainWindow(QMainWindow):
             return
         
         # Load current metadata
-        meta_path = self.active_multi_path / global_state.META_FILE_PATH
-        if not meta_path.exists():
-            logger.error(f"Archivo de metadata no encontrado: {meta_path}")
+        meta_data = self._load_metadata(self.active_multi_path)
+        if meta_data is None:
             return
-        
-        meta_json = MetaJson(meta_path)
-        meta_data = meta_json.read_meta()
         
         # Use ORIGINAL search fields (immutable) - not display fields
         search_metadata = {

@@ -30,6 +30,41 @@ class LyricsLoader:
     LRCLIB_BASE_URL = "https://lrclib.net"
     DURATION_TOLERANCE_SECONDS = 1.0
     
+    # === METADATA NORMALIZATION ===
+    
+    @staticmethod
+    def _normalize_metadata(metadata: dict) -> tuple[str, str, float]:
+        """Normalize metadata keys from legacy to new format.
+        
+        Supports both new format (track_name, artist_name, duration_seconds)
+        and legacy format (title, artist, duration) with fallback chain.
+        
+        Args:
+            metadata: Dictionary with metadata in any supported format
+            
+        Returns:
+            Tuple of (track_name, artist_name, duration_seconds)
+            Returns empty strings and 0.0 for missing values
+            
+        Examples:
+            >>> # New format
+            >>> _normalize_metadata({'track_name': 'Song', 'artist_name': 'Artist', 'duration_seconds': 180.5})
+            ('Song', 'Artist', 180.5)
+            
+            >>> # Legacy format
+            >>> _normalize_metadata({'title': 'Old Song', 'artist': 'Old Artist', 'duration': 200.0})
+            ('Old Song', 'Old Artist', 200.0)
+            
+            >>> # Mixed/partial
+            >>> _normalize_metadata({'track_name': 'New', 'artist': 'Old'})
+            ('New', 'Old', 0.0)
+        """
+        track_name = metadata.get('track_name') or metadata.get('title') or ''
+        artist_name = metadata.get('artist_name') or metadata.get('artist') or ''
+        duration = metadata.get('duration_seconds') or metadata.get('duration') or 0.0
+        
+        return track_name, artist_name, float(duration)
+    
     # === HIGH-LEVEL API (Public Methods) ===
     
     def load(self, song_folder: Path, metadata: dict) -> Optional[LyricsModel]:
@@ -53,9 +88,7 @@ class LyricsLoader:
         
         # Step 2: Try auto-download from API
         # Normalize metadata keys (support both new and legacy formats)
-        track_name = metadata.get('track_name') or metadata.get('title')
-        artist_name = metadata.get('artist_name') or metadata.get('artist')
-        duration = metadata.get('duration_seconds') or metadata.get('duration')
+        track_name, artist_name, duration = self._normalize_metadata(metadata)
         
         return self.auto_download(song_folder, track_name, artist_name, duration)
     

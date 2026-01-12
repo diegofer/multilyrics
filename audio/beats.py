@@ -9,13 +9,9 @@ from madmom.features.tempo import TempoEstimationProcessor
 from .meta import MetaJson
 from core import global_state
 from core.logger import get_logger
+from core.workers import WorkerSignals
 
 logger = get_logger(__name__)
-
-class WorkerBeatsSignals(QObject):
-    finished = Signal()
-    error = Signal(str)
-    result = Signal(str)
 
 class BeatsExtractorWorker(QObject):
     """
@@ -31,7 +27,7 @@ class BeatsExtractorWorker(QObject):
         """
         super().__init__()
         self.audio_path = audio_path
-        self.signals = WorkerBeatsSignals()
+        self.signals = WorkerSignals()
 
     @Slot()
     def run(self, audio_path: str = None):
