@@ -50,7 +50,10 @@ class TrackWidget(QWidget):
         """)
         
         self.slider.setRange(0, 100)
-        self.slider.setValue(100)
+        # Master track starts at 70% for headroom (like professional mixers)
+        # Individual tracks start at 100% (unity gain)
+        initial_value = 70 if self.master_type else 100
+        self.slider.setValue(initial_value)
         #self.slider.setStyleSheet("QSlider::handle { width: 50px; height: 20px; }")
         layout.addWidget(self.slider, alignment=Qt.AlignmentFlag.AlignHCenter)
 

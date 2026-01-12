@@ -117,6 +117,9 @@ class MainWindow(QMainWindow):
         #self.sync.videoCorrectionNeeded.connect(self.video_player.apply_correction)
         # Master fader controls both waveform preview volume and global audio gain
         self.master_track.volume_changed.connect(self.set_master_gain)
+        
+        # Initialize master gain to slider's initial value (70% for headroom)
+        self.set_master_gain(self.master_track.slider.value())
 
         # Waveform user seeks -> central request via PlaybackManager
         self.timeline_view.position_changed.connect(self.playback.request_seek)
