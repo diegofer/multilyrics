@@ -5,6 +5,7 @@ from pathlib import Path
 import os
 
 from core.logger import get_logger
+from core.error_handler import safe_operation
 
 logger = get_logger(__name__)
 
@@ -598,10 +599,8 @@ class MainWindow(QMainWindow):
         # Update waveform preview volume (expects slider int)
         self.timeline_view.set_volume(slider_value)
         # Set global master gain on audio player
-        try:
+        with safe_operation("Setting master gain", silent=True):
             self.audio_player.set_master_gain(gain)
-        except Exception:
-            pass
 
     @Slot()
     def set_solo(self, track_index: int, solo: bool):

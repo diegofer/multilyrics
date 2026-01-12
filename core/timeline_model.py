@@ -19,6 +19,7 @@ This module is intentionally minimal for the first refactor step; advanced helpe
 left as TODO items to be implemented later.
 """
 from typing import List, Tuple, Optional, Callable, TYPE_CHECKING
+from core.error_handler import safe_operation
 
 if TYPE_CHECKING:
     from audio.lyrics.model import LyricsModel
@@ -145,16 +146,8 @@ class TimelineModel:
         # Call observers synchronously in registration order. Ensure one failing
         # observer does not prevent others from running.
         for cb in list(self._playhead_observers):
-            try:
+            with safe_operation(f"Notifying playhead observer {cb.__name__ if hasattr(cb, '__name__') else 'anonymous'}", silent=True, log_level="warning"):
                 cb(self._playhead_time)
-            except Exception:
-                # Keep implementation lightweight: do not raise; continue to next
-                # observer. Caller may replace this with logging as needed.
-                try:
-                    import warnings
-                    warnings.warn("A playhead observer raised an exception and was ignored")
-                except Exception:
-                    pass
 
     def get_playhead_time(self) -> float:
         return self._playhead_time
@@ -190,10 +183,8 @@ class TimelineModel:
         self._playhead_observers.append(callback)
 
         def unsubscribe() -> None:
-            try:
+            with safe_operation("Unsubscribing playhead observer", silent=True, log_level="debug"):
                 self._playhead_observers.remove(callback)
-            except ValueError:
-                pass
 
         return unsubscribe
 
@@ -207,11 +198,9 @@ class TimelineModel:
         self._downbeats = []
         if downbeat_flags is not None:
             for b, flag in zip(self._beats, downbeat_flags):
-                try:
+                with safe_operation(f"Processing downbeat flag for beat {b}", silent=True, log_level="debug"):
                     if int(flag) == 1:
                         self._downbeats.append(b)
-                except Exception:
-                    continue
 
     def set_chords(self, chords: List[Chord]) -> None:
         """Set chords as plain tuples (start_seconds, end_seconds, name).
@@ -221,15 +210,13 @@ class TimelineModel:
         """
         out: List[Chord] = []
         for item in chords:
-            try:
+            with safe_operation(f"Parsing chord {item}", silent=True, log_level="debug"):
                 s0 = float(item[0])
                 s1 = float(item[1])
                 name = str(item[2])
                 if s1 < s0:
                     s0, s1 = s1, s0
                 out.append((s0, s1, name))
-            except Exception:
-                continue
         self._chords = out
 
     def set_lyrics_model(self, lyrics_model: Optional['LyricsModel']) -> None:

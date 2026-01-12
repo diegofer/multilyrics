@@ -6,6 +6,7 @@ from PySide6.QtCore import QObject, Signal
 # canonical playhead time when provided to PlaybackManager.
 from .timeline_model import TimelineModel
 from core.logger import get_logger
+from core.error_handler import safe_operation
 
 logger = get_logger(__name__)
 
@@ -58,31 +59,24 @@ class PlaybackManager(QObject):
 
         if self.timeline is not None:
             # Keep timeline duration in sync; timeline remains UI-independent.
-            try:
+            with safe_operation("Setting timeline duration", silent=True):
                 self.timeline.set_duration_seconds(float(duration_seconds))
-            except Exception:
-                # Keep behavior robust; do not propagate timeline errors here.
-                pass
 
     def set_audio_player(self, audio_player):
         """Asignar la referencia al `MultiTrackPlayer` para control centralizado."""
         self.audio_player = audio_player
         # If audio player supports a play state callback, hook it to propagate
-        try:
+        with safe_operation("Configuring audio player callbacks", silent=True):
             if hasattr(self.audio_player, 'playStateCallback'):
                 self.audio_player.playStateCallback = self._on_audio_play_state_changed
             # Emit initial state if available
             if hasattr(self.audio_player, 'is_playing'):
                 self.playingChanged.emit(bool(self.audio_player.is_playing()))
-        except Exception:
-            pass
 
     def _on_audio_play_state_changed(self, playing: bool):
         """Called by the audio player's callback to notify state changes."""
-        try:
+        with safe_operation("Emitting playing state change", silent=True):
             self.playingChanged.emit(bool(playing))
-        except Exception:
-            pass
 
     def set_video_player(self, video_player):
         """Asignar la referencia al `VideoLyrics` para control centralizado."""
@@ -104,33 +98,25 @@ class PlaybackManager(QObject):
             seconds = 0.0
 
         # Seek audio player
-        try:
+        with safe_operation("Seeking audio player", silent=True):
             if self.audio_player is not None:
                 self.audio_player.seek_seconds(seconds)
-        except Exception:
-            pass
 
         # Seek video player
-        try:
+        with safe_operation("Seeking video player", silent=True):
             if self.video_player is not None:
                 self.video_player.seek_seconds(seconds)
-        except Exception:
-            pass
 
         # Update sync controller clock/time so smoothing resumes from correct point
-        try:
+        with safe_operation("Updating sync controller time", silent=True):
             if hasattr(self.sync, 'set_audio_time'):
                 self.sync.set_audio_time(seconds)
-        except Exception:
-            pass
 
         # Update timeline model (if present). TimelineModel becomes the
         # canonical playhead owner; keep this update robust to errors.
         if self.timeline is not None:
-            try:
+            with safe_operation("Updating timeline playhead", silent=True):
                 self.timeline.set_playhead_time(float(seconds))
-            except Exception:
-                pass
 
         # Timeline model will notify its observers (e.g., TimelineView, Controls)
         # No need to emit positionChanged - removed redundant signal
@@ -144,11 +130,8 @@ class PlaybackManager(QObject):
         """
         #print(f"[PlaybackManager] _on_audio_time: {t:.3f}s (timeline id: {id(self.timeline) if self.timeline else 'None'})")
         if self.timeline is not None:
-            try:
+            with safe_operation("Updating timeline from audio time", silent=True, log_level="error"):
                 self.timeline.set_playhead_time(float(t))
-            except Exception as e:
-                logger.error(f"Error actualizando timeline: {e}", exc_info=True)
-                pass
 
         # Timeline model notifies observers automatically
         # Removed: self.positionChanged.emit(t)  # ❌ Redundant

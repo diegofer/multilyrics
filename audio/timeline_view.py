@@ -18,6 +18,7 @@ from audio.tracks.lyrics_track import LyricsTrack
 from audio.lyrics.model import LyricsModel
 from ui.style_manager import StyleManager
 from core.logger import get_logger
+from core.error_handler import safe_operation
 
 logger = get_logger(__name__)
 
@@ -135,10 +136,8 @@ class TimelineView(QWidget):
     def _reset_waveform_cache(self):
         """Clear cached waveform envelope/rendering in the track (if any)."""
         if getattr(self, '_waveform_track', None) is not None:
-            try:
+            with safe_operation("Resetting waveform cache", silent=True):
                 self._waveform_track.reset_cache()
-            except Exception:
-                pass
 
 
     def load_audio(self, audio_path):
@@ -242,7 +241,7 @@ class TimelineView(QWidget):
         beats_seconds = []
         downbeat_flags = []
         for item in beats_input:
-            try:
+            with safe_operation(f"Parsing beat item {item}", silent=True, log_level="debug"):
                 if isinstance(item, (list, tuple)) and len(item) >= 2:
                     t = float(item[0])
                     pos = int(item[1])
@@ -252,14 +251,12 @@ class TimelineView(QWidget):
                     t = float(item)
                     beats_seconds.append(t)
                     downbeat_flags.append(0)
-            except Exception:
-                continue
         
         # Parse chords
         chords_input = meta_data.get("chords", []) if isinstance(meta_data, dict) else []
         chords_parsed = []
         for item in chords_input:
-            try:
+            with safe_operation(f"Parsing chord item {item}", silent=True, log_level="debug"):
                 if isinstance(item, (list, tuple)) and len(item) >= 3:
                     s = float(item[0])
                     e = float(item[1])
@@ -267,19 +264,13 @@ class TimelineView(QWidget):
                     if e < s:
                         s, e = e, s
                     chords_parsed.append((s, e, name))
-            except Exception:
-                continue
         
         # Forward to timeline immediately
-        try:
+        with safe_operation("Setting timeline beats", silent=True):
             self.timeline.set_beats(beats_seconds, downbeat_flags)
-        except Exception:
-            pass
         
-        try:
+        with safe_operation("Setting timeline chords", silent=True):
             self.timeline.set_chords(chords_parsed)
-        except Exception:
-            pass
         
         self.update()
 
@@ -309,10 +300,8 @@ class TimelineView(QWidget):
         self._user_zoom_override = True
 
         # After zoom, ensure the playhead remains visible in the current viewport
-        try:
+        with safe_operation("Ensuring playhead visible after zoom", silent=True):
             self._ensure_playhead_visible()
-        except Exception:
-            pass
 
         # Zoom changed -> invalidate render cache
         self._reset_waveform_cache()
@@ -489,12 +478,11 @@ class TimelineView(QWidget):
             # If a timeline is attached, update it rather than setting the widget's
             # internal playhead directly. This keeps a single source of truth.
             if getattr(self, 'timeline', None) is not None:
-                try:
+                with safe_operation("Updating timeline playhead on double-click", silent=True):
                     self.timeline.set_playhead_time(current_time)
-                except Exception:
-                    # If timeline update fails for some reason, fall back to the
-                    # old behavior and update local playhead for rendering.
-                    self.set_playhead_sample(new_sample)
+                    # Fallback if update fails
+                    if not hasattr(self, '_last_timeline_update_success'):
+                        self.set_playhead_sample(new_sample)
             else:
                 self.set_playhead_sample(new_sample)
 
@@ -554,16 +542,14 @@ class TimelineView(QWidget):
         logger.debug(f"[TimelineView:set_timeline] timeline id: {id(timeline)}")
         # Unsubscribe previous observer if present
         if getattr(self, '_timeline_unsubscribe', None):
-            try:
+            with safe_operation("Unsubscribing previous timeline observer", silent=True):
                 self._timeline_unsubscribe()
-            except Exception:
-                pass
             self._timeline_unsubscribe = None
 
         self.timeline = timeline
         if timeline is not None:
             # Register observer and initialize widget position from timeline
-            try:
+            with safe_operation("Registering timeline observer", silent=True):
                 self._timeline_unsubscribe = timeline.on_playhead_changed(
                     self._on_timeline_playhead_changed
                 )
@@ -575,9 +561,6 @@ class TimelineView(QWidget):
                 self.update()
                 # Initialize playhead to timeline's current value
                 self.set_position_seconds(timeline.get_playhead_time())
-            except Exception:
-                # If registration fails, ensure internal state remains consistent
-                self._timeline_unsubscribe = None
 
     def reload_lyrics_track(self) -> None:
         """Reinitialize lyrics track when lyrics_model is added to timeline.
@@ -612,13 +595,9 @@ class TimelineView(QWidget):
         TimelineModel to avoid feedback loops; the TimelineModel is the
         single source of truth for canonical time.
         """
-        try:
+        with safe_operation("Updating widget position from timeline", silent=True):
             # Use existing conversion and clamping logic
             self.set_position_seconds(float(new_time))
-        except Exception:
-            # Keep observer lightweight: swallow exceptions to avoid breaking
-            # timeline updates from other sources.
-            pass
         # Schedule repaint on every playhead change (Qt will coalesce updates)
         self.update()
 
@@ -626,25 +605,19 @@ class TimelineView(QWidget):
         # Ensure we unsubscribe observer to avoid holding references after
         # the widget is closed/destroyed.
         if getattr(self, '_timeline_unsubscribe', None):
-            try:
+            with safe_operation("Unsubscribing timeline on close", silent=True):
                 self._timeline_unsubscribe()
-            except Exception:
-                pass
             self._timeline_unsubscribe = None
         super().closeEvent(event)
 
     def __del__(self):
         # Defensive cleanup if the widget is garbage collected without being
         # closed (may not run reliably but helps avoid leaks).
-        try:
+        with safe_operation("Cleanup in __del__", silent=True, log_level="debug"):
             if getattr(self, '_timeline_unsubscribe', None):
-                try:
+                with safe_operation("Unsubscribing timeline in __del__", silent=True, log_level="debug"):
                     self._timeline_unsubscribe()
-                except Exception:
-                    pass
                 self._timeline_unsubscribe = None
-        except Exception:
-            pass
             
     def set_playhead_sample(self, sample):
         # Asegurarse de que no falle con total_samples = 0
@@ -852,35 +825,25 @@ class TimelineView(QWidget):
             downsample_factor = GLOBAL_DOWNSAMPLE_FACTOR
         
         # 1. Waveform (base layer)
-        try:
+        with safe_operation("Painting waveform track", silent=True):
             self._waveform_track.paint(painter, ctx, self.samples, downsample_factor)
-        except Exception:
-            pass
         
         # 2. Beats and downbeats
-        try:
+        with safe_operation("Painting beat track", silent=True):
             self._beat_track.paint(painter, ctx)
-        except Exception:
-            pass
         
         # 3. Chords
-        try:
+        with safe_operation("Painting chord track", silent=True):
             self._chord_track.paint(painter, ctx)
-        except Exception:
-            pass
         
         # 4. Lyrics
         if self._lyrics_track is not None:
-            try:
+            with safe_operation("Painting lyrics track", silent=True):
                 self._lyrics_track.paint(painter, ctx)
-            except Exception:
-                pass
         
         # 5. Playhead (top layer)
-        try:
+        with safe_operation("Painting playhead track", silent=True):
             self._playhead_track.paint(painter, ctx)
-        except Exception:
-            pass
 
         # ----------------------------------------------------------
         # DIBUJAR TIEMPO TOTAL (Opcional, pero útil)

@@ -5,6 +5,7 @@ from PySide6.QtCore import QTimer, Slot
 
 from core.global_state import app_state
 from core.logger import get_logger
+from core.error_handler import safe_operation
 
 logger = get_logger(__name__)
 
@@ -134,10 +135,8 @@ class VideoLyrics(QWidget):
         if self.player is None:
             return
         ms = int(seconds * 1000)
-        try:
+        with safe_operation(f"Seeking video to {seconds:.2f}s", silent=True):
             self.player.set_time(ms)
-        except Exception:
-            pass
 
     def _report_position(self):
         """
@@ -176,12 +175,10 @@ class VideoLyrics(QWidget):
 
     def closeEvent(self, event):
         """Limpiar recursos al cerrar."""
-        try:
+        with safe_operation("Cleaning up video player resources", silent=True):
             self.stop()
             self.position_timer.stop()
             app_state.video_is_playing = False
             self.player.release()
             self.instance.release()
-        except:
-            pass
         super().closeEvent(event)

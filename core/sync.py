@@ -2,6 +2,7 @@ from PySide6.QtCore import QObject, Signal, Slot
 import numpy as np
 
 from core.clock import AudioClock
+from core.error_handler import safe_operation
 
 class SyncController(QObject):
     """
@@ -142,10 +143,8 @@ class SyncController(QObject):
     def set_audio_time(self, seconds: float):
         """Set audio clock and smooth time to a specific value (seek)."""
         # Update clock absolute time
-        try:
+        with safe_operation("Setting audio clock time", silent=True):
             self.clock.set_time(seconds)
-        except Exception:
-            pass
         # Set smoothed value directly so downstream logic immediately sees it
         self._smooth_audio_time = float(seconds)
         # Emit updated position for UI
