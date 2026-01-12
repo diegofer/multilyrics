@@ -221,6 +221,14 @@ class MainWindow(QMainWindow):
     def on_extraction_process(self, audio_path):
         print(f"AUDIO_PATH: {audio_path}")
         muti_path = Path(audio_path).parent
+
+        # Obtener lyrics por primera vez
+        meta_path = muti_path / global_state.META_FILE_PATH
+        self.meta = MetaJson(meta_path)
+        meta_data = self.meta.read_meta()
+        lyrics_model = self.lyrics_loader.load(muti_path, meta_data)
+        self.timeline_model.set_lyrics_model(lyrics_model)
+
         self.set_active_song(muti_path)
         self.loader.hide()
         #actualizar lista de multis en el buscador. Se puede optimizar solo agregrando este multi a la lista en vez de llamar todos de nuevo
