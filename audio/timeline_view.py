@@ -45,6 +45,9 @@ class TimelineView(QWidget):
     position_changed = Signal(float)
     # Señal para notificar cambios de modo de zoom
     zoom_mode_changed = Signal(object)  # ZoomMode
+    # Señales para botones de edición de lyrics
+    edit_metadata_clicked = Signal()
+    reload_lyrics_clicked = Signal()
 
     def __init__(self, audio_path=None, parent=None, timeline: Optional[TimelineModel] = None): # audio_path ahora es opcional
         super().__init__(parent)
@@ -92,9 +95,18 @@ class TimelineView(QWidget):
 
         # --- Lyrics Edit Mode ---
         self._lyrics_edit_mode: bool = False
+        
+        # --- Edit Mode Buttons ---
+        self._edit_buttons_visible = False
+        self._button_width = 140
+        self._button_height = 32
+        self._button_spacing = 10
+        self._button_margin = 10
+        self._hovered_button = None  # 'edit_metadata' or 'reload_lyrics'
 
         self.setMinimumHeight(120)
         self.setFocusPolicy(Qt.StrongFocus)
+        self.setMouseTracking(True)  # Enable mouse tracking for hover effects
 
         # Cargar audio si se proporciona una ruta
         if audio_path:
@@ -495,6 +507,16 @@ class TimelineView(QWidget):
     # mousePressEvent: Iniciar arrastre horizontal (Clic IZQUIERDO)
     # --------------------------------------------------------------
     def mousePressEvent(self, event):
+        # Check if clicking on edit mode buttons first
+        if self._edit_buttons_visible and event.button() == Qt.LeftButton:
+            clicked_button = self._get_button_at_pos(event.x(), event.y())
+            if clicked_button == 'edit_metadata':
+                self.edit_metadata_clicked.emit()
+                return
+            elif clicked_button == 'reload_lyrics':
+                self.reload_lyrics_clicked.emit()
+                return
+        
         # TODO (Lyrics Edit Mode): When _lyrics_edit_mode is True, detect clicks
         # on lyric lines for selection or dragging (future: retiming).
         # For now, fall through to existing pan/scroll behavior.
@@ -574,6 +596,9 @@ class TimelineView(QWidget):
         Rendering and playback remain unchanged.
         """
         self._lyrics_edit_mode = enabled
+        self._edit_buttons_visible = enabled
+        if not enabled:
+            self._hovered_button = None
         self.update()
 
     def _on_timeline_playhead_changed(self, new_time: float) -> None:
@@ -676,6 +701,13 @@ class TimelineView(QWidget):
 
 
     def mouseMoveEvent(self, event):
+        # Check button hover first (if edit mode is active)
+        if self._edit_buttons_visible:
+            prev_hovered = self._hovered_button
+            self._hovered_button = self._get_button_at_pos(event.x(), event.y())
+            if prev_hovered != self._hovered_button:
+                self.update()  # Redraw to show hover effect
+        
         # Lógica de arrastre (solo si self._dragging es True, iniciado por clic izquierdo)
         if not self._dragging or self.total_samples == 0:
             return
@@ -887,3 +919,92 @@ class TimelineView(QWidget):
             painter.setFont(StyleManager.get_font(size=12, mono=True, bold=True))
             painter.setPen(StyleManager.get_color("accent"))
             painter.drawText(10, 10, 200, 30, Qt.AlignLeft | Qt.AlignTop, "LYRICS EDIT MODE")
+    
+    # ==============================================================
+    # EDIT MODE BUTTONS (Helper methods)
+    # ==============================================================
+    
+    def _get_button_rect(self, button_index: int, widget_width: int, widget_height: int):
+        """Calculate rectangle for a button by index (0 = top button, 1 = second, etc.)"""
+        x = widget_width - self._button_width - self._button_margin
+        y = self._button_margin + button_index * (self._button_height + self._button_spacing)
+        return (x, y, self._button_width, self._button_height)
+    
+    def _get_button_at_pos(self, x: int, y: int) -> str:
+        """Return button identifier if position is over a button, else None"""
+        if not self._edit_buttons_visible:
+            return None
+        
+        w = self.width()
+        h = self.height()
+        
+        # Edit Metadata button (index 0)
+        bx, by, bw, bh = self._get_button_rect(0, w, h)
+        if bx <= x <= bx + bw and by <= y <= by + bh:
+            return 'edit_metadata'
+        
+        # Reload Lyrics button (index 1)
+        bx, by, bw, bh = self._get_button_rect(1, w, h)
+        if bx <= x <= bx + bw and by <= y <= by + bh:
+            return 'reload_lyrics'
+        
+        return None
+    
+    def _paint_edit_buttons(self, painter: QPainter, widget_width: int, widget_height: int):
+        """Paint edit mode buttons on the right edge of the timeline"""
+        painter.save()
+        
+        # Colors from StyleManager
+        btn_normal = StyleManager.PALETTE["btn_normal"]
+        btn_hover = StyleManager.PALETTE["btn_hover"]
+        border_light = StyleManager.PALETTE["border_light"]
+        accent = StyleManager.get_color("accent")
+        text_normal = StyleManager.get_color("text_normal")
+        
+        # Button 1: Edit Metadata
+        x1, y1, w1, h1 = self._get_button_rect(0, widget_width, widget_height)
+        is_hover_1 = (self._hovered_button == 'edit_metadata')
+        
+        # Background
+        bg_color_1 = QColor(btn_hover) if is_hover_1 else QColor(btn_normal)
+        painter.fillRect(int(x1), int(y1), int(w1), int(h1), bg_color_1)
+        
+        # Border
+        border_color_1 = accent if is_hover_1 else QColor(border_light)
+        border_width_1 = 2 if is_hover_1 else 1
+        painter.setPen(QPen(border_color_1, border_width_1))
+        painter.drawRect(int(x1), int(y1), int(w1), int(h1))
+        
+        # Icon + Text
+        painter.setPen(text_normal)
+        painter.setFont(StyleManager.get_font(size=11, bold=False))
+        painter.drawText(int(x1), int(y1), int(w1), int(h1), 
+                        Qt.AlignCenter, "📝 Edit Metadata")
+        
+        # Button 2: Reload Lyrics
+        x2, y2, w2, h2 = self._get_button_rect(1, widget_width, widget_height)
+        is_hover_2 = (self._hovered_button == 'reload_lyrics')
+        
+        # Background
+        bg_color_2 = QColor(btn_hover) if is_hover_2 else QColor(btn_normal)
+        painter.fillRect(int(x2), int(y2), int(w2), int(h2), bg_color_2)
+        
+        # Border
+        border_color_2 = accent if is_hover_2 else QColor(border_light)
+        border_width_2 = 2 if is_hover_2 else 1
+        painter.setPen(QPen(border_color_2, border_width_2))
+        painter.drawRect(int(x2), int(y2), int(w2), int(h2))
+        
+        # Icon + Text
+        painter.setPen(text_normal)
+        painter.setFont(StyleManager.get_font(size=11, bold=False))
+        painter.drawText(int(x2), int(y2), int(w2), int(h2), 
+                        Qt.AlignCenter, "🔄 Reload Lyrics")
+        
+        painter.restore()
+        
+        # ----------------------------------------------------------
+        # EDIT MODE BUTTONS (right edge)
+        # ----------------------------------------------------------
+        if self._edit_buttons_visible:
+            self._paint_edit_buttons(painter, w, h)
