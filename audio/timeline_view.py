@@ -2,9 +2,11 @@
 
 import numpy as np
 from enum import Enum, auto
+from pathlib import Path
 from PySide6.QtWidgets import QWidget
 from PySide6.QtGui import QPainter, QColor, QPen, QFont
-from PySide6.QtCore import Qt, Signal
+from PySide6.QtCore import Qt, Signal, QEvent
+from PySide6.QtGui import QWheelEvent, QMouseEvent, QCloseEvent
 import soundfile as sf
 from typing import Optional
 
@@ -121,7 +123,7 @@ class TimelineView(QWidget):
     # --------------------------------------------------------------------
     # Waveform is passive; sync handled by SyncController/PlaybackManager
     # No need for a timer nor sample clock here.
-    def _set_empty_state(self):
+    def _set_empty_state(self) -> None:
         """Establece las variables internas en un estado seguro sin audio."""
         self.samples = np.array([], dtype=np.float32)
         self.sr = 44100
@@ -133,14 +135,14 @@ class TimelineView(QWidget):
         self._reset_waveform_cache()
         self.update()
 
-    def _reset_waveform_cache(self):
+    def _reset_waveform_cache(self) -> None:
         """Clear cached waveform envelope/rendering in the track (if any)."""
         if getattr(self, '_waveform_track', None) is not None:
             with safe_operation("Resetting waveform cache", silent=True):
                 self._waveform_track.reset_cache()
 
 
-    def load_audio(self, audio_path):
+    def load_audio(self, audio_path: str) -> bool:
         """Carga nuevos datos de audio en el widget desde una ruta de archivo."""
 
         if not audio_path:
@@ -183,7 +185,7 @@ class TimelineView(QWidget):
     # ==============================================================
     # VOLUME CONTROL (LOGARÍTMICO) 
     # ==============================================================
-    def set_volume(self, slider_value: int):
+    def set_volume(self, slider_value: int) -> None:
         # Volume only affects visualization amplitude (optional)
         self.volume = get_logarithmic_volume(slider_value)
         self.update()
@@ -199,7 +201,7 @@ class TimelineView(QWidget):
     # ==============================================================
     # ZOOM
     # ==============================================================
-    def set_zoom(self, factor: float):
+    def set_zoom(self, factor: float) -> None:
         if self.total_samples == 0:
             return
         w = max(1, self.width())
@@ -211,14 +213,14 @@ class TimelineView(QWidget):
         self._reset_waveform_cache()
         self.update()
 
-    def load_audio_from_master(self, master_path):
+    def load_audio_from_master(self, master_path: str | Path) -> None:
         """Convenience alias to maintain old usage in MainWindow (accepts Path)."""
         if isinstance(master_path, (str,)):
             self.load_audio(master_path)
         else:
             self.load_audio(str(master_path))
 
-    def _clamp_zoom_for_width(self, factor: float, width: int):
+    def _clamp_zoom_for_width(self, factor: float, width: int) -> float:
         """Ensure zoom factor keeps samples-per-pixel >= MIN_SAMPLES_PER_PIXEL and within limits."""
         if self.total_samples == 0 or width <= 0:
             return max(1.0, min(factor, MAX_ZOOM_LEVEL))
@@ -226,7 +228,7 @@ class TimelineView(QWidget):
         max_allowed = max(1.0, min(MAX_ZOOM_LEVEL, max_factor_by_spp))
         return max(1.0, min(factor, max_allowed))
     
-    def load_metadata(self, meta_data):
+    def load_metadata(self, meta_data: dict) -> None:
         """Load metadata dictionary and forward to TimelineModel.
         
         Parses beats/chords from metadata and forwards directly to the timeline.
@@ -274,7 +276,7 @@ class TimelineView(QWidget):
         
         self.update()
 
-    def zoom_by(self, ratio: float, cursor_x: int = None):
+    def zoom_by(self, ratio: float, cursor_x: int = None) -> None:
         if self.total_samples == 0:
             return
 
@@ -308,7 +310,7 @@ class TimelineView(QWidget):
 
         self.update()
 
-    def _samples_per_pixel(self, zoom_factor, width_pixels):
+    def _samples_per_pixel(self, zoom_factor: float, width_pixels: int) -> float:
         if width_pixels <= 0:
             return 1.0
             
@@ -324,7 +326,7 @@ class TimelineView(QWidget):
     # ZOOM MODE SYSTEM
     # ==============================================================
     
-    def set_zoom_mode(self, mode: ZoomMode, auto: bool = True):
+    def set_zoom_mode(self, mode: ZoomMode, auto: bool = True) -> None:
         """
         Cambia el modo de zoom y ajusta la vista según el modo.
         
@@ -355,7 +357,7 @@ class TimelineView(QWidget):
         self._reset_waveform_cache()
         self.update()
     
-    def _calculate_zoom_for_mode(self, mode: ZoomMode, auto: bool):
+    def _calculate_zoom_for_mode(self, mode: ZoomMode, auto: bool) -> float:
         """
         Calcula el zoom_factor y center_sample apropiados para el modo dado.
         """
@@ -393,6 +395,7 @@ class TimelineView(QWidget):
         
         # Asegurar que el zoom sea válido para el ancho actual
         self.zoom_factor = self._clamp_zoom_for_width(self.zoom_factor, w)
+        return self.zoom_factor
     
     def _clamp_zoom_to_mode(self, zoom: float) -> float:
         """Restringe el zoom al rango permitido por el modo actual."""
@@ -403,7 +406,7 @@ class TimelineView(QWidget):
         """Retorna si el cambio automático de modo está habilitado."""
         return self._auto_zoom_mode_enabled
     
-    def set_auto_zoom_enabled(self, enabled: bool):
+    def set_auto_zoom_enabled(self, enabled: bool) -> None:
         """Habilita o deshabilita el cambio automático de modo al reproducir."""
         self._auto_zoom_mode_enabled = enabled
 
@@ -412,7 +415,7 @@ class TimelineView(QWidget):
     # ==============================================================
     # SCROLL (Mouse + Keyboard)
     # ==============================================================
-    def wheelEvent(self, event):
+    def wheelEvent(self, event: QWheelEvent) -> None:
         if self.total_samples == 0:
             return
             
@@ -442,7 +445,7 @@ class TimelineView(QWidget):
     # --------------------------------------------------------------
     # mouseDoubleClickEvent: Mover playhead (Doble clic IZQUIERDO)
     # --------------------------------------------------------------
-    def mouseDoubleClickEvent(self, event):
+    def mouseDoubleClickEvent(self, event: QMouseEvent) -> None:
         if self.total_samples == 0:
             return
         
@@ -497,7 +500,7 @@ class TimelineView(QWidget):
     # --------------------------------------------------------------
     # mousePressEvent: Iniciar arrastre horizontal (Clic IZQUIERDO)
     # --------------------------------------------------------------
-    def mousePressEvent(self, event):
+    def mousePressEvent(self, event: QMouseEvent) -> None:
         # Check if clicking on edit mode buttons first
         if self._edit_buttons_visible and event.button() == Qt.LeftButton:
             clicked_button = self._get_button_at_pos(event.x(), event.y())
@@ -601,7 +604,7 @@ class TimelineView(QWidget):
         # Schedule repaint on every playhead change (Qt will coalesce updates)
         self.update()
 
-    def closeEvent(self, event):
+    def closeEvent(self, event: QCloseEvent) -> None:
         # Ensure we unsubscribe observer to avoid holding references after
         # the widget is closed/destroyed.
         if getattr(self, '_timeline_unsubscribe', None):
@@ -610,7 +613,7 @@ class TimelineView(QWidget):
             self._timeline_unsubscribe = None
         super().closeEvent(event)
 
-    def __del__(self):
+    def __del__(self) -> None:
         # Defensive cleanup if the widget is garbage collected without being
         # closed (may not run reliably but helps avoid leaks).
         with safe_operation("Cleanup in __del__", silent=True, log_level="debug"):
@@ -619,7 +622,7 @@ class TimelineView(QWidget):
                     self._timeline_unsubscribe()
                 self._timeline_unsubscribe = None
             
-    def set_playhead_sample(self, sample):
+    def set_playhead_sample(self, sample: int) -> None:
         # Asegurarse de que no falle con total_samples = 0
         if self.total_samples == 0:
             self.playhead_sample = 0
@@ -630,7 +633,7 @@ class TimelineView(QWidget):
         self._ensure_playhead_visible()
         self.update()
 
-    def _ensure_playhead_visible(self, margin_px: int = None):
+    def _ensure_playhead_visible(self, margin_px: int = None) -> None:
         """Ensure the playhead is inside the visible area with optional pixel margins.
 
         Behavior: The playhead advances to the center of the screen, then the view
@@ -665,7 +668,7 @@ class TimelineView(QWidget):
             self.center_sample = int(np.clip(new_center, 0, self.total_samples - 1))
             # Do not call update() here (caller will update)
 
-    def set_position_seconds(self, seconds: float):
+    def set_position_seconds(self, seconds: float) -> None:
         """Set playhead based on seconds and update widget.
 
         This is the public API for PlaybackManager to update waveform position.
@@ -676,7 +679,7 @@ class TimelineView(QWidget):
         self.set_playhead_sample(sample)
 
 
-    def mouseMoveEvent(self, event):
+    def mouseMoveEvent(self, event: QMouseEvent) -> None:
         # Check button hover first (if edit mode is active)
         if self._edit_buttons_visible:
             prev_hovered = self._hovered_button

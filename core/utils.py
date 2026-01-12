@@ -1,16 +1,16 @@
 from PySide6.QtCore import QPoint
-from PySide6.QtWidgets import QLayout
+from PySide6.QtWidgets import QLayout, QMenu, QWidget
 from pathlib import Path
 import os
 import math 
-from typing import List
+from typing import List, Tuple, Optional
 
 from core.logger import get_logger
 
 logger = get_logger(__name__)
 
 
-def clear_layout(layout: QLayout):
+def clear_layout(layout: QLayout) -> None:
     """Remove all widgets and child layouts from a Qt layout.
 
     This walks the layout and detaches any child widgets (setParent(None))
@@ -31,7 +31,7 @@ def clear_layout(layout: QLayout):
             clear_layout(item.layout())
 
 
-def clamp_menu_to_window(menu, desired_pos, window):
+def clamp_menu_to_window(menu: QMenu, desired_pos: QPoint, window: QWidget) -> QPoint:
     """
     ajusta un Qmenu para que no se salga de la ventana principal
     """
@@ -51,13 +51,13 @@ def clamp_menu_to_window(menu, desired_pos, window):
 
     return QPoint(x, y)
 
-def get_multis_list(library_path):
+def get_multis_list(library_path: str) -> List[Tuple[str, str]]:
     """
     Get list of multis with display names from metadata.
     Returns list of tuples (display_name, path).
     Uses track_name_display with fallback to track_name, then folder name.
     """
-    result = []
+    result: List[Tuple[str, str]] = []
     
     # evitar fallar si no hay carpetas
     if not os.path.exists(library_path):
@@ -209,7 +209,7 @@ def find_file_by_name(folder_path: str, file_base_name: str) -> Path | None:
 # ==============================================================
 # VOLUME(LOGARÍTMICO)
 # ==============================================================
-def get_logarithmic_volume(slider_value: int):
+def get_logarithmic_volume(slider_value: int) -> float:
     """
     Establece el factor de volumen usando una curva logarítmica (dB).
     
@@ -251,7 +251,7 @@ def get_logarithmic_volume(slider_value: int):
     return volume
 
 
-def format_time(seconds):
+def format_time(seconds: Optional[float]) -> str:
     """Convierte segundos a formato MM:SS."""
     if seconds is None or seconds < 0:
         return "00:00"

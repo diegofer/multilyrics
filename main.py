@@ -173,16 +173,16 @@ class MainWindow(QMainWindow):
     # ----------------------------
 
     @Slot()
-    def open_add_dialog(self):
+    def open_add_dialog(self) -> None:
         self.add_dialog.exec()
 
     @Slot()
-    def on_multi_selected(self, path):
+    def on_multi_selected(self, path: str) -> None:
         logger.debug(f"Multi selected: {path}")
         self.set_active_song(path)
 
     @Slot()
-    def on_play_clicked(self):
+    def on_play_clicked(self) -> None:
         #considerar correr primero video y luego audio para evitar delay en video
         self.audio_player.play()
         self.video_player.start_playback()
@@ -194,7 +194,7 @@ class MainWindow(QMainWindow):
             self.timeline_view.set_zoom_mode(ZoomMode.PLAYBACK, auto=True)
     
     @Slot()
-    def on_pause_clicked(self):
+    def on_pause_clicked(self) -> None:
         self.audio_player.pause()
         #self.waveform.pause_play()
         self.video_player.pause()
@@ -202,11 +202,11 @@ class MainWindow(QMainWindow):
         self.controls.set_playing_state(False)
     
     @Slot()
-    def on_edit_mode_toggled(self, enabled: bool):
+    def on_edit_mode_toggled(self, enabled: bool) -> None:
         self.timeline_view.set_lyrics_edit_mode(enabled)
     
     @Slot(str)
-    def on_zoom_mode_changed(self, mode: str):
+    def on_zoom_mode_changed(self, mode: str) -> None:
         """Handler para cuando el usuario cambia el modo desde la UI."""
         zoom_mode_map = {
             "GENERAL": ZoomMode.GENERAL,
@@ -217,7 +217,7 @@ class MainWindow(QMainWindow):
             self.timeline_view.set_zoom_mode(zoom_mode_map[mode], auto=False)
     
     @Slot(object)
-    def on_timeline_zoom_mode_changed(self, mode):
+    def on_timeline_zoom_mode_changed(self, mode: ZoomMode) -> None:
         """Handler para cuando el timeline cambia de modo (actualizar UI)."""
         mode_str_map = {
             ZoomMode.GENERAL: "GENERAL",
@@ -228,7 +228,7 @@ class MainWindow(QMainWindow):
             self.controls.set_zoom_mode(mode_str_map[mode])
 
     @Slot()
-    def extraction_process(self, video_path: str):
+    def extraction_process(self, video_path: str) -> None:
         """Start the extraction pipeline for a video file.
         
         Delegates to ExtractionOrchestrator which handles:
@@ -258,7 +258,7 @@ class MainWindow(QMainWindow):
 
 
     @Slot()
-    def on_extraction_process(self, audio_path):
+    def on_extraction_process(self, audio_path: str) -> None:
         """
         Callback after audio/beats/chords extraction completes.
         Attempts silent auto-download first, shows dialog only if needed.
@@ -317,7 +317,7 @@ class MainWindow(QMainWindow):
         self.loader.hide()
         self._show_lyrics_search_dialog(meta_data, results)
     
-    def _show_lyrics_search_dialog(self, meta_data: dict, initial_results: list = None, is_reload: bool = False):
+    def _show_lyrics_search_dialog(self, meta_data: dict, initial_results: list = None, is_reload: bool = False) -> None:
         """Show unified search dialog with metadata editing and results selection
         
         Args:
@@ -399,7 +399,7 @@ class MainWindow(QMainWindow):
         dialog.search_skipped.connect(on_search_skipped)
         dialog.exec()
     
-    def _finalize_multi_creation(self, lyrics_model):
+    def _finalize_multi_creation(self, lyrics_model: Optional['LyricsModel']) -> None:
         """Complete multi creation and load it into the player"""
         # Set lyrics model (may be None)
         self.timeline_model.set_lyrics_model(lyrics_model)
@@ -422,7 +422,7 @@ class MainWindow(QMainWindow):
         self._current_meta_data = None
     
     @Slot()
-    def _on_edit_metadata_clicked(self):
+    def _on_edit_metadata_clicked(self) -> None:
         """Edit mode button: Edit display metadata (clean names for UI)"""
         if self.active_multi_path is None:
             logger.warning("No hay multi activo para editar metadata")
@@ -443,7 +443,7 @@ class MainWindow(QMainWindow):
         dialog.exec()
     
     @Slot()
-    def _on_reload_lyrics_clicked(self):
+    def _on_reload_lyrics_clicked(self) -> None:
         """Edit mode button: Search and reload lyrics using original search metadata"""
         if self.active_multi_path is None:
             logger.warning("No hay multi activo para recargar letras")
@@ -466,7 +466,7 @@ class MainWindow(QMainWindow):
         self._show_lyrics_search_dialog(search_metadata, [], is_reload=True)
     
     @Slot(dict)
-    def _on_display_metadata_saved(self, display_data: dict):
+    def _on_display_metadata_saved(self, display_data: dict) -> None:
         """User saved edited display metadata - update meta.json"""
         if self.active_multi_path is None:
             return
@@ -495,13 +495,13 @@ class MainWindow(QMainWindow):
         # Refresh playlist to show new display name
         self.add_dialog.search_widget.refresh_multis_list()
     
-    def _reload_lyrics_track(self, lyrics_model):
+    def _reload_lyrics_track(self, lyrics_model: 'LyricsModel') -> None:
         """Reload the lyrics track in timeline with new lyrics model"""
         self.timeline_model.set_lyrics_model(lyrics_model)
         self.timeline_view.reload_lyrics_track()
         logger.debug(f"Track de letras recargado: {len(lyrics_model.lines) if lyrics_model else 0} líneas")
 
-    def _show_info_message(self, title: str, message: str):
+    def _show_info_message(self, title: str, message: str) -> None:
         """Show a brief informational message to the user"""
         msg_box = QMessageBox(self)
         msg_box.setIcon(QMessageBox.Information)
@@ -518,7 +518,7 @@ class MainWindow(QMainWindow):
         
     
     @Slot()
-    def handle_error(self, msg):
+    def handle_error(self, msg: str) -> None:
         logger.error(f"Error en procesamiento: {msg}")
         self.loader.hide()
         message_helpers.show_error(self, "Error de Procesamiento", msg)
@@ -529,7 +529,7 @@ class MainWindow(QMainWindow):
     # Zona de carga de multis
     # ----------------------------
 
-    def set_active_song(self, song_path):
+    def set_active_song(self, song_path: str | Path) -> None:
         #obtener rutas
         song_path = Path(song_path)
         self.active_multi_path = song_path  # Track active multi for edit operations
@@ -537,7 +537,7 @@ class MainWindow(QMainWindow):
         master_path = song_path / global_state.MASTER_TRACK
         tracks_folder_path = song_path / global_state.TRACKS_PATH
         tracks_paths = get_tracks(tracks_folder_path)
-        mp4_path = get_mp4(song_path)
+        mp4_path = get_mp4(str(song_path))
         video_path = song_path / mp4_path
 
         # Cargar metadatos
