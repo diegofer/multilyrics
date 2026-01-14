@@ -14,9 +14,9 @@ from typing import Callable, Optional
 from pathlib import Path
 from PySide6.QtCore import QObject, QThread, Signal, Slot
 
-from audio.extract import AudioExtractWorker
-from audio.beats import BeatsExtractorWorker
-from audio.chords import ChordExtractorWorker
+from core.extract import AudioExtractWorker
+from core.beats import BeatsExtractorWorker
+from core.chords import ChordExtractorWorker
 from utils.logger import get_logger
 
 logger = get_logger(__name__)

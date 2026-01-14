@@ -1,7 +1,7 @@
 import numpy as np
 import pytest
 
-from audio.multitrack_player import MultiTrackPlayer
+from core.engine import MultiTrackPlayer
 
 
 def make_mono_track(value, length=8):

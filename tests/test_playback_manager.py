@@ -132,7 +132,7 @@ def test_play_without_arg_resumes_not_restart(monkeypatch):
 
     monkeypatch.setattr('sounddevice.OutputStream', DummyStream)
 
-    from audio.multitrack_player import MultiTrackPlayer
+    from core.engine import MultiTrackPlayer
 
     player = MultiTrackPlayer()
     # pretend we have one track loaded

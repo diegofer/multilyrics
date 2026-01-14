@@ -27,7 +27,7 @@ from ui.widgets.add import AddDialog
 
 from ui.widgets.timeline_view import TimelineView, ZoomMode
 from core.extraction_orchestrator import ExtractionOrchestrator
-from audio.multitrack_player import MultiTrackPlayer
+from core.engine import MultiTrackPlayer
 from utils.lyrics_loader import LyricsLoader
 from models.meta import MetaJson
 
