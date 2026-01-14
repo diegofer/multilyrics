@@ -3,7 +3,7 @@ from typing import Optional
 
 from PySide6.QtGui import QPen
 
-from core.timeline_model import TimelineModel
+from models.timeline_model import TimelineModel
 from ui.style_manager import StyleManager
 
 

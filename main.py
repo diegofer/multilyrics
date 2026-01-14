@@ -16,10 +16,9 @@ from ui import message_helpers
 
 from core.utils import get_mp4, get_tracks, get_logarithmic_volume, clear_layout
 from core import global_state
-from core.timeline_model import TimelineModel
+from models.timeline_model import TimelineModel
 from core.sync import SyncController
 from core.playback_manager import PlaybackManager
-from core.timeline_model import TimelineModel
 
 from ui.widgets.controls_widget import ControlsWidget
 from ui.widgets.track_widget import TrackWidget
@@ -30,7 +29,7 @@ from audio.timeline_view import TimelineView, ZoomMode
 from core.extraction_orchestrator import ExtractionOrchestrator
 from audio.multitrack_player import MultiTrackPlayer
 from audio.lyrics.loader import LyricsLoader
-from audio.meta import MetaJson
+from models.meta import MetaJson
 
 from video.video import VideoLyrics
 

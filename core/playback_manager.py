@@ -4,7 +4,7 @@ from PySide6.QtCore import QObject, Signal
 # Import TimelineModel for optional integration. Keep PlaybackManager UI-agnostic;
 # TimelineModel is UI-independent and becomes the single source of truth for
 # canonical playhead time when provided to PlaybackManager.
-from .timeline_model import TimelineModel
+from models.timeline_model import TimelineModel
 from core.logger import get_logger
 from core.error_handler import safe_operation
 

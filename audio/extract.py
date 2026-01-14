@@ -5,7 +5,7 @@ from core import global_state
 from core.logger import get_logger
 from core.workers import WorkerSignals
 
-from .meta import MetaJson
+from models.meta import MetaJson
 
 logger = get_logger(__name__)
 

@@ -22,7 +22,7 @@ from typing import List, Tuple, Optional, Callable, TYPE_CHECKING
 from core.error_handler import safe_operation
 
 if TYPE_CHECKING:
-    from audio.lyrics.model import LyricsModel
+    from models.lyrics_model import LyricsModel
 
 # Type alias for chords stored as plain tuples (start_seconds, end_seconds, name)
 Chord = Tuple[float, float, str]

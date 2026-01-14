@@ -6,7 +6,7 @@ from pathlib import Path
 from madmom.features.downbeats import RNNDownBeatProcessor, DBNDownBeatTrackingProcessor
 from madmom.features.tempo import TempoEstimationProcessor
 
-from .meta import MetaJson
+from models.meta import MetaJson
 from core import global_state
 from core.logger import get_logger
 from core.workers import WorkerSignals

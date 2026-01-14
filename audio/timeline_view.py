@@ -11,13 +11,13 @@ import soundfile as sf
 from typing import Optional
 
 from core.utils import format_time, get_logarithmic_volume
-from core.timeline_model import TimelineModel
+from models.timeline_model import TimelineModel
 from audio.tracks.beat_track import ViewContext, BeatTrack
 from audio.tracks.chord_track import ChordTrack
 from audio.tracks.playhead_track import PlayheadTrack
 from audio.tracks.waveform_track import WaveformTrack
 from audio.tracks.lyrics_track import LyricsTrack
-from audio.lyrics.model import LyricsModel
+from models.lyrics_model import LyricsModel
 from ui.style_manager import StyleManager
 from core.logger import get_logger
 from core.error_handler import safe_operation

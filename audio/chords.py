@@ -6,7 +6,7 @@ import warnings
 from pathlib import Path
 
 from core import global_state
-from .meta import MetaJson
+from models.meta import MetaJson
 from core.logger import get_logger
 from core.workers import WorkerSignals
 

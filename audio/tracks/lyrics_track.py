@@ -9,7 +9,7 @@ from PySide6.QtGui import QPainter, QFont, QColor, QPen
 from PySide6.QtCore import Qt
 
 from audio.tracks.beat_track import ViewContext
-from audio.lyrics.model import LyricsModel, LyricLine
+from models.lyrics_model import LyricsModel, LyricLine
 from ui.style_manager import StyleManager
 from core.logger import get_logger
 

@@ -17,7 +17,7 @@ import time
 from pathlib import Path
 from typing import Optional
 
-from .model import LyricsModel, LyricLine
+from models.lyrics_model import LyricsModel, LyricLine
 from core.logger import get_logger
 
 logger = get_logger(__name__)
