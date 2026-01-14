@@ -1,0 +1,91 @@
+# Auto detect text files and perform LF normalization
+* text=auto eol=lf
+
+# Python files
+*.py text eol=lf
+*.pyx text eol=lf
+*.pyi text eol=lf
+
+# Configuration files
+*.json text eol=lf
+*.yaml text eol=lf
+*.yml text eol=lf
+*.toml text eol=lf
+*.ini text eol=lf
+*.cfg text eol=lf
+
+# Web files
+*.html text eol=lf
+*.css text eol=lf
+*.js text eol=lf
+*.ts text eol=lf
+*.jsx text eol=lf
+*.tsx text eol=lf
+
+# Documentation
+*.md text eol=lf
+*.txt text eol=lf
+*.rst text eol=lf
+
+# Qt Designer files
+*.ui text eol=lf
+*.qrc text eol=lf
+*.qss text eol=lf
+
+# Shell scripts (Linux/Mac)
+*.sh text eol=lf
+*.bash text eol=lf
+
+# Batch scripts (Windows) - keep CRLF for compatibility
+*.bat text eol=crlf
+*.cmd text eol=crlf
+*.ps1 text eol=crlf
+
+# Version control
+.gitattributes text eol=lf
+.gitignore text eol=lf
+
+# Python specific
+requirements*.txt text eol=lf
+setup.py text eol=lf
+setup.cfg text eol=lf
+pyproject.toml text eol=lf
+MANIFEST.in text eol=lf
+tox.ini text eol=lf
+pytest.ini text eol=lf
+.coveragerc text eol=lf
+
+# License and documentation
+LICENSE* text eol=lf
+CREDITS* text eol=lf
+README* text eol=lf
+CHANGELOG* text eol=lf
+CONTRIBUTING* text eol=lf
+
+# LRC files (lyrics)
+*.lrc text eol=lf
+
+# Binary files (do not normalize)
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.ico binary
+*.svg binary
+*.mp4 binary
+*.wav binary
+*.mp3 binary
+*.flac binary
+*.ogg binary
+*.whl binary
+*.egg binary
+*.pyc binary
+*.pyd binary
+*.dll binary
+*.so binary
+*.dylib binary
+*.exe binary
+*.ttf binary
+*.otf binary
+*.woff binary
+*.woff2 binary
