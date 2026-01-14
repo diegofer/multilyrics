@@ -12,7 +12,7 @@ from PySide6.QtWidgets import (
 from PySide6.QtCore import Qt, Signal
 from PySide6.QtGui import QFont
 
-from ui.style_manager import StyleManager
+from ui.styles import StyleManager
 
 
 class LyricsSearchDialog(QDialog):

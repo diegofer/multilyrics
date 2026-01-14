@@ -9,7 +9,7 @@ from enum import Enum
 from PySide6.QtWidgets import QWidget, QLabel, QGraphicsOpacityEffect
 from PySide6.QtCore import Qt, QTimer, QPropertyAnimation, QEasingCurve, Property
 from PySide6.QtGui import QPainter, QColor, QPen
-from ui.style_manager import StyleManager
+from ui.styles import StyleManager
 
 
 class ToastType(Enum):

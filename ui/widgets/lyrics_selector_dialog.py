@@ -8,7 +8,7 @@ from PySide6.QtWidgets import (
     QPushButton, QListWidget, QListWidgetItem
 )
 from PySide6.QtGui import QFont
-from ui.style_manager import StyleManager
+from ui.styles import StyleManager
 
 
 class LyricsSelectorDialog(QDialog):

@@ -10,8 +10,8 @@ from utils.error_handler import safe_operation
 
 logger = get_logger(__name__)
 
-from ui.shell import Ui_MainWindow
-from ui.style_manager import StyleManager
+from ui.main_window import Ui_MainWindow
+from ui.styles import StyleManager
 from ui import message_helpers
 
 from utils.helpers import get_mp4, get_tracks, get_logarithmic_volume, clear_layout
@@ -25,7 +25,7 @@ from ui.widgets.track_widget import TrackWidget
 from ui.widgets.spinner_dialog import SpinnerDialog
 from ui.widgets.add import AddDialog
 
-from audio.timeline_view import TimelineView, ZoomMode
+from ui.widgets.timeline_view import TimelineView, ZoomMode
 from core.extraction_orchestrator import ExtractionOrchestrator
 from audio.multitrack_player import MultiTrackPlayer
 from utils.lyrics_loader import LyricsLoader

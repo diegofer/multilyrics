@@ -4,7 +4,7 @@ from typing import Optional
 from PySide6.QtGui import QPen
 
 from models.timeline_model import TimelineModel
-from ui.style_manager import StyleManager
+from ui.styles import StyleManager
 
 
 @dataclass

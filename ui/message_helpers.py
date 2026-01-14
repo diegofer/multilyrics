@@ -7,7 +7,7 @@ con estilos consistentes de la aplicación.
 
 from PySide6.QtWidgets import QMessageBox, QWidget
 from PySide6.QtCore import Qt
-from ui.style_manager import StyleManager
+from ui.styles import StyleManager
 
 
 def show_info(parent: QWidget, title: str, message: str, detailed_text: str = None) -> None:

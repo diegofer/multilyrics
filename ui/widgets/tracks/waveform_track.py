@@ -1,8 +1,8 @@
 import numpy as np
 from PySide6.QtGui import QPainter, QColor, QPen
 
-from audio.tracks.beat_track import ViewContext
-from ui.style_manager import StyleManager
+from ui.widgets.tracks.beat_track import ViewContext
+from ui.styles import StyleManager
 
 
 class WaveformTrack:

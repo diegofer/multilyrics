@@ -8,7 +8,7 @@ from PySide6.QtWidgets import (
     QLineEdit, QPushButton, QFrame
 )
 from PySide6.QtCore import Signal, Qt
-from ui.style_manager import StyleManager
+from ui.styles import StyleManager
 
 
 class MultiMetadataEditorDialog(QDialog):

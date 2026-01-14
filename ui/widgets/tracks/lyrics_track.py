@@ -8,9 +8,9 @@ from typing import Optional
 from PySide6.QtGui import QPainter, QFont, QColor, QPen
 from PySide6.QtCore import Qt
 
-from audio.tracks.beat_track import ViewContext
+from ui.widgets.tracks.beat_track import ViewContext
 from models.lyrics_model import LyricsModel, LyricLine
-from ui.style_manager import StyleManager
+from ui.styles import StyleManager
 from utils.logger import get_logger
 
 logger = get_logger(__name__)
