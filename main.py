@@ -14,7 +14,7 @@ from ui.shell import Ui_MainWindow
 from ui.style_manager import StyleManager
 from ui import message_helpers
 
-from core.utils import get_mp4, get_tracks, get_logarithmic_volume, clear_layout
+from utils.helpers import get_mp4, get_tracks, get_logarithmic_volume, clear_layout
 from core import global_state
 from models.timeline_model import TimelineModel
 from core.sync import SyncController
