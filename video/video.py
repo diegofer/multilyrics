@@ -3,7 +3,7 @@ import platform
 from PySide6.QtWidgets import QApplication, QWidget, QVBoxLayout
 from PySide6.QtCore import QTimer, Slot
 
-from core.global_state import app_state
+from core.constants import app_state
 from utils.logger import get_logger
 from utils.error_handler import safe_operation
 

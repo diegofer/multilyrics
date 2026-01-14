@@ -5,7 +5,7 @@ from PySide6.QtCore import QObject, Signal, Slot
 import warnings
 from pathlib import Path
 
-from core import global_state
+from core import constants
 from models.meta import MetaJson
 from utils.logger import get_logger
 from core.workers import WorkerSignals
@@ -59,7 +59,7 @@ class ChordExtractorWorker(QObject):
                 chord_list.append((start_c, end_c, chord_clean))
 
             logger.debug(f"Acordes formateados: {len(chord_list)} progresiones")
-            meta_json = MetaJson(Path(self.audio_path).with_name(global_state.META_FILE_PATH))
+            meta_json = MetaJson(Path(self.audio_path).with_name(constants.META_FILE_PATH))
             meta_json.update_meta({
                 "key": key_label,
                 "chords": chord_list

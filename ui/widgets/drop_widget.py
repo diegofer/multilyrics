@@ -3,7 +3,7 @@ from pathlib import Path
 from PySide6.QtWidgets import QWidget, QVBoxLayout, QLabel
 from PySide6.QtCore import Qt, QPoint, Signal, QTimer
 from PySide6.QtGui import QPixmap, QDragEnterEvent, QDropEvent
-from core import global_state
+from core import constants
 
 
 class DropWidget(QWidget):
@@ -69,7 +69,7 @@ class DropWidget(QWidget):
             event.acceptProposedAction()
 
     def dropEvent(self, event: QDropEvent):
-        multis_folder = Path(global_state.MULTIS_PATH)
+        multis_folder = Path(constants.MULTIS_PATH)
         multis_folder.mkdir(exist_ok=True)
 
         valid_ext = {".mp4"}
@@ -85,7 +85,7 @@ class DropWidget(QWidget):
                 target_folder = multis_folder / folder_name
 
                 target_folder.mkdir(exist_ok=True)
-                NEW_FILE_NAME = global_state.VIDEO_FILE + file_path.suffix.lower() # ej.video.mp4
+                NEW_FILE_NAME = constants.VIDEO_FILE + file_path.suffix.lower() # ej.video.mp4
                 final_path = target_folder / NEW_FILE_NAME
                 shutil.copy(file_path, final_path)
                 copied += 1

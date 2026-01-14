@@ -15,7 +15,7 @@ from ui.styles import StyleManager
 from ui import message_helpers
 
 from utils.helpers import get_mp4, get_tracks, get_logarithmic_volume, clear_layout
-from core import global_state
+from core import constants
 from models.timeline_model import TimelineModel
 from core.sync import SyncController
 from core.playback_manager import PlaybackManager
@@ -161,7 +161,7 @@ class MainWindow(QMainWindow):
         Raises:
             Exception: If metadata file exists but can't be read
         """
-        meta_path = multi_path / global_state.META_FILE_PATH
+        meta_path = multi_path / constants.META_FILE_PATH
         
         if not meta_path.exists():
             logger.error(f"Archivo de metadata no encontrado: {meta_path}")
@@ -269,7 +269,7 @@ class MainWindow(QMainWindow):
         multi_path = Path(audio_path).parent
         
         # Load metadata
-        meta_path = multi_path / global_state.META_FILE_PATH
+        meta_path = multi_path / constants.META_FILE_PATH
         self.meta = MetaJson(meta_path)
         meta_data = self.meta.read_meta()
         
@@ -473,7 +473,7 @@ class MainWindow(QMainWindow):
         if self.active_multi_path is None:
             return
         
-        meta_path = self.active_multi_path / global_state.META_FILE_PATH
+        meta_path = self.active_multi_path / constants.META_FILE_PATH
         if not meta_path.exists():
             return
         
@@ -543,9 +543,9 @@ class MainWindow(QMainWindow):
         #obtener rutas
         song_path = Path(song_path)
         self.active_multi_path = song_path  # Track active multi for edit operations
-        meta_path = song_path / global_state.META_FILE_PATH
-        master_path = song_path / global_state.MASTER_TRACK
-        tracks_folder_path = song_path / global_state.TRACKS_PATH
+        meta_path = song_path / constants.META_FILE_PATH
+        master_path = song_path / constants.MASTER_TRACK
+        tracks_folder_path = song_path / constants.TRACKS_PATH
         tracks_paths = get_tracks(tracks_folder_path)
         mp4_path = get_mp4(str(song_path))
         video_path = song_path / mp4_path
