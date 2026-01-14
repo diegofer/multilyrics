@@ -5,7 +5,7 @@ decorators, and error accumulation.
 """
 
 import pytest
-from core.error_handler import (
+from utils.error_handler import (
     safe_operation,
     safe_call,
     safe_method,

@@ -2,7 +2,7 @@
 Centralized logging system for Multi Lyrics application.
 
 Usage:
-    from core.logger import get_logger
+    from utils.logger import get_logger
     
     logger = get_logger(__name__)
     logger.info("Application started")

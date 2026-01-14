@@ -9,7 +9,7 @@ from unittest.mock import Mock, patch, MagicMock
 from PySide6.QtWidgets import QApplication
 
 from main import MainWindow
-from audio.lyrics.model import LyricsModel
+from models.lyrics_model import LyricsModel
 
 
 @pytest.fixture

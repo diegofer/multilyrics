@@ -12,13 +12,13 @@ from typing import Optional
 
 from utils.helpers import format_time, get_logarithmic_volume
 from models.timeline_model import TimelineModel
-from audio.tracks.beat_track import ViewContext, BeatTrack
-from audio.tracks.chord_track import ChordTrack
-from audio.tracks.playhead_track import PlayheadTrack
-from audio.tracks.waveform_track import WaveformTrack
-from audio.tracks.lyrics_track import LyricsTrack
+from ui.widgets.tracks.beat_track import ViewContext, BeatTrack
+from ui.widgets.tracks.chord_track import ChordTrack
+from ui.widgets.tracks.playhead_track import PlayheadTrack
+from ui.widgets.tracks.waveform_track import WaveformTrack
+from ui.widgets.tracks.lyrics_track import LyricsTrack
 from models.lyrics_model import LyricsModel
-from ui.style_manager import StyleManager
+from ui.styles import StyleManager
 from utils.logger import get_logger
 from utils.error_handler import safe_operation
 

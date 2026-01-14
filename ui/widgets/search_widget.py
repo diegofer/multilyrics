@@ -1,8 +1,8 @@
 from PySide6.QtCore import Qt, Signal
 from PySide6.QtWidgets import (QVBoxLayout, QListWidgetItem, QLineEdit, 
                                QWidget, QListWidget)
-from core import global_state
-from core.utils import get_multis_list
+from core import constants
+from utils.helpers import get_multis_list
 
 class SearchWidget(QWidget):
 
@@ -32,7 +32,7 @@ class SearchWidget(QWidget):
 
     def get_fresh_multis_list(self):
         """Reload the multis list from disk and update UI"""
-        self.multis_list = get_multis_list(global_state.MULTIS_PATH)
+        self.multis_list = get_multis_list(constants.MULTIS_PATH)
         self.actualizar_lista(self.multis_list) # actualizar QListWidget
     
     def refresh_multis_list(self):

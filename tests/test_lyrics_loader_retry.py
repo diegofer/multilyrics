@@ -10,7 +10,7 @@ from unittest.mock import Mock, patch, MagicMock
 from pathlib import Path
 import time
 
-from audio.lyrics.loader import LyricsLoader
+from utils.lyrics_loader import LyricsLoader
 
 
 class TestLyricsLoaderRetry:

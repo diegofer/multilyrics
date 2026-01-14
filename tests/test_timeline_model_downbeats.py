@@ -1,6 +1,6 @@
 import pytest
 
-from core.timeline_model import TimelineModel
+from models.timeline_model import TimelineModel
 
 
 def test_downbeats_in_range_returns_correct_downbeats():

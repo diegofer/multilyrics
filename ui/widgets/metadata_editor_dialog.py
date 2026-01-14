@@ -7,7 +7,7 @@ from PySide6.QtWidgets import (
     QDialog, QVBoxLayout, QHBoxLayout, QLabel, 
     QLineEdit, QPushButton, QGroupBox, QFormLayout
 )
-from ui.style_manager import StyleManager
+from ui.styles import StyleManager
 
 
 class MetadataEditorDialog(QDialog):

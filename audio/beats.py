@@ -6,9 +6,9 @@ from pathlib import Path
 from madmom.features.downbeats import RNNDownBeatProcessor, DBNDownBeatTrackingProcessor
 from madmom.features.tempo import TempoEstimationProcessor
 
-from .meta import MetaJson
-from core import global_state
-from core.logger import get_logger
+from models.meta import MetaJson
+from core import constants
+from utils.logger import get_logger
 from core.workers import WorkerSignals
 
 logger = get_logger(__name__)
@@ -78,7 +78,7 @@ class BeatsExtractorWorker(QObject):
                 compass = "?/?"
 
             # 6. Escribir a meta.json beats_info y tempo estimado
-            meta_json = MetaJson(Path(self.audio_path).with_name(global_state.META_FILE_PATH))
+            meta_json = MetaJson(Path(self.audio_path).with_name(constants.META_FILE_PATH))
             meta_json.update_meta({
                 "tempo": estimated_tempo,
                 "compass": compass,

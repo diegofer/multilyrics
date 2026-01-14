@@ -8,8 +8,8 @@ from pathlib import Path
 from unittest.mock import Mock, patch, mock_open
 import json
 
-from audio.lyrics.loader import LyricsLoader
-from audio.lyrics.model import LyricsModel, LyricLine
+from utils.lyrics_loader import LyricsLoader
+from models.lyrics_model import LyricsModel, LyricLine
 
 
 class TestLyricsLoaderMetadataKeys:

@@ -8,7 +8,7 @@ ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
 if ROOT not in sys.path:
     sys.path.insert(0, ROOT)
 
-from audio.timeline_view import TimelineView, MIN_SAMPLES_PER_PIXEL, MAX_ZOOM_LEVEL
+from ui.widgets.timeline_view import TimelineView, MIN_SAMPLES_PER_PIXEL, MAX_ZOOM_LEVEL
 from PySide6.QtWidgets import QApplication
 
 
@@ -49,7 +49,7 @@ def test_zoom_invalidation_and_load_clears_cache(qapp):
     w = make_widget_with_samples(length=10000)
 
     # ensure track exists
-    from audio.tracks.waveform_track import WaveformTrack
+    from ui.widgets.tracks.waveform_track import WaveformTrack
     if getattr(w, '_waveform_track', None) is None:
         w._waveform_track = WaveformTrack()
 
@@ -89,7 +89,7 @@ def test_compute_envelope_matches_direct_reduction_for_large_window(qapp):
     end = len(samples) - 1
     pixel_width = 10
 
-    from audio.tracks.waveform_track import WaveformTrack
+    from ui.widgets.tracks.waveform_track import WaveformTrack
     if getattr(w, '_waveform_track', None) is None:
         w._waveform_track = WaveformTrack()
     mins, maxs = w._waveform_track._compute_envelope(w.samples, start, end, pixel_width, w.zoom_factor)
@@ -121,7 +121,7 @@ def test_compute_envelope_interpolation_when_L_lt_w(qapp):
     end = len(samples) - 1
     pixel_width = 10  # w > L
 
-    from audio.tracks.waveform_track import WaveformTrack
+    from ui.widgets.tracks.waveform_track import WaveformTrack
     if getattr(w, '_waveform_track', None) is None:
         w._waveform_track = WaveformTrack()
     mins, maxs = w._waveform_track._compute_envelope(w.samples, start, end, pixel_width, w.zoom_factor)
@@ -139,7 +139,7 @@ def test_compute_envelope_empty_returns_zeros(qapp):
     w.samples = np.array([], dtype=np.float32)
     w.total_samples = 0
 
-    from audio.tracks.waveform_track import WaveformTrack
+    from ui.widgets.tracks.waveform_track import WaveformTrack
     if getattr(w, '_waveform_track', None) is None:
         w._waveform_track = WaveformTrack()
     mins, maxs = w._waveform_track._compute_envelope(w.samples, 0, 0, 50, w.zoom_factor)
@@ -155,7 +155,7 @@ def test_compute_envelope_cache_hits(qapp):
     w.samples = samples
     w.total_samples = len(samples)
 
-    from audio.tracks.waveform_track import WaveformTrack
+    from ui.widgets.tracks.waveform_track import WaveformTrack
     if getattr(w, '_waveform_track', None) is None:
         w._waveform_track = WaveformTrack()
 

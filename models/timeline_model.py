@@ -19,10 +19,10 @@ This module is intentionally minimal for the first refactor step; advanced helpe
 left as TODO items to be implemented later.
 """
 from typing import List, Tuple, Optional, Callable, TYPE_CHECKING
-from core.error_handler import safe_operation
+from utils.error_handler import safe_operation
 
 if TYPE_CHECKING:
-    from audio.lyrics.model import LyricsModel
+    from models.lyrics_model import LyricsModel
 
 # Type alias for chords stored as plain tuples (start_seconds, end_seconds, name)
 Chord = Tuple[float, float, str]

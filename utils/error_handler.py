@@ -23,7 +23,7 @@ from functools import wraps
 from typing import Optional, Callable, Any
 import traceback
 
-from core.logger import get_logger
+from utils.logger import get_logger
 
 logger = get_logger(__name__)
 

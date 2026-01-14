@@ -1,11 +1,11 @@
 from PySide6.QtCore import QObject, Signal, Slot
 import ffmpeg
 from pathlib import Path
-from core import global_state
-from core.logger import get_logger
+from core import constants
+from utils.logger import get_logger
 from core.workers import WorkerSignals
 
-from .meta import MetaJson
+from models.meta import MetaJson
 
 logger = get_logger(__name__)
 
@@ -37,8 +37,8 @@ class AudioExtractWorker(QObject):
             return
 
         # 2. Determinar rutas de salida
-        master_track_path = Path(self.video_path).with_name(global_state.MASTER_TRACK)
-        meta_file_path = Path(self.video_path).with_name(global_state.META_FILE_PATH)
+        master_track_path = Path(self.video_path).with_name(constants.MASTER_TRACK)
+        meta_file_path = Path(self.video_path).with_name(constants.META_FILE_PATH)
  
         # 3. Ejecutar la extracción de audio con FFmpeg
         try:
