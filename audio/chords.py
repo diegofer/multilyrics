@@ -7,7 +7,7 @@ from pathlib import Path
 
 from core import global_state
 from models.meta import MetaJson
-from core.logger import get_logger
+from utils.logger import get_logger
 from core.workers import WorkerSignals
 
 logger = get_logger(__name__)

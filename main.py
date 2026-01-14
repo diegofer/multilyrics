@@ -5,8 +5,8 @@ from pathlib import Path
 from typing import Optional
 import os
 
-from core.logger import get_logger
-from core.error_handler import safe_operation
+from utils.logger import get_logger
+from utils.error_handler import safe_operation
 
 logger = get_logger(__name__)
 
@@ -28,7 +28,7 @@ from ui.widgets.add import AddDialog
 from audio.timeline_view import TimelineView, ZoomMode
 from core.extraction_orchestrator import ExtractionOrchestrator
 from audio.multitrack_player import MultiTrackPlayer
-from audio.lyrics.loader import LyricsLoader
+from utils.lyrics_loader import LyricsLoader
 from models.meta import MetaJson
 
 from video.video import VideoLyrics

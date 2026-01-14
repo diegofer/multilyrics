@@ -2,7 +2,7 @@ from PySide6.QtGui import QPen, QColor, QFont
 from PySide6.QtCore import Qt
 
 from audio.tracks.beat_track import ViewContext
-from core.utils import format_time
+from utils.helpers import format_time
 from ui.style_manager import StyleManager
 
 

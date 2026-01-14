@@ -24,7 +24,7 @@ import soundfile as sf
 import sounddevice as sd
 import time
 from typing import List, Optional, Union
-from core.logger import get_logger
+from utils.logger import get_logger
 
 logger = get_logger(__name__)
 

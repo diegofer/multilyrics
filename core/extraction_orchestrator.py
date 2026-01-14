@@ -17,7 +17,7 @@ from PySide6.QtCore import QObject, QThread, Signal, Slot
 from audio.extract import AudioExtractWorker
 from audio.beats import BeatsExtractorWorker
 from audio.chords import ChordExtractorWorker
-from core.logger import get_logger
+from utils.logger import get_logger
 
 logger = get_logger(__name__)
 

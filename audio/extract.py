@@ -2,7 +2,7 @@ from PySide6.QtCore import QObject, Signal, Slot
 import ffmpeg
 from pathlib import Path
 from core import global_state
-from core.logger import get_logger
+from utils.logger import get_logger
 from core.workers import WorkerSignals
 
 from models.meta import MetaJson

@@ -4,8 +4,8 @@ from PySide6.QtWidgets import QApplication, QWidget, QVBoxLayout
 from PySide6.QtCore import QTimer, Slot
 
 from core.global_state import app_state
-from core.logger import get_logger
-from core.error_handler import safe_operation
+from utils.logger import get_logger
+from utils.error_handler import safe_operation
 
 logger = get_logger(__name__)
 

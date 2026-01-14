@@ -8,7 +8,7 @@ from madmom.features.tempo import TempoEstimationProcessor
 
 from models.meta import MetaJson
 from core import global_state
-from core.logger import get_logger
+from utils.logger import get_logger
 from core.workers import WorkerSignals
 
 logger = get_logger(__name__)

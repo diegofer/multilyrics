@@ -19,7 +19,7 @@ This module is intentionally minimal for the first refactor step; advanced helpe
 left as TODO items to be implemented later.
 """
 from typing import List, Tuple, Optional, Callable, TYPE_CHECKING
-from core.error_handler import safe_operation
+from utils.error_handler import safe_operation
 
 if TYPE_CHECKING:
     from models.lyrics_model import LyricsModel

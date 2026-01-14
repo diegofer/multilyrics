@@ -10,7 +10,7 @@ from PySide6.QtGui import QWheelEvent, QMouseEvent, QCloseEvent
 import soundfile as sf
 from typing import Optional
 
-from core.utils import format_time, get_logarithmic_volume
+from utils.helpers import format_time, get_logarithmic_volume
 from models.timeline_model import TimelineModel
 from audio.tracks.beat_track import ViewContext, BeatTrack
 from audio.tracks.chord_track import ChordTrack
@@ -19,8 +19,8 @@ from audio.tracks.waveform_track import WaveformTrack
 from audio.tracks.lyrics_track import LyricsTrack
 from models.lyrics_model import LyricsModel
 from ui.style_manager import StyleManager
-from core.logger import get_logger
-from core.error_handler import safe_operation
+from utils.logger import get_logger
+from utils.error_handler import safe_operation
 
 logger = get_logger(__name__)
 

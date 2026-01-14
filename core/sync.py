@@ -2,7 +2,7 @@ from PySide6.QtCore import QObject, Signal, Slot
 import numpy as np
 
 from core.clock import AudioClock
-from core.error_handler import safe_operation
+from utils.error_handler import safe_operation
 
 class SyncController(QObject):
     """
