@@ -7,7 +7,7 @@ import numpy as np
 from PySide6.QtWidgets import QApplication
 from PySide6.QtCore import Qt, QPoint
 from audio.timeline_view import TimelineView
-from core.timeline_model import TimelineModel
+from models.timeline_model import TimelineModel
 
 
 @pytest.fixture(scope='module')

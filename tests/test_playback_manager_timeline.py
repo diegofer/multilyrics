@@ -1,5 +1,5 @@
 from core.playback_manager import PlaybackManager
-from core.timeline_model import TimelineModel
+from models.timeline_model import TimelineModel
 
 
 class FakeSignal:
