@@ -75,7 +75,7 @@ The audio callback runs in a high-priority thread. **NEVER** do these inside the
 UI widgets that interact with business logic receive dependencies via constructor (not Qt signals to parent):
 
 ```python
-# ✅ CORRECT: Dependency Injection
+# ✅ CORRECT: Dependency Injection (Individual Track)
 track_widget = TrackWidget(
     track_name="Drums",
     track_index=0,
@@ -84,12 +84,25 @@ track_widget = TrackWidget(
 )
 # Widget connects directly to engine methods internally
 
+# ✅ CORRECT: Dependency Injection (Master Track with dual control)
+master_track = TrackWidget(
+    track_name="Master",
+    track_index=0,
+    engine=self.audio_player,      # For master gain
+    is_master=True,
+    timeline_view=self.timeline_view  # For preview volume
+)
+# Widget handles both audio gain and preview volume internally
+# Includes get_logarithmic_volume conversion inside widget
+
 # ❌ INCORRECT: Mediator pattern (deprecated)
 track_widget = TrackWidget("Drums", False)
 track_widget.volume_changed.connect(lambda g, i=0: self.set_gain(i, g))  # Lambda closure
 ```
 
 **Benefits**: Reduces repetitive lambda code, improves testability (easy to mock engine), clearer widget responsibilities.
+
+**Volume Control Pattern**: Widgets handle logarithmic conversion internally using `get_logarithmic_volume()` from `utils.helpers`. Master track coordinates both audio gain and waveform preview volume in a single `_on_master_volume_changed()` method.
 
 ### Qt Designer Workflow
 UI files live in `ui/`. Generated Python files (e.g., `main_window.py`) **must not be edited manually** - they're regenerated from `.ui` files.
