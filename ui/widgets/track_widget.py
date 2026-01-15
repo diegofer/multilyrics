@@ -25,6 +25,15 @@ class TrackWidget(QWidget):
         self.setFixedWidth(70)
         self.init_ui()
         self._connect_signals()
+        self._initialize_volumes()  # Initialize engine/timeline with slider's initial value
+
+    def _initialize_volumes(self):
+        """Initialize audio engine and timeline with slider's initial value."""
+        if self.is_master:
+            # Master track: initialize both engine and timeline with slider value (70%)
+            self._on_master_volume_changed(self.slider.value())
+        # Note: Individual tracks don't need initialization here - they're created
+        # AFTER audio_player.load_tracks() has already set up the gain arrays
 
     def init_ui(self):
         layout = QVBoxLayout()
