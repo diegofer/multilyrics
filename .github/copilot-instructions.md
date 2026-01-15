@@ -32,6 +32,8 @@ Audio Playback (sounddevice)
 
 - **`ui/widgets/timeline_view.py`**: Custom `QWidget` with track-based rendering architecture (waveform, beats, chords, lyrics, playhead). Three zoom modes: GENERAL, PLAYBACK, EDIT.
 
+- **`ui/widgets/track_widget.py`**: Mixer strip widget using **Dependency Injection** pattern. Receives `AudioEngine` reference in constructor and connects directly to engine methods (eliminates intermediary lambdas in MainWindow).
+
 ### Track Rendering System
 Timeline painting uses a **ViewContext** pattern. Each track is a separate renderer:
 
@@ -68,6 +70,26 @@ The audio callback runs in a high-priority thread. **NEVER** do these inside the
 - **Callback → UI**: Update atomic counters, emit signals from separate thread
 
 ## Critical Patterns
+
+### Dependency Injection for Widgets
+UI widgets that interact with business logic receive dependencies via constructor (not Qt signals to parent):
+
+```python
+# ✅ CORRECT: Dependency Injection
+track_widget = TrackWidget(
+    track_name="Drums",
+    track_index=0,
+    engine=self.audio_player,  # Engine injected
+    is_master=False
+)
+# Widget connects directly to engine methods internally
+
+# ❌ INCORRECT: Mediator pattern (deprecated)
+track_widget = TrackWidget("Drums", False)
+track_widget.volume_changed.connect(lambda g, i=0: self.set_gain(i, g))  # Lambda closure
+```
+
+**Benefits**: Reduces repetitive lambda code, improves testability (easy to mock engine), clearer widget responsibilities.
 
 ### Qt Designer Workflow
 UI files live in `ui/`. Generated Python files (e.g., `main_window.py`) **must not be edited manually** - they're regenerated from `.ui` files.
