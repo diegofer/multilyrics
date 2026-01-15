@@ -1,3 +1,21 @@
+"""
+Multi Lyrics - Timeline Model
+Copyright (C) 2026 Diego Fernando
+
+This program is free software: you can redistribute it and/or modify
+it under the terms of the GNU General Public License as published by
+the Free Software Foundation, either version 3 of the License, or
+(at your option) any later version.
+
+This program is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+GNU General Public License for more details.
+
+You should have received a copy of the GNU General Public License
+along with this program. If not, see <https://www.gnu.org/licenses/>.
+"""
+
 """TimelineModel
 
 A UI-independent model that centralizes timeline-related logic for the application.
@@ -50,7 +68,7 @@ class TimelineModel:
         self._beats: List[float] = []
         self._downbeats: List[float] = []
         self._chords: List[Chord] = []
-        
+
         # Lyrics model (optional, set via set_lyrics_model)
         self.lyrics_model: Optional['LyricsModel'] = None
 
@@ -221,7 +239,7 @@ class TimelineModel:
 
     def set_lyrics_model(self, lyrics_model: Optional['LyricsModel']) -> None:
         """Set the lyrics model for this timeline.
-        
+
         Args:
             lyrics_model: LyricsModel instance or None to clear
         """

@@ -1,4 +1,21 @@
-# multi_track_player.py
+"""
+Multi Lyrics - Audio Engine Module
+Copyright (C) 2026 Diego Fernando
+
+This program is free software: you can redistribute it and/or modify
+it under the terms of the GNU General Public License as published by
+the Free Software Foundation, either version 3 of the License, or
+(at your option) any later version.
+
+This program is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+GNU General Public License for more details.
+
+You should have received a copy of the GNU General Public License
+along with this program. If not, see <https://www.gnu.org/licenses/>.
+"""
+
 """
 MultiTrackPlayer
 A multitrack audio player using sounddevice + soundfile + numpy.
@@ -64,7 +81,7 @@ class MultiTrackPlayer:
         # Should be a callable taking a single bool argument (playing)
         self.playStateCallback = None
 
-    
+
     def load_tracks(self, paths: List[str]):
         """
         Load a list of file paths. Files may be mono or stereo.

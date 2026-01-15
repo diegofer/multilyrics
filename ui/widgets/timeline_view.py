@@ -1,3 +1,21 @@
+"""
+Multi Lyrics - Timeline View Widget
+Copyright (C) 2026 Diego Fernando
+
+This program is free software: you can redistribute it and/or modify
+it under the terms of the GNU General Public License as published by
+the Free Software Foundation, either version 3 of the License, or
+(at your option) any later version.
+
+This program is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+GNU General Public License for more details.
+
+You should have received a copy of the GNU General Public License
+along with this program.  If not, see <https://www.gnu.org/licenses/>.
+"""
+
 # Waveform Widget with Zoom, Scroll, and Animated Playhead
 
 import numpy as np
@@ -34,7 +52,7 @@ class ZoomMode(Enum):
     GENERAL = auto()    # Vista completa de la forma de onda
     PLAYBACK = auto()   # Zoom adaptado para ver letras durante reproducción
     EDIT = auto()       # Zoom libre para edición precisa
-    
+
 # Rangos de zoom factor para cada modo
 ZOOM_RANGES = {
     ZoomMode.GENERAL: (1.0, 5.0),      # Vista panorámica completa
@@ -65,11 +83,11 @@ class TimelineView(QWidget):
         self.total_samples = 0
         self.duration_seconds = 0.0
         self.volume = 1.0  # Factor de amplitud de volumen (0.0 a 1.0)
-        
+
         # --- View parameters ---
         self.zoom_factor = 1.0
         self.center_sample = 0 # Centro inicial (se ajustará si se carga audio)
-        
+
         # --- Zoom Mode System ---
         self.current_zoom_mode = ZoomMode.GENERAL
         self._auto_zoom_mode_enabled = True  # Auto-switch to PLAYBACK on play
@@ -94,14 +112,14 @@ class TimelineView(QWidget):
         self._chord_track = ChordTrack()
         self._playhead_track = PlayheadTrack()
         self._lyrics_track = None  # Will be initialized when lyrics are loaded
-        
+
         # --- Interaction ---
         self._dragging = False
         self._last_mouse_x = None
 
         # --- Lyrics Edit Mode ---
         self._lyrics_edit_mode: bool = False
-        
+
         # --- Edit Mode Buttons ---
         self._edit_buttons_visible = False
         self._button_width = 140
@@ -117,7 +135,7 @@ class TimelineView(QWidget):
         # Cargar audio si se proporciona una ruta
         if audio_path:
             self.load_audio(audio_path)
-    
+
     # --------------------------------------------------------------------
     #   FUNCIONES PRINCIPALES DEL SINCRONIZADOR
     # --------------------------------------------------------------------
@@ -143,39 +161,39 @@ class TimelineView(QWidget):
 
     def reset_view_state(self) -> None:
         """Reset view state when loading a new song.
-        
+
         This ensures that zoom mode, user overrides, and playhead position
         are reset to defaults, fixing the bug where PLAYBACK zoom mode
         stops working after changing songs.
         """
         logger.debug("Resetting TimelineView state for new song")
-        
+
         # Reset zoom mode to GENERAL
         self.current_zoom_mode = ZoomMode.GENERAL
-        
+
         # Clear user zoom override flag (critical for PLAYBACK mode to work)
         self._user_zoom_override = False
-        
+
         # Re-enable auto zoom mode
         self._auto_zoom_mode_enabled = True
-        
+
         # Reset playhead to start
         self.playhead_sample = 0
-        
+
         # Reset zoom and center if we have audio loaded
         if self.total_samples > 0:
             self.center_sample = self.total_samples // 2
             self.zoom_factor = 1.0
-        
+
         # Clear lyrics edit mode state
         self._lyrics_edit_mode = False
         self._edit_buttons_visible = False
         self._hovered_button = None
-        
+
         # Clear dragging state
         self._dragging = False
         self._last_mouse_x = None
-        
+
         # Trigger repaint
         self.update()
 
@@ -194,7 +212,7 @@ class TimelineView(QWidget):
             self.samples = np.asarray(data, dtype=np.float32)
             self.sr = sr
             self.total_samples = len(self.samples)
-            
+
             if self.total_samples == 0:
                 raise ValueError("El archivo de audio está vacío o no contiene datos válidos.")
 
@@ -212,15 +230,15 @@ class TimelineView(QWidget):
 
             self.update()
             return True
-        
+
         except Exception as e:
             logger.error(f"Error al cargar el audio '{audio_path}': {e}", exc_info=True)
             self._set_empty_state()
             return False
 
-    
+
     # ==============================================================
-    # VOLUME CONTROL (LOGARÍTMICO) 
+    # VOLUME CONTROL (LOGARÍTMICO)
     # ==============================================================
     def set_volume(self, slider_value: int) -> None:
         # Volume only affects visualization amplitude (optional)
@@ -233,7 +251,7 @@ class TimelineView(QWidget):
     # ==============================================================
     # The WaveformWidget is passive and does not manage audio playback.
     # Playback position is provided via `set_position_seconds()` from PlaybackManager.
-    
+
 
     # ==============================================================
     # ZOOM
@@ -264,17 +282,17 @@ class TimelineView(QWidget):
         max_factor_by_spp = self.total_samples / (MIN_SAMPLES_PER_PIXEL * width)
         max_allowed = max(1.0, min(MAX_ZOOM_LEVEL, max_factor_by_spp))
         return max(1.0, min(factor, max_allowed))
-    
+
     def load_metadata(self, meta_data: dict) -> None:
         """Load metadata dictionary and forward to TimelineModel.
-        
+
         Parses beats/chords from metadata and forwards directly to the timeline.
         If no timeline is attached, metadata is discarded (fail-safe).
         """
         if not meta_data or self.timeline is None:
             self.update()
             return
-        
+
         # Parse beats
         beats_input = meta_data.get("beats", []) if isinstance(meta_data, dict) else []
         beats_seconds = []
@@ -290,7 +308,7 @@ class TimelineView(QWidget):
                     t = float(item)
                     beats_seconds.append(t)
                     downbeat_flags.append(0)
-        
+
         # Parse chords
         chords_input = meta_data.get("chords", []) if isinstance(meta_data, dict) else []
         chords_parsed = []
@@ -303,14 +321,14 @@ class TimelineView(QWidget):
                     if e < s:
                         s, e = e, s
                     chords_parsed.append((s, e, name))
-        
+
         # Forward to timeline immediately
         with safe_operation("Setting timeline beats", silent=True):
             self.timeline.set_beats(beats_seconds, downbeat_flags)
-        
+
         with safe_operation("Setting timeline chords", silent=True):
             self.timeline.set_chords(chords_parsed)
-        
+
         self.update()
 
     def zoom_by(self, ratio: float, cursor_x: int = None) -> None:
@@ -320,7 +338,7 @@ class TimelineView(QWidget):
         old_zoom = self.zoom_factor
         tentative_zoom = max(1.0, old_zoom * ratio)
         w = max(1, self.width())
-        
+
         # Aplicar límites del modo actual
         tentative_zoom = self._clamp_zoom_to_mode(tentative_zoom)
         new_zoom = self._clamp_zoom_for_width(tentative_zoom, w)
@@ -334,7 +352,7 @@ class TimelineView(QWidget):
             new_center = int(sample_at_cursor + (w/2 - cursor_x) * new_spp)
             self.center_sample = int(np.clip(new_center, 0, len(self.samples)-1))
             self.zoom_factor = new_zoom
-        
+
         # Marcar que el usuario ha hecho zoom manual
         self._user_zoom_override = True
 
@@ -350,7 +368,7 @@ class TimelineView(QWidget):
     def _samples_per_pixel(self, zoom_factor: float, width_pixels: int) -> float:
         if width_pixels <= 0:
             return 1.0
-            
+
         total_samples = len(self.samples)
         if total_samples == 0:
             return 1.0 # Si no hay audio, 1 muestra por pixel (dummy)
@@ -362,87 +380,87 @@ class TimelineView(QWidget):
     # ==============================================================
     # ZOOM MODE SYSTEM
     # ==============================================================
-    
+
     def set_zoom_mode(self, mode: ZoomMode, auto: bool = True) -> None:
         """
         Cambia el modo de zoom y ajusta la vista según el modo.
-        
+
         Args:
             mode: Modo de zoom a aplicar (GENERAL, PLAYBACK, EDIT)
             auto: Si es True, es un cambio automático; si es False, es manual del usuario
         """
         if self.total_samples == 0:
             return
-            
+
         if self.current_zoom_mode == mode:
             return
-            
+
         old_mode = self.current_zoom_mode
         self.current_zoom_mode = mode
-        
+
         # Calcular zoom y centro apropiados para el nuevo modo
         self._calculate_zoom_for_mode(mode, auto)
-        
+
         # Marcar si el usuario hizo un cambio manual
         if not auto:
             self._user_zoom_override = False
-        
+
         # Notificar cambio de modo
         self.zoom_mode_changed.emit(mode)
-        
+
         # Invalidar cache y redibujar
         self._reset_waveform_cache()
         self.update()
-    
+
     def _calculate_zoom_for_mode(self, mode: ZoomMode, auto: bool) -> float:
         """
         Calcula el zoom_factor y center_sample apropiados para el modo dado.
         """
         w = max(1, self.width())
-        
+
         if mode == ZoomMode.GENERAL:
             # Modo GENERAL: mostrar toda la forma de onda
             self.zoom_factor = 1.0
             self.center_sample = self.total_samples // 2
-            
+
         elif mode == ZoomMode.PLAYBACK:
             # Modo PLAYBACK: zoom para ver letras (±10 segundos alrededor del playhead)
             # Aproximadamente 20 segundos visibles en pantalla
             target_visible_seconds = 20.0
             target_visible_samples = target_visible_seconds * self.sr
             self.zoom_factor = self.total_samples / target_visible_samples
-            
+
             # Clamp al rango del modo
             min_zoom, max_zoom = ZOOM_RANGES[mode]
             self.zoom_factor = np.clip(self.zoom_factor, min_zoom, max_zoom)
-            
+
             # Centrar en el playhead
             self.center_sample = int(np.clip(self.playhead_sample, 0, self.total_samples - 1))
-            
+
         elif mode == ZoomMode.EDIT:
             # Modo EDIT: mantener zoom actual si viene de otro modo, o usar zoom moderado
             if auto:
                 # Si es cambio automático, usar un zoom moderado
                 self.zoom_factor = 20.0
             # Si es manual, mantener el zoom actual
-            
+
             # Clamp al rango del modo
             min_zoom, max_zoom = ZOOM_RANGES[mode]
             self.zoom_factor = np.clip(self.zoom_factor, min_zoom, max_zoom)
-        
+
         # Asegurar que el zoom sea válido para el ancho actual
         self.zoom_factor = self._clamp_zoom_for_width(self.zoom_factor, w)
         return self.zoom_factor
-    
+
     def _clamp_zoom_to_mode(self, zoom: float) -> float:
         """Restringe el zoom al rango permitido por el modo actual."""
         min_zoom, max_zoom = ZOOM_RANGES[self.current_zoom_mode]
         return np.clip(zoom, min_zoom, max_zoom)
-    
+
     def get_auto_zoom_enabled(self) -> bool:
         """Retorna si el cambio automático de modo está habilitado."""
         return self._auto_zoom_mode_enabled
-    
+
     def set_auto_zoom_enabled(self, enabled: bool) -> None:
         """Habilita o deshabilita el cambio automático de modo al reproducir."""
         self._auto_zoom_mode_enabled = enabled
@@ -455,7 +473,7 @@ class TimelineView(QWidget):
     def wheelEvent(self, event: QWheelEvent) -> None:
         if self.total_samples == 0:
             return
-            
+
         modifiers = event.modifiers()
 
         # SHIFT + wheel = horizontal scroll
@@ -478,14 +496,14 @@ class TimelineView(QWidget):
         ratio = 1.15 ** steps
         cursor_x = event.position().x() if hasattr(event, "position") else event.x()
         self.zoom_by(ratio, int(cursor_x))
-    
+
     # --------------------------------------------------------------
     # mouseDoubleClickEvent: Mover playhead (Doble clic IZQUIERDO)
     # --------------------------------------------------------------
     def mouseDoubleClickEvent(self, event: QMouseEvent) -> None:
         if self.total_samples == 0:
             return
-        
+
         # TODO (Lyrics Edit Mode): When _lyrics_edit_mode is True and user double-clicks
         # on a lyric line, open an inline text editor for that line.
         # For now, handle edit mode separately and fall through to existing behavior.
@@ -493,7 +511,7 @@ class TimelineView(QWidget):
             # TODO: Detect if click is on a lyrics track region
             # TODO: If so, activate inline editor and return early
             pass
-            
+
         # Mover playhead solo con doble clic izquierdo
         if event.button() == Qt.LeftButton:
             w = max(1, self.width())
@@ -547,7 +565,7 @@ class TimelineView(QWidget):
             elif clicked_button == 'reload_lyrics':
                 self.reload_lyrics_clicked.emit()
                 return
-        
+
         # TODO (Lyrics Edit Mode): When _lyrics_edit_mode is True, detect clicks
         # on lyric lines for selection or dragging (future: retiming).
         # For now, fall through to existing pan/scroll behavior.
@@ -555,7 +573,7 @@ class TimelineView(QWidget):
             # TODO: Check if click is on a lyrics region
             # TODO: If so, handle selection and prevent scroll/pan
             pass
-        
+
         # Lógica para scroll/pan (ARRRASTRE CON CLIC IZQUIERDO)
         if event.button() == Qt.LeftButton and self.total_samples > 0:
             # Solo permitir arrastre si hay audio cargado
@@ -563,11 +581,11 @@ class TimelineView(QWidget):
             self._last_mouse_x = event.x()
             self.setCursor(Qt.ClosedHandCursor) # Cambiar cursor para indicar arrastre
             self.setFocus() # Asegura que el widget mantenga el foco
-            
+
         # Para el clic derecho, solo llamamos al super.
         elif event.button() == Qt.RightButton:
             self.setFocus() # Asegura que el widget mantenga el foco
-            
+
         super().mousePressEvent(event)
 
     # ---------------------- Timeline integration ----------------------
@@ -593,18 +611,18 @@ class TimelineView(QWidget):
                 self._timeline_unsubscribe = timeline.on_playhead_changed(
                     self._on_timeline_playhead_changed
                 )
-                
+
                 # Initialize lyrics track if lyrics_model is available
                 if hasattr(timeline, 'lyrics_model') and timeline.lyrics_model is not None:
                     self._lyrics_track = LyricsTrack()
-                
+
                 self.update()
                 # Initialize playhead to timeline's current value
                 self.set_position_seconds(timeline.get_playhead_time())
 
     def reload_lyrics_track(self) -> None:
         """Reinitialize lyrics track when lyrics_model is added to timeline.
-        
+
         Call this after setting lyrics_model on the timeline to ensure
         the view updates properly.
         """
@@ -617,7 +635,7 @@ class TimelineView(QWidget):
 
     def set_lyrics_edit_mode(self, enabled: bool) -> None:
         """Enable or disable lyrics edit mode.
-        
+
         When enabled, the timeline prepares for inline lyric editing.
         Rendering and playback remain unchanged.
         """
@@ -658,7 +676,7 @@ class TimelineView(QWidget):
                 with safe_operation("Unsubscribing timeline in __del__", silent=True, log_level="debug"):
                     self._timeline_unsubscribe()
                 self._timeline_unsubscribe = None
-            
+
     def set_playhead_sample(self, sample: int) -> None:
         # Asegurarse de que no falle con total_samples = 0
         if self.total_samples == 0:
@@ -681,7 +699,7 @@ class TimelineView(QWidget):
             return
 
         w = max(1, self.width())
-        
+
         spp = self._samples_per_pixel(self.zoom_factor, w)
         half_visible = (w * spp) / 2.0
         start = int(np.clip(self.center_sample - half_visible, 0, self.total_samples - 1))
@@ -696,7 +714,7 @@ class TimelineView(QWidget):
 
         # Target position: center of the screen (50% of width)
         center_x = w // 2
-        
+
         # Allow playhead to move freely until it reaches the center
         # Once at center or beyond, auto-scroll to keep it centered
         if x_pos >= center_x:
@@ -723,11 +741,11 @@ class TimelineView(QWidget):
             self._hovered_button = self._get_button_at_pos(event.x(), event.y())
             if prev_hovered != self._hovered_button:
                 self.update()  # Redraw to show hover effect
-        
+
         # Lógica de arrastre (solo si self._dragging es True, iniciado por clic izquierdo)
         if not self._dragging or self.total_samples == 0:
             return
-            
+
         dx = event.x() - self._last_mouse_x
         self._last_mouse_x = event.x()
 
@@ -746,7 +764,7 @@ class TimelineView(QWidget):
         if event.button() == Qt.LeftButton:
             self._dragging = False
             self.setCursor(Qt.ArrowCursor) # Volver al cursor normal
-            
+
         elif event.button() == Qt.RightButton:
             pass # No hace nada para el RightButton ahora.
 
@@ -756,7 +774,7 @@ class TimelineView(QWidget):
     def keyPressEvent(self, event):
         if self.total_samples == 0:
             return
-        
+
         # TODO (Lyrics Edit Mode): When _lyrics_edit_mode is True and a lyric line
         # is selected, handle keyboard shortcuts for editing:
         # - Delete key to remove line
@@ -766,7 +784,7 @@ class TimelineView(QWidget):
         if self._lyrics_edit_mode:
             # TODO: Handle edit-mode-specific keyboard shortcuts
             pass
-        
+
         # Atajos de teclado para cambiar modo de zoom
         if event.key() == Qt.Key_1:
             self.set_zoom_mode(ZoomMode.GENERAL, auto=False)
@@ -777,7 +795,7 @@ class TimelineView(QWidget):
         elif event.key() == Qt.Key_3:
             self.set_zoom_mode(ZoomMode.EDIT, auto=False)
             return
-            
+
         w = max(1, self.width())
         spp = self._samples_per_pixel(self.zoom_factor, w)
         page = int(w * spp * 0.8)
@@ -814,7 +832,7 @@ class TimelineView(QWidget):
         mid = h // 2
 
         total_samples = len(self.samples)
-        
+
         # Si no hay muestras, dibujar solo una línea central gris y salir
         if total_samples == 0:
             pen = QPen(QColor(60, 60, 60), 1)
@@ -833,10 +851,10 @@ class TimelineView(QWidget):
             pen = QPen(QColor(0, 200, 255), 1)
             painter.setPen(pen)
             painter.drawLine(0, mid, w, mid)
-            
+
             # Ajustar el end al mínimo para que la ventana tenga al menos 1 muestra
             end = min(total_samples - 1, start + 1)
-            
+
             # Si start sigue siendo mayor que end, salimos.
             if end <= start:
                 return
@@ -853,34 +871,34 @@ class TimelineView(QWidget):
             height=h,
             timeline_model=self.timeline
         )
-        
+
         # ----------------------------------------------------------
         # Paint all tracks in order (bottom to top layering)
         # ----------------------------------------------------------
-        
+
         # Determinar downsample_factor para optimización en modo GENERAL
         downsample_factor = None
         if self.current_zoom_mode == ZoomMode.GENERAL:
             # En modo GENERAL, usar downsample para mejor performance
             downsample_factor = GLOBAL_DOWNSAMPLE_FACTOR
-        
+
         # 1. Waveform (base layer)
         with safe_operation("Painting waveform track", silent=True):
             self._waveform_track.paint(painter, ctx, self.samples, downsample_factor)
-        
+
         # 2. Beats and downbeats
         with safe_operation("Painting beat track", silent=True):
             self._beat_track.paint(painter, ctx)
-        
+
         # 3. Chords
         with safe_operation("Painting chord track", silent=True):
             self._chord_track.paint(painter, ctx)
-        
+
         # 4. Lyrics
         if self._lyrics_track is not None:
             with safe_operation("Painting lyrics track", silent=True):
                 self._lyrics_track.paint(painter, ctx)
-        
+
         # 5. Playhead (top layer)
         with safe_operation("Painting playhead track", silent=True):
             self._playhead_track.paint(painter, ctx)
@@ -890,11 +908,11 @@ class TimelineView(QWidget):
         # ----------------------------------------------------------
         painter.setFont(StyleManager.get_font(size=10, mono=True))
         painter.setPen(StyleManager.get_color("text_bright")) # Color gris claro
-        
+
         total_time_str = format_time(self.duration_seconds)
         # Dibujar en la esquina superior derecha
         painter.drawText(w - 150, 20, 140, 20, Qt.AlignRight, total_time_str)
-        
+
         # ----------------------------------------------------------
         # ZOOM MODE INDICATOR
         # ----------------------------------------------------------
@@ -908,14 +926,14 @@ class TimelineView(QWidget):
             ZoomMode.PLAYBACK: QColor(100, 255, 100, 180),
             ZoomMode.EDIT: QColor(255, 200, 100, 180)
         }
-        
+
         mode_name = mode_names.get(self.current_zoom_mode, "")
         mode_color = mode_colors.get(self.current_zoom_mode, QColor(200, 200, 200, 180))
-        
+
         painter.setFont(StyleManager.get_font(size=10, mono=True))
         painter.setPen(mode_color)
         painter.drawText(10, h - 25, 150, 20, Qt.AlignLeft, f"Zoom: {mode_name}")
-        
+
         # ----------------------------------------------------------
         # LYRICS EDIT MODE INDICATOR
         # ----------------------------------------------------------
@@ -931,88 +949,87 @@ class TimelineView(QWidget):
         # ----------------------------------------------------------
         if self._edit_buttons_visible:
             self._paint_edit_buttons(painter, w, h)
-    
+
     # ==============================================================
     # EDIT MODE BUTTONS (Helper methods)
     # ==============================================================
-    
+
     def _get_button_rect(self, button_index: int, widget_width: int, widget_height: int):
         """Calculate rectangle for a button by index (0 = top button, 1 = second, etc.)"""
         x = widget_width - self._button_width - self._button_margin
         y = self._button_margin + button_index * (self._button_height + self._button_spacing)
         return (x, y, self._button_width, self._button_height)
-    
+
     def _get_button_at_pos(self, x: int, y: int) -> str:
         """Return button identifier if position is over a button, else None"""
         if not self._edit_buttons_visible:
             return None
-        
+
         w = self.width()
         h = self.height()
-        
+
         # Edit Metadata button (index 0)
         bx, by, bw, bh = self._get_button_rect(0, w, h)
         if bx <= x <= bx + bw and by <= y <= by + bh:
             return 'edit_metadata'
-        
+
         # Reload Lyrics button (index 1)
         bx, by, bw, bh = self._get_button_rect(1, w, h)
         if bx <= x <= bx + bw and by <= y <= by + bh:
             return 'reload_lyrics'
-        
+
         return None
-    
+
     def _paint_edit_buttons(self, painter: QPainter, widget_width: int, widget_height: int):
         """Paint edit mode buttons on the right edge of the timeline"""
         painter.save()
-        
+
         # Colors from StyleManager
         btn_normal = StyleManager.PALETTE["btn_normal"]
         btn_hover = StyleManager.PALETTE["btn_hover"]
         border_light = StyleManager.PALETTE["border_light"]
         accent = StyleManager.get_color("accent")
         text_normal = StyleManager.get_color("text_normal")
-        
+
         # Button 1: Edit Metadata
         x1, y1, w1, h1 = self._get_button_rect(0, widget_width, widget_height)
         is_hover_1 = (self._hovered_button == 'edit_metadata')
-        
+
         # Background
         bg_color_1 = QColor(btn_hover) if is_hover_1 else QColor(btn_normal)
         painter.fillRect(int(x1), int(y1), int(w1), int(h1), bg_color_1)
-        
+
         # Border
         border_color_1 = accent if is_hover_1 else QColor(border_light)
         border_width_1 = 2 if is_hover_1 else 1
         painter.setPen(QPen(border_color_1, border_width_1))
         painter.drawRect(int(x1), int(y1), int(w1), int(h1))
-        
+
         # Icon + Text
         painter.setPen(text_normal)
         painter.setFont(StyleManager.get_font(size=11, bold=False))
-        painter.drawText(int(x1), int(y1), int(w1), int(h1), 
+        painter.drawText(int(x1), int(y1), int(w1), int(h1),
                         Qt.AlignCenter, "📝 Edit Metadata")
-        
+
         # Button 2: Reload Lyrics
         x2, y2, w2, h2 = self._get_button_rect(1, widget_width, widget_height)
         is_hover_2 = (self._hovered_button == 'reload_lyrics')
-        
+
         # Background
         bg_color_2 = QColor(btn_hover) if is_hover_2 else QColor(btn_normal)
         painter.fillRect(int(x2), int(y2), int(w2), int(h2), bg_color_2)
-        
+
         # Border
         border_color_2 = accent if is_hover_2 else QColor(border_light)
         border_width_2 = 2 if is_hover_2 else 1
         painter.setPen(QPen(border_color_2, border_width_2))
         painter.drawRect(int(x2), int(y2), int(w2), int(h2))
-        
+
         # Icon + Text
         painter.setPen(text_normal)
         painter.setFont(StyleManager.get_font(size=11, bold=False))
-        painter.drawText(int(x2), int(y2), int(w2), int(h2), 
+        painter.drawText(int(x2), int(y2), int(w2), int(h2),
                         Qt.AlignCenter, "🔄 Reload Lyrics")
-        
+
         painter.restore()
-        
-        
+
