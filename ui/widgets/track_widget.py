@@ -8,19 +8,20 @@ class TrackWidget(QWidget):
     """Track mixer strip widget with dependency injection pattern.
 
     Receives AudioEngine reference directly to eliminate intermediary code.
-    For master track, engine is optional (volume handled by parent).
+    Master track receives both engine and timeline_view for dual control:
+    - AudioEngine.set_master_gain() for audio output
+    - TimelineView.set_volume() for waveform preview
     """
 
-    # Master track still emits signal (handled by MainWindow for preview volume)
-    volume_changed = Signal(int)
-
     def __init__(self, track_name: str = "Track 0", track_index: int = 0,
-                 engine: Optional[object] = None, is_master: bool = False, parent=None):
+                 engine: Optional[object] = None, is_master: bool = False,
+                 timeline_view: Optional[object] = None, parent=None):
         super().__init__(parent)
         self.track_name = track_name
         self.track_index = track_index
         self.engine = engine
         self.is_master = is_master
+        self.timeline_view = timeline_view  # For master track preview volume
         self.setFixedWidth(70)
         self.init_ui()
         self._connect_signals()
@@ -77,14 +78,26 @@ class TrackWidget(QWidget):
     def _connect_signals(self):
         """Connect internal signals to engine methods (Dependency Injection pattern)."""
         if self.is_master:
-            # Master track: emit signal for MainWindow to handle preview volume + master gain
-            self.slider.valueChanged.connect(lambda value: self.volume_changed.emit(value))
+            # Master track: connect directly to both engine and timeline_view
+            self.slider.valueChanged.connect(self._on_master_volume_changed)
         else:
             # Individual tracks: connect directly to engine
             if self.engine:
                 self.mute_button.toggled.connect(self._on_mute_toggled)
                 self.solo_button.toggled.connect(self._on_solo_toggled)
                 self.slider.valueChanged.connect(self._on_volume_changed)
+
+    def _on_master_volume_changed(self, value: int):
+        """Handle master volume slider (controls both preview and audio gain)."""
+        gain = get_logarithmic_volume(value)
+
+        # Update waveform preview volume (expects slider int)
+        if self.timeline_view:
+            self.timeline_view.set_volume(value)
+
+        # Set global master gain on audio player
+        if self.engine:
+            self.engine.set_master_gain(gain)
 
     def _on_mute_toggled(self, checked: bool):
         """Handle mute button toggle."""

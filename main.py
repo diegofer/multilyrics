@@ -54,8 +54,18 @@ class MainWindow(QMainWindow):
         #Agregar waveform widget
         self.timeline_view = TimelineView("example.wav")
         self.ui.timeline_layout.addWidget(self.timeline_view)
-        #Agregar tracks widgets
-        self.master_track = TrackWidget("Master", track_index=0, engine=None, is_master=True)
+
+        #Instanciar Player (needed before master track creation)
+        self.audio_player = MultiTrackPlayer()
+
+        #Agregar tracks widgets (master track receives both engine and timeline_view)
+        self.master_track = TrackWidget(
+            track_name="Master",
+            track_index=0,
+            engine=self.audio_player,
+            is_master=True,
+            timeline_view=self.timeline_view
+        )
         self.ui.mixer_master_layout.addWidget(self.master_track)
 
         #Agregar controls widget
@@ -82,7 +92,6 @@ class MainWindow(QMainWindow):
         self.video_player = VideoLyrics()
 
         #Instanciar Player y enlazar con SyncController
-        self.audio_player = MultiTrackPlayer()
         self.sync = SyncController(44100)
         self.audio_player.audioTimeCallback = self.sync.audio_callback
 
@@ -114,11 +123,6 @@ class MainWindow(QMainWindow):
         self.playback.durationChanged.connect(self.controls.update_total_duration_label)
         self.playback.playingChanged.connect(self.controls.set_playing_state)
         #self.sync.videoCorrectionNeeded.connect(self.video_player.apply_correction)
-        # Master fader controls both waveform preview volume and global audio gain
-        self.master_track.volume_changed.connect(self.set_master_gain)
-
-        # Initialize master gain to slider's initial value (70% for headroom)
-        self.set_master_gain(self.master_track.slider.value())
 
         # Waveform user seeks -> central request via PlaybackManager
         self.timeline_view.position_changed.connect(self.playback.request_seek)
@@ -604,16 +608,6 @@ class MainWindow(QMainWindow):
 
         # Activar boton de edit mode en controles
         self.controls.set_edit_mode_enabled(True)  # Cuando hay multitrack seleccionado
-
-    @Slot()
-    def set_master_gain(self, slider_value: int):
-        """Called from master fader slider (0..100)."""
-        gain = get_logarithmic_volume(slider_value)
-        # Update waveform preview volume (expects slider int)
-        self.timeline_view.set_volume(slider_value)
-        # Set global master gain on audio player
-        with safe_operation("Setting master gain", silent=True):
-            self.audio_player.set_master_gain(gain)
 
     def closeEvent(self, event: QCloseEvent):
         # cerrar ventana videoplayer
