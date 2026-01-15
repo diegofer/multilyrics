@@ -32,8 +32,12 @@ class TrackWidget(QWidget):
         if self.is_master:
             # Master track: initialize both engine and timeline with slider value (70%)
             self._on_master_volume_changed(self.slider.value())
-        # Note: Individual tracks don't need initialization here - they're created
-        # AFTER audio_player.load_tracks() has already set up the gain arrays
+        else:
+            # Individual tracks: apply logarithmic volume to engine (90% → -6 dB → 0.5 gain)
+            # This ensures tracks start at the intended level, not at engine's default unity (1.0)
+            # Only initialize if engine has tracks loaded (gain arrays exist)
+            if self.engine and hasattr(self.engine, 'target_gains') and len(self.engine.target_gains) > self.track_index:
+                self._on_volume_changed(self.slider.value())
 
     def init_ui(self):
         layout = QVBoxLayout()
@@ -70,9 +74,12 @@ class TrackWidget(QWidget):
         """)
 
         self.slider.setRange(0, 100)
-        # Master track starts at 70% for headroom (like professional mixers)
-        # Individual tracks start at 100% (unity gain)
-        initial_value = 70 if self.is_master else 100
+        # Master track: 70% (-18 dB) for headroom (professional mixer standard)
+        # Individual tracks: 90% (-6 dB) for live worship context
+        # - Leaves +6 dB headroom upward for emphasizing bass/drums during service
+        # - Pre-balanced stems remain clear while allowing dynamic adjustments
+        # - Matches behavior of live playback tools (WorshipSongBand, etc.)
+        initial_value = 70 if self.is_master else 90
         self.slider.setValue(initial_value)
         #self.slider.setStyleSheet("QSlider::handle { width: 50px; height: 20px; }")
         layout.addWidget(self.slider, alignment=Qt.AlignmentFlag.AlignHCenter)
