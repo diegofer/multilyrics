@@ -18,27 +18,28 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
 # Waveform Widget with Zoom, Scroll, and Animated Playhead
 
-import numpy as np
 from enum import Enum, auto
 from pathlib import Path
-from PySide6.QtWidgets import QWidget
-from PySide6.QtGui import QPainter, QColor, QPen, QFont
-from PySide6.QtCore import Qt, Signal, QEvent
-from PySide6.QtGui import QWheelEvent, QMouseEvent, QCloseEvent
-import soundfile as sf
 from typing import Optional
 
-from utils.helpers import format_time, get_logarithmic_volume
+import numpy as np
+import soundfile as sf
+from PySide6.QtCore import QEvent, Qt, Signal
+from PySide6.QtGui import (QCloseEvent, QColor, QFont, QMouseEvent, QPainter,
+                           QPen, QWheelEvent)
+from PySide6.QtWidgets import QWidget
+
+from models.lyrics_model import LyricsModel
 from models.timeline_model import TimelineModel
-from ui.widgets.tracks.beat_track import ViewContext, BeatTrack
+from ui.styles import StyleManager
+from ui.widgets.tracks.beat_track import BeatTrack, ViewContext
 from ui.widgets.tracks.chord_track import ChordTrack
+from ui.widgets.tracks.lyrics_track import LyricsTrack
 from ui.widgets.tracks.playhead_track import PlayheadTrack
 from ui.widgets.tracks.waveform_track import WaveformTrack
-from ui.widgets.tracks.lyrics_track import LyricsTrack
-from models.lyrics_model import LyricsModel
-from ui.styles import StyleManager
-from utils.logger import get_logger
 from utils.error_handler import safe_operation
+from utils.helpers import format_time, get_logarithmic_volume
+from utils.logger import get_logger
 
 logger = get_logger(__name__)
 
@@ -73,11 +74,21 @@ class TimelineView(QWidget):
     edit_metadata_clicked = Signal()
     reload_lyrics_clicked = Signal()
 
-    def __init__(self, audio_path=None, parent=None, timeline: Optional[TimelineModel] = None): # audio_path ahora es opcional
+    def __init__(self, parent=None, timeline: Optional[TimelineModel] = None):
+        """Initialize TimelineView in empty state.
+
+        Audio will be loaded later via load_audio_from_master() when user selects a multi.
+        """
         super().__init__(parent)
         self.setContentsMargins(9, 0, 9, 0) # Margen horizontal consistente
         self.setObjectName("timeline_view")
-        # --- Estado inicial por defecto (sin audio) ---
+
+        # --- Audio data - always starts as None ---
+        self.audio_path: Optional[str] = None
+        self.audio_data: Optional[np.ndarray] = None
+        self.sample_rate: int = 44100  # Default, will be updated when audio loads
+
+        # Legacy aliases for compatibility (deprecated - use audio_data/sample_rate)
         self.samples = np.array([], dtype=np.float32)
         self.sr = 44100
         self.total_samples = 0
@@ -86,7 +97,7 @@ class TimelineView(QWidget):
 
         # --- View parameters ---
         self.zoom_factor = 1.0
-        self.center_sample = 0 # Centro inicial (se ajustará si se carga audio)
+        self.center_sample = 0
 
         # --- Zoom Mode System ---
         self.current_zoom_mode = ZoomMode.GENERAL
@@ -128,13 +139,12 @@ class TimelineView(QWidget):
         self._button_margin = 10
         self._hovered_button = None  # 'edit_metadata' or 'reload_lyrics'
 
-        self.setMinimumHeight(120)
+        # Set minimum height for empty state
+        self.setMinimumHeight(100)
         self.setFocusPolicy(Qt.StrongFocus)
         self.setMouseTracking(True)  # Enable mouse tracking for hover effects
 
-        # Cargar audio si se proporciona una ruta
-        if audio_path:
-            self.load_audio(audio_path)
+        logger.info("TimelineView initialized - waiting for multi selection")
 
     # --------------------------------------------------------------------
     #   FUNCIONES PRINCIPALES DEL SINCRONIZADOR
@@ -158,6 +168,23 @@ class TimelineView(QWidget):
         if getattr(self, '_waveform_track', None) is not None:
             with safe_operation("Resetting waveform cache", silent=True):
                 self._waveform_track.reset_cache()
+
+    def _reset_to_empty_state(self) -> None:
+        """Reset timeline to empty state after error or when clearing content.
+
+        This is safer than _set_empty_state as it's specifically for error recovery.
+        """
+        self.audio_data = None
+        self.audio_path = None
+        self.sample_rate = 44100
+        # Update legacy aliases
+        self.samples = np.array([], dtype=np.float32)
+        self.sr = 44100
+        self.total_samples = 0
+        self.duration_seconds = 0.0
+        self.setMinimumHeight(100)
+        self.update()
+        logger.debug("Timeline reset to empty state")
 
     def reset_view_state(self) -> None:
         """Reset view state when loading a new song.
@@ -269,11 +296,97 @@ class TimelineView(QWidget):
         self.update()
 
     def load_audio_from_master(self, master_path: str | Path) -> None:
-        """Convenience alias to maintain old usage in MainWindow (accepts Path)."""
-        if isinstance(master_path, (str,)):
-            self.load_audio(master_path)
-        else:
-            self.load_audio(str(master_path))
+        """Load audio from master track file.
+
+        Handles transition from empty state to loaded state.
+
+        Args:
+            master_path: Path to master.wav file
+        """
+        # Convert Path to string if needed
+        if not isinstance(master_path, str):
+            master_path = str(master_path)
+
+        master_path = Path(master_path)
+
+        if not master_path.exists():
+            logger.error(f"Master track not found: {master_path}")
+            return
+
+        try:
+            # Load audio data
+            audio_data, sample_rate = sf.read(str(master_path), dtype='float32')
+
+            # Convert stereo to mono if needed
+            if audio_data.ndim > 1:
+                audio_data = np.mean(audio_data, axis=1)
+
+            # Update state
+            self.audio_data = audio_data
+            self.audio_path = str(master_path)
+            self.sample_rate = sample_rate
+
+            # Update legacy aliases
+            self.samples = audio_data
+            self.sr = sample_rate
+            self.total_samples = len(audio_data)
+            self.duration_seconds = self.total_samples / self.sample_rate
+
+            # Transition from empty state: restore normal height
+            self.setMinimumHeight(200)
+
+            # Reset view parameters
+            self.zoom_factor = 1.0
+            self.center_sample = self.total_samples // 2
+            self.playhead_sample = 0
+
+            # Update timeline model with new audio dimensions
+            if self.timeline:
+                self.timeline.set_sample_rate(self.sample_rate)
+                self.timeline.set_duration_seconds(self.duration_seconds)
+
+                logger.info(
+                    f"Audio loaded: {self.total_samples:,} samples @ {self.sample_rate}Hz "
+                    f"({self.duration_seconds:.2f}s)"
+                )
+
+            # Clear cache and force repaint with new audio
+            self._reset_waveform_cache()
+            self.update()
+
+        except Exception as e:
+            logger.error(f"Failed to load audio from {master_path}: {e}")
+            self._reset_to_empty_state()
+
+    def has_audio_loaded(self) -> bool:
+        """Check if audio data is currently loaded.
+
+        Returns:
+            True if audio is loaded and ready for playback, False otherwise
+        """
+        return self.audio_data is not None and len(self.audio_data) > 0
+
+    def get_audio_info(self) -> Optional[dict]:
+        """Get information about currently loaded audio.
+
+        Returns:
+            Dictionary with audio metadata, or None if no audio loaded:
+            {
+                'path': str,           # Path to audio file
+                'samples': int,        # Total number of samples
+                'sample_rate': int,    # Sample rate in Hz
+                'duration': float      # Duration in seconds
+            }
+        """
+        if not self.has_audio_loaded():
+            return None
+
+        return {
+            'path': self.audio_path,
+            'samples': len(self.audio_data),
+            'sample_rate': self.sample_rate,
+            'duration': len(self.audio_data) / self.sample_rate
+        }
 
     def _clamp_zoom_for_width(self, factor: float, width: int) -> float:
         """Ensure zoom factor keeps samples-per-pixel >= MIN_SAMPLES_PER_PIXEL and within limits."""
@@ -830,18 +943,16 @@ class TimelineView(QWidget):
         painter = QPainter(self)
         painter.fillRect(self.rect(), StyleManager.get_color("bg_panel"))
 
+        # Check if audio is loaded before painting tracks
+        if self.audio_data is None or len(self.audio_data) == 0:
+            self._paint_empty_state(painter)
+            return
+
         w = max(1, self.width())
         h = max(2, self.height())
         mid = h // 2
 
         total_samples = len(self.samples)
-
-        # Si no hay muestras, dibujar solo una línea central gris y salir
-        if total_samples == 0:
-            pen = QPen(QColor(60, 60, 60), 1)
-            painter.setPen(pen)
-            painter.drawLine(0, mid, w, mid)
-            return
 
         spp = self._samples_per_pixel(self.zoom_factor, w)
         half_visible = (w * spp) / 2.0
@@ -953,6 +1064,22 @@ class TimelineView(QWidget):
         # ----------------------------------------------------------
         if self._edit_buttons_visible:
             self._paint_edit_buttons(painter, w, h)
+
+    # ==============================================================
+    # EMPTY STATE RENDERING
+    # ==============================================================
+
+    def _paint_empty_state(self, painter: QPainter) -> None:
+        """Paint empty state with user-friendly message."""
+        painter.fillRect(self.rect(), StyleManager.get_color('bg_panel'))
+
+        # Draw centered instructional text
+        painter.setPen(StyleManager.get_color('text_dim'))
+        painter.setFont(StyleManager.get_font(size=14))
+
+        rect = self.rect()
+        text = "No hay multi cargado\n\nPresiona [+] para agregar un multi"
+        painter.drawText(rect, Qt.AlignCenter, text)
 
     # ==============================================================
     # EDIT MODE BUTTONS (Helper methods)

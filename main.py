@@ -16,40 +16,40 @@ You should have received a copy of the GNU General Public License
 along with this program. If not, see <https://www.gnu.org/licenses/>.
 """
 
-from PySide6.QtWidgets import QApplication, QMainWindow, QPushButton, QMessageBox
-from PySide6.QtGui import QIcon, QCloseEvent
-from PySide6.QtCore import Qt, QThread, Slot, QTimer
+import os
 from pathlib import Path
 from typing import Optional
-import os
 
-from utils.logger import get_logger
+from PySide6.QtCore import Qt, QThread, QTimer, Slot
+from PySide6.QtGui import QCloseEvent, QIcon
+from PySide6.QtWidgets import (QApplication, QMainWindow, QMessageBox,
+                               QPushButton)
+
 from utils.error_handler import safe_operation
+from utils.logger import get_logger
 
 logger = get_logger(__name__)
 
+from core import constants
+from core.engine import MultiTrackPlayer
+from core.extraction_orchestrator import ExtractionOrchestrator
+from core.playback_manager import PlaybackManager
+from core.sync import SyncController
+from models.meta import MetaJson
+from models.timeline_model import TimelineModel
+from ui import message_helpers
 from ui.main_window import Ui_MainWindow
 from ui.styles import StyleManager
-from ui import message_helpers
-
-from utils.helpers import get_mp4, get_tracks, get_logarithmic_volume, clear_layout
-from core import constants
-from models.timeline_model import TimelineModel
-from core.sync import SyncController
-from core.playback_manager import PlaybackManager
-
-from ui.widgets.controls_widget import ControlsWidget
-from ui.widgets.track_widget import TrackWidget
-from ui.widgets.spinner_dialog import SpinnerDialog
 from ui.widgets.add import AddDialog
-
+from ui.widgets.controls_widget import ControlsWidget
+from ui.widgets.spinner_dialog import SpinnerDialog
 from ui.widgets.timeline_view import TimelineView, ZoomMode
-from core.extraction_orchestrator import ExtractionOrchestrator
-from core.engine import MultiTrackPlayer
+from ui.widgets.track_widget import TrackWidget
+from utils.helpers import (clear_layout, get_logarithmic_volume, get_mp4,
+                           get_tracks)
 from utils.lyrics_loader import LyricsLoader
-from models.meta import MetaJson
-
 from video.video import VideoLyrics
+
 
 class MainWindow(QMainWindow):
     def __init__(self):
@@ -69,8 +69,8 @@ class MainWindow(QMainWindow):
 
         self.ui.playlist_layout.addWidget(self.plus_btn)
 
-        #Agregar waveform widget
-        self.timeline_view = TimelineView("example.wav")
+        #Agregar waveform widget (starts empty, loads when user selects multi)
+        self.timeline_view = TimelineView()
         self.ui.timeline_layout.addWidget(self.timeline_view)
 
         #Instanciar Player (needed before master track creation)
@@ -501,7 +501,8 @@ class MainWindow(QMainWindow):
             return
 
         # Lazy import to avoid circular dependencies
-        from ui.widgets.multi_metadata_editor_dialog import MultiMetadataEditorDialog
+        from ui.widgets.multi_metadata_editor_dialog import \
+            MultiMetadataEditorDialog
 
         # Show simple metadata editor for display fields only
         dialog = MultiMetadataEditorDialog(meta_data, self)
@@ -685,12 +686,12 @@ class MainWindow(QMainWindow):
 
 if __name__ == "__main__":
     import sys
+
     # Se necesita un archivo de audio WAV llamado "example.wav" en el mismo directorio.
     # Si no tienes uno, puedes usar un script de Python simple para crearlo:
     # import soundfile as sf
     # import numpy as np
     # sf.write('example.wav', np.random.uniform(-1, 1, 44100 * 5), 44100) # 5 segundos de ruido
-
     # Decirle al sistema operativo cómo manejar el escalado de la ventana.
     os.environ["QT_ENABLE_HIGHDPI_SCALING"] = "1"
 
