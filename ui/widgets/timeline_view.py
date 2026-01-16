@@ -1039,10 +1039,54 @@ class TimelineView(QWidget):
     # ==============================================================
 
     def _paint_empty_state(self, painter: QPainter) -> None:
-        """Paint empty state with user-friendly message."""
+        """Paint empty state with user-friendly message and decorative waveform."""
         painter.fillRect(self.rect(), StyleManager.get_color('bg_panel'))
 
-        # Draw centered instructional text
+        w = max(1, self.width())
+        h = max(2, self.height())
+
+        # Load pre-generated placeholder waveform from assets
+        placeholder_path = Path(__file__).parent.parent.parent / "assets" / "audio" / "placeholder.wav"
+
+        if placeholder_path.exists():
+            try:
+                # Load placeholder audio
+                synthetic_audio, synthetic_sr = sf.read(str(placeholder_path), dtype='float32')
+                synthetic_samples_count = len(synthetic_audio)
+
+                # Create ViewContext for the placeholder waveform
+                ctx = ViewContext(
+                    start_sample=0,
+                    end_sample=synthetic_samples_count - 1,
+                    total_samples=synthetic_samples_count,
+                    sample_rate=synthetic_sr,
+                    width=w,
+                    height=h,
+                    timeline_model=None,
+                    zoom_mode="GENERAL"
+                )
+
+                # Paint placeholder waveform with reduced opacity
+                painter.save()
+
+                # Override waveform color to be very light
+                original_pen = self._waveform_track.pen_waveform
+                light_waveform_color = QColor(StyleManager.get_color('waveform'))
+                light_waveform_color.setAlpha(95)  # Subtle appearance
+                self._waveform_track.pen_waveform = QPen(light_waveform_color, 1)
+
+                # Paint using the same track renderer
+                self._waveform_track.paint(painter, ctx, synthetic_audio, downsample_factor=GLOBAL_DOWNSAMPLE_FACTOR)
+
+                # Restore original pen
+                self._waveform_track.pen_waveform = original_pen
+                painter.restore()
+
+            except Exception as e:
+                logger.debug(f"Could not load placeholder waveform: {e}")
+                # Fall through to draw text only
+
+        # Draw centered instructional text on top
         painter.setPen(StyleManager.get_color('text_dim'))
         painter.setFont(StyleManager.get_font(size=14))
 
