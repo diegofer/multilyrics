@@ -890,14 +890,14 @@ class TimelineView(QWidget):
         with safe_operation("Painting beat track", silent=True):
             self._beat_track.paint(painter, ctx)
 
-        # 3. Chords
-        with safe_operation("Painting chord track", silent=True):
-            self._chord_track.paint(painter, ctx)
-
-        # 4. Lyrics
+        # 3. Lyrics
         if self._lyrics_track is not None:
             with safe_operation("Painting lyrics track", silent=True):
                 self._lyrics_track.paint(painter, ctx)
+
+        # 4. Chords (top layer for better visibility)
+        with safe_operation("Painting chord track", silent=True):
+            self._chord_track.paint(painter, ctx)
 
         # 5. Playhead (top layer)
         with safe_operation("Painting playhead track", silent=True):

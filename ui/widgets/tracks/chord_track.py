@@ -37,8 +37,11 @@ class ChordTrack:
         try:
             font = StyleManager.get_font(mono=True, size=8, bold=True)
             painter.setFont(font)
-            box_h = min(18, max(12, h // 10))
-            box_y = h - box_h - 2  # Position at bottom instead of top
+            # Fixed height for track consistency (22px band)
+            track_height = 22
+            # Position: second track from bottom (lyrics is first track at 0-22px from bottom)
+            track_y = ctx.height - (2 * track_height)  # Starts at h-44px
+            box_h = track_height
 
             for s0_t, s1_t, name in chords:
                 # convert times back to sample indices to reuse existing layout logic
@@ -66,13 +69,13 @@ class ChordTrack:
                     fill = StyleManager.get_color("chord_bg")
                     text_col = StyleManager.get_color("text_bright")
 
-                painter.fillRect(x0, box_y, x1 - x0, box_h, fill)
+                painter.fillRect(x0, track_y, x1 - x0, box_h, fill)
                 painter.setPen(StyleManager.get_color("chord_bg"))
-                painter.drawRect(x0, box_y, x1 - x0, box_h)
+                painter.drawRect(x0, track_y, x1 - x0, box_h)
                 painter.setPen(text_col)
                 # Draw chord name left-aligned at chord start with a small padding
                 text_padding = 4
                 text_w = max(1, x1 - x0 - text_padding)
-                painter.drawText(x0 + text_padding, box_y, text_w, box_h, 1 | 0x0040, str(name))
+                painter.drawText(x0 + text_padding, track_y, text_w, box_h, 1 | 0x0040, str(name))
         finally:
             painter.restore()  # Always restore painter state
