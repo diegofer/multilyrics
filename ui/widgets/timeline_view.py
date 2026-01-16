@@ -1029,37 +1029,6 @@ class TimelineView(QWidget):
         painter.drawText(w - 150, 20, 140, 20, Qt.AlignRight, total_time_str)
 
         # ----------------------------------------------------------
-        # ZOOM MODE INDICATOR
-        # ----------------------------------------------------------
-        mode_names = {
-            ZoomMode.GENERAL: "Vista General",
-            ZoomMode.PLAYBACK: "Reproducción",
-            ZoomMode.EDIT: "Edición"
-        }
-        mode_colors = {
-            ZoomMode.GENERAL: QColor(100, 180, 255, 180),
-            ZoomMode.PLAYBACK: QColor(100, 255, 100, 180),
-            ZoomMode.EDIT: QColor(255, 200, 100, 180)
-        }
-
-        mode_name = mode_names.get(self.current_zoom_mode, "")
-        mode_color = mode_colors.get(self.current_zoom_mode, QColor(200, 200, 200, 180))
-
-        painter.setFont(StyleManager.get_font(size=10, mono=True))
-        painter.setPen(mode_color)
-        painter.drawText(10, h - 25, 150, 20, Qt.AlignLeft, f"Zoom: {mode_name}")
-
-        # ----------------------------------------------------------
-        # LYRICS EDIT MODE INDICATOR
-        # ----------------------------------------------------------
-        if self._lyrics_edit_mode:
-            # Draw subtle overlay in top-left corner to indicate edit mode is active
-            # el painter también se actualizará automáticamente.
-            painter.setFont(StyleManager.get_font(size=12, mono=True, bold=True))
-            painter.setPen(StyleManager.get_color("accent"))
-            painter.drawText(10, 10, 200, 30, Qt.AlignLeft | Qt.AlignTop, "LYRICS EDIT MODE")
-
-        # ----------------------------------------------------------
         # EDIT MODE BUTTONS (right edge)
         # ----------------------------------------------------------
         if self._edit_buttons_visible:

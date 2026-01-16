@@ -257,14 +257,24 @@ class MainWindow(QMainWindow):
 
     @Slot(object)
     def on_timeline_zoom_mode_changed(self, mode: ZoomMode) -> None:
-        """Handler para cuando el timeline cambia de modo (actualizar UI)."""
+        """Handler para cuando el timeline cambia de modo (actualizar UI y status bar)."""
         mode_str_map = {
             ZoomMode.GENERAL: "GENERAL",
             ZoomMode.PLAYBACK: "PLAYBACK",
             ZoomMode.EDIT: "EDIT"
         }
+        mode_display_names = {
+            ZoomMode.GENERAL: "Vista General",
+            ZoomMode.PLAYBACK: "Reproducción",
+            ZoomMode.EDIT: "Edición"
+        }
+
         if mode in mode_str_map:
             self.controls.set_zoom_mode(mode_str_map[mode])
+
+        # Update status bar with zoom mode
+        if mode in mode_display_names:
+            self.statusBar().showMessage(f"Modo de Zoom: {mode_display_names[mode]}", 3000)
 
     @Slot(bool)
     def _on_playback_state_changed(self, is_playing: bool) -> None:
