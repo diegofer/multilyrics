@@ -10,7 +10,7 @@ class StyleManager:
     - Neón solo como acento y estado activo
     - Transparencias para sensación de fusión con el fondo
     """
- 
+
     PALETTE = {
         # ==========================
         # BACKGROUND AZULES PROFUNDOS
@@ -40,7 +40,7 @@ class StyleManager:
         "neon_cyan": "rgb(0, 220, 255)",
         "neon_purple": "rgb(200, 0, 255)",
         "neon_red": "rgb(255, 60, 60)",
-        
+
         # Success/Error colors
         "success": "rgb(0, 230, 140)",
         "error": "rgb(255, 100, 100)",
@@ -68,8 +68,10 @@ class StyleManager:
         # ==========================
         # GRID
         # ==========================
-        "beat": "rgba(200, 200, 200, 0.20)",
-        "downbeat": "rgba(0, 255, 255, 0.55)",
+        "beat": "rgba(200, 200, 200, 0.60)",
+        "beat_light": "rgba(200, 200, 200, 0.05)",
+        "downbeat": "rgba(0, 255, 255, 0.95)",
+        "downbeat_light": "rgba(0, 255, 255, 0.25)",
 
         # ==========================
         # CAPAS
@@ -86,7 +88,7 @@ class StyleManager:
         "text_normal": "#D0D6E8",
         "text_dim": "#7A8298",
         "text_disabled": "rgba(255, 255, 255, 0.25)",
-        
+
         # UI elements
         "background": "rgb(14, 22, 48)",
         "surface": "rgb(20, 32, 74)",
@@ -177,7 +179,7 @@ class StyleManager:
         }}
 
         QFrame#frame_playlist, QFrame#frame_controls, QWidget#frame_mixer {{
-            
+
         }}
 
         QFrame#frame_timeline {{

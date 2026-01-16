@@ -42,10 +42,13 @@ class BeatTrack:
             h = max(2, ctx.height)
 
             # Pens match previous WaveformWidget styling
-            beat_pen = QPen(StyleManager.get_color("beat"), 2)  # cyan, semi-transparent
-            #beat_pen.setWidth(1)
-            down_pen = QPen(StyleManager.get_color("downbeat"), 1)  # yellow/orange, less opaque
-            #down_pen.setWidth(1)
+            # In GENERAL mode, use lighter colors for cleaner look
+            if ctx.zoom_mode == "GENERAL":
+                beat_pen = QPen(StyleManager.get_color("beat_light"), 1)
+                down_pen = QPen(StyleManager.get_color("downbeat_light"), 1)
+            else:
+                beat_pen = QPen(StyleManager.get_color("beat"), 1)
+                down_pen = QPen(StyleManager.get_color("downbeat"), 1)
 
             beats_samples = []
             downbeat_samples = []
