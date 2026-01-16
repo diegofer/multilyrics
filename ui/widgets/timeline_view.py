@@ -448,6 +448,9 @@ class TimelineView(QWidget):
             min_zoom, max_zoom = ZOOM_RANGES[mode]
             self.zoom_factor = np.clip(self.zoom_factor, min_zoom, max_zoom)
 
+            # Centrar en el playhead para no perderlo de vista
+            self.center_sample = int(np.clip(self.playhead_sample, 0, self.total_samples - 1))
+
         # Asegurar que el zoom sea válido para el ancho actual
         self.zoom_factor = self._clamp_zoom_for_width(self.zoom_factor, w)
         return self.zoom_factor

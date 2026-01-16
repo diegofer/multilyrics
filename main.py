@@ -140,6 +140,8 @@ class MainWindow(QMainWindow):
 
         self.playback.durationChanged.connect(self.controls.update_total_duration_label)
         self.playback.playingChanged.connect(self.controls.set_playing_state)
+        # Auto-switch zoom mode based on playback state
+        self.playback.playingChanged.connect(self._on_playback_state_changed)
         #self.sync.videoCorrectionNeeded.connect(self.video_player.apply_correction)
 
         # Waveform user seeks -> central request via PlaybackManager
@@ -213,10 +215,6 @@ class MainWindow(QMainWindow):
         # Update UI toggle
         self.controls.set_playing_state(True)
 
-        # Auto-switch to PLAYBACK zoom mode if enabled
-        if self.timeline_view.get_auto_zoom_enabled():
-            self.timeline_view.set_zoom_mode(ZoomMode.PLAYBACK, auto=True)
-
     @Slot()
     def on_pause_clicked(self) -> None:
         self.audio_player.pause()
@@ -227,7 +225,24 @@ class MainWindow(QMainWindow):
 
     @Slot()
     def on_edit_mode_toggled(self, enabled: bool) -> None:
+        """Handle edit mode toggle from controls.
+
+        When edit mode is enabled, switch to EDIT zoom mode.
+        When disabled, return to GENERAL mode.
+        """
         self.timeline_view.set_lyrics_edit_mode(enabled)
+
+        # Auto-switch zoom mode based on edit state
+        if enabled:
+            # Edit mode activated -> switch to EDIT zoom for precise work
+            self.timeline_view.set_zoom_mode(ZoomMode.EDIT, auto=True)
+        else:
+            # Edit mode deactivated -> return to GENERAL overview
+            # Unless currently playing, in which case stay in PLAYBACK
+            if self.audio_player and hasattr(self.audio_player, 'is_playing') and self.audio_player.is_playing():
+                self.timeline_view.set_zoom_mode(ZoomMode.PLAYBACK, auto=True)
+            else:
+                self.timeline_view.set_zoom_mode(ZoomMode.GENERAL, auto=True)
 
     @Slot(str)
     def on_zoom_mode_changed(self, mode: str) -> None:
@@ -250,6 +265,33 @@ class MainWindow(QMainWindow):
         }
         if mode in mode_str_map:
             self.controls.set_zoom_mode(mode_str_map[mode])
+
+    @Slot(bool)
+    def _on_playback_state_changed(self, is_playing: bool) -> None:
+        """Auto-switch zoom mode based on playback state.
+
+        Unified mode logic:
+        - Playing + auto-zoom enabled → PLAYBACK mode (optimal for reading)
+        - Stopped + not in edit mode → GENERAL mode (overview)
+        - Edit mode active → EDIT mode (takes precedence)
+        """
+        # Don't auto-switch if edit mode is active
+        if self.timeline_view._lyrics_edit_mode:
+            return
+
+        # Don't auto-switch if user manually changed zoom (respect user choice)
+        if self.timeline_view._user_zoom_override:
+            return
+
+        # Only auto-switch if enabled
+        if not self.timeline_view.get_auto_zoom_enabled():
+            return
+
+        if is_playing:
+            # Playing → switch to PLAYBACK mode for optimal reading
+            self.timeline_view.set_zoom_mode(ZoomMode.PLAYBACK, auto=True)
+        # Note: When paused, we keep the current zoom mode (don't auto-switch to GENERAL)
+        # This allows users to pause and remain in PLAYBACK or EDIT mode for better context
 
     @Slot()
     def extraction_process(self, video_path: str) -> None:
@@ -623,6 +665,12 @@ class MainWindow(QMainWindow):
 
         # Actualizar Video Player
         self.video_player.set_media(video_path)
+
+        # Reset edit mode state when changing songs
+        self.controls.set_edit_mode_enabled(True)  # Enable edit button for new song
+        # If edit mode was active, deactivate it
+        if self.controls.edit_toggle_btn.isChecked():
+            self.controls.edit_toggle_btn.setChecked(False)  # This triggers _on_edit_toggle
 
         # Activar boton de edit mode en controles
         self.controls.set_edit_mode_enabled(True)  # Cuando hay multitrack seleccionado
