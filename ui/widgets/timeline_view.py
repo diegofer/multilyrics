@@ -1084,15 +1084,7 @@ class TimelineView(QWidget):
 
             except Exception as e:
                 logger.debug(f"Could not load placeholder waveform: {e}")
-                # Fall through to draw text only
-
-        # Draw centered instructional text on top
-        painter.setPen(StyleManager.get_color('text_dim'))
-        painter.setFont(StyleManager.get_font(size=14))
-
-        rect = self.rect()
-        text = "No hay multi cargado\n\nPresiona [+] para agregar un multi"
-        painter.drawText(rect, Qt.AlignCenter, text)
+                # Silently fail - empty state will show just background
 
     # ==============================================================
     # EDIT MODE BUTTONS (Helper methods)
