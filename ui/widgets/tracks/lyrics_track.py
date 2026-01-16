@@ -93,21 +93,28 @@ class LyricsTrack:
             # Get the active line for highlighting
             active_line = lyrics_model.get_active_line(playhead_time_s)
 
-            # Draw ALL lyric lines that are in the visible time range
-            # Similar to how ChordTrack draws all chords in range
-            for line in lyrics_model.lines:
-                # Check if this line's time is in the visible range
-                if start_time_s <= line.time_s <= end_time_s:
-                    # Determine if this is the active line
-                    is_active = (active_line is not None and
-                                line.time_s == active_line.time_s and
-                                line.text == active_line.text)
+            # Detect zoom mode to adapt rendering strategy
+            zoom_mode = getattr(ctx, 'zoom_mode', 'PLAYBACK')
 
-                    self._draw_line(
-                        painter, line, ctx,
-                        start_time_s, time_range_s,
-                        is_active
-                    )
+            if zoom_mode == 'GENERAL':
+                # OVERVIEW MODE: Show only first visible line + indicator
+                self._paint_overview_mode(painter, ctx, lyrics_model,
+                                         start_time_s, end_time_s, time_range_s, track_y)
+            else:
+                # PLAYBACK/EDIT MODE: Show all lines in visible range
+                for line in lyrics_model.lines:
+                    # Check if this line's time is in the visible range
+                    if start_time_s <= line.time_s <= end_time_s:
+                        # Determine if this is the active line
+                        is_active = (active_line is not None and
+                                    line.time_s == active_line.time_s and
+                                    line.text == active_line.text)
+
+                        self._draw_line(
+                            painter, line, ctx,
+                            start_time_s, time_range_s,
+                            is_active
+                        )
 
         except Exception as e:
             # For debugging - log the error but don't crash
@@ -185,3 +192,96 @@ class LyricsTrack:
         # Draw the text directly on the track background
         painter.setPen(QPen(color))
         painter.drawText(text_x, text_y, text)
+
+    def _paint_overview_mode(
+        self,
+        painter: QPainter,
+        ctx: ViewContext,
+        lyrics_model,
+        start_time_s: float,
+        end_time_s: float,
+        time_range_s: float,
+        track_y: int
+    ) -> None:
+        """Paint simplified overview: first line + count indicator.
+
+        In GENERAL/OVERVIEW zoom mode, showing all lyrics creates clutter.
+        Instead, show only the first visible line and a count of remaining lines.
+        """
+        # Find first line in visible range
+        first_line = None
+        total_lines = len(lyrics_model.lines)
+        visible_count = 0
+
+        for line in lyrics_model.lines:
+            if start_time_s <= line.time_s <= end_time_s:
+                if first_line is None:
+                    first_line = line
+                visible_count += 1
+
+        if first_line is None:
+            # No lines in visible range - show generic indicator
+            self._draw_no_lyrics_indicator(painter, ctx, track_y, total_lines)
+            return
+
+        # Draw the first visible line
+        font = StyleManager.get_font(mono=False, size=10, bold=False)
+        color = self.inactive_color
+        painter.setFont(font)
+        painter.setPen(QPen(color))
+
+        # Calculate position for first line
+        rel_time = (first_line.time_s - start_time_s) / time_range_s
+        x_position = int(rel_time * ctx.width)
+
+        fm = painter.fontMetrics()
+        text_height = fm.height()
+        text_y = track_y + (self.track_height + text_height) // 2 - fm.descent()
+
+        # Draw truncated text if too long
+        max_text_width = ctx.width // 3  # Use max 1/3 of screen
+        text = first_line.text
+        text_width = fm.horizontalAdvance(text)
+
+        if text_width > max_text_width:
+            # Truncate with ellipsis
+            while text_width > max_text_width - 20 and len(text) > 3:
+                text = text[:-1]
+                text_width = fm.horizontalAdvance(text)
+            text = text + "..."
+
+        text_x = x_position + 5
+        painter.drawText(text_x, text_y, text)
+
+        # Draw indicator for remaining lines at the end of track
+        if visible_count > 1:
+            indicator_text = f"♪ +{visible_count - 1} more"
+            indicator_width = fm.horizontalAdvance(indicator_text)
+            indicator_x = ctx.width - indicator_width - 10
+            indicator_color = QColor(self.inactive_color)
+            indicator_color.setAlpha(150)  # Semi-transparent
+            painter.setPen(QPen(indicator_color))
+            painter.drawText(indicator_x, text_y, indicator_text)
+
+    def _draw_no_lyrics_indicator(
+        self,
+        painter: QPainter,
+        ctx: ViewContext,
+        track_y: int,
+        total_lines: int
+    ) -> None:
+        """Draw indicator when no lyrics are visible in current range."""
+        font = StyleManager.get_font(mono=False, size=10, bold=False)
+        painter.setFont(font)
+
+        indicator_color = QColor(self.inactive_color)
+        indicator_color.setAlpha(120)
+        painter.setPen(QPen(indicator_color))
+
+        fm = painter.fontMetrics()
+        text_height = fm.height()
+        text_y = track_y + (self.track_height + text_height) // 2 - fm.descent()
+
+        indicator_text = f"♪ {total_lines} lyrics lines"
+        text_x = 10
+        painter.drawText(text_x, text_y, indicator_text)

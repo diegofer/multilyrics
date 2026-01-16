@@ -21,6 +21,7 @@ class ViewContext:
     width: int
     height: int
     timeline_model: Optional[TimelineModel]
+    zoom_mode: Optional[str] = None  # 'GENERAL', 'PLAYBACK', or 'EDIT'
 
 
 class BeatTrack:

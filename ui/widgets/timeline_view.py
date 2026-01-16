@@ -869,7 +869,8 @@ class TimelineView(QWidget):
             sample_rate=self.sr,
             width=w,
             height=h,
-            timeline_model=self.timeline
+            timeline_model=self.timeline,
+            zoom_mode=self.current_zoom_mode.name  # Pass current zoom mode
         )
 
         # ----------------------------------------------------------
