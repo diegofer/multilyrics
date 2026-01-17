@@ -1,11 +1,12 @@
-import vlc
 import platform
-from PySide6.QtWidgets import QApplication, QWidget, QVBoxLayout
-from PySide6.QtCore import QTimer, Slot
+
+import vlc
+from PySide6.QtCore import Qt, QTimer, Slot
+from PySide6.QtWidgets import QApplication, QVBoxLayout, QWidget
 
 from core.constants import app_state
-from utils.logger import get_logger
 from utils.error_handler import safe_operation
+from utils.logger import get_logger
 
 logger = get_logger(__name__)
 
@@ -48,6 +49,8 @@ class VideoLyrics(QWidget):
 
         # Flag para saber si ya se inicializó la ventana en la pantalla correcta
         self._window_initialized = False
+        # Referencia a pantalla objetivo
+        self._target_screen = None
 
         # Timer para reportar posición periodicamente
         self.position_timer = QTimer()
@@ -106,38 +109,93 @@ class VideoLyrics(QWidget):
     def move_to_screen(self):
         """Mover ventana a pantalla secundaria y adjuntar VLC."""
         screens = QApplication.screens()
-        logger.debug(f"Pantallas detectadas: {len(screens)}")
+        logger.info(f"📺 Pantallas detectadas: {len(screens)}")
         for i, screen in enumerate(screens):
-            logger.debug(f"  [{i}] {screen.name()}")
+            dpi = screen.logicalDotsPerInch()
+            size = screen.geometry()
+            logger.info(f"  [{i}] {screen.name()} - Resolución: {size.width()}x{size.height()} @ {dpi} DPI")
 
         if self.screen_index >= len(screens):
-            logger.error("La pantalla secundaria no existe.")
+            logger.error(f"❌ Pantalla {self.screen_index} no existe (solo hay {len(screens)})")
             return
 
         target_screen = screens[self.screen_index]
+        self._target_screen = target_screen
         geo = target_screen.geometry()
-        logger.debug(f"Moviendo a: {geo}")
+        logger.info(f"✓ Moviendo ventana a pantalla {self.screen_index}: {geo.x()},{geo.y()} {geo.width()}x{geo.height()}")
+
+        # Asegurar que la ventana se mueve ANTES de adjuntar VLC
+        # Forzar ventana nativa para obtener handle
+        if self.windowHandle() is None:
+            self.setAttribute(Qt.WA_NativeWindow, True)
+        handle = self.windowHandle()
+        if handle is not None:
+            try:
+                handle.setScreen(target_screen)
+                logger.info(f"✓ Screen asignada vía windowHandle: {target_screen.name()}")
+            except Exception as e:
+                logger.warning(f"⚠ No se pudo asignar pantalla vía windowHandle: {e}")
+        else:
+            logger.warning("⚠ windowHandle() no disponible; continuando con setGeometry")
 
         self.setGeometry(geo)
-        self.showFullScreen()
+        self.show()  # Llamar show() antes de showFullScreen() para asegurar winId() válido
+        QTimer.singleShot(100, self._attach_vlc_to_window)
 
-        # Obtener window ID según el SO y adjuntar VLC
-        if self.system == "Windows":
-            hwnd = int(self.winId())
-            logger.debug(f"HWND obtenido: {hwnd}")
-            self.player.set_hwnd(hwnd)
-        elif self.system == "Linux":
-            xid = int(self.winId())
-            logger.debug(f"XWindow ID obtenido: {xid}")
-            self.player.set_xwindow(xid)
-        elif self.system == "Darwin":  # macOS
-            logger.warning("macOS detectado - usando configuración estándar de VLC")
-            try:
-                self.player.set_nsobject(self.winId())
-            except:
-                logger.warning("set_nsobject no disponible, usando configuración por defecto")
-        else:
-            logger.warning(f"SO desconocido: {self.system}, usando configuración por defecto")
+    def _attach_vlc_to_window(self):
+        """Adjuntar VLC a la ventana después de que está completamente inicializada."""
+        try:
+            # Reafirmar pantalla objetivo antes de adjuntar/entrar a fullscreen
+            handle = self.windowHandle()
+            if handle is not None and self._target_screen is not None:
+                try:
+                    handle.setScreen(self._target_screen)
+                    logger.info(f"✓ Screen reafirmada: {self._target_screen.name()}")
+                except Exception as e:
+                    logger.warning(f"⚠ No se pudo reafirmar pantalla: {e}")
+
+            if self.system == "Windows":
+                hwnd = int(self.winId())
+                logger.info(f"✓ HWND obtenido: {hwnd}")
+                self.player.set_hwnd(hwnd)
+
+            elif self.system == "Linux":
+                # En Linux, necesitamos asegurar que la ventana está mapeada
+                if not self.isVisible():
+                    logger.warning("⚠ Ventana no visible antes de set_xwindow()")
+                    self.show()
+
+                xid = int(self.winId())
+                if xid == 0:
+                    logger.error("❌ winId() retornó 0 - ventana no inicializada correctamente")
+                    return
+
+                logger.info(f"✓ XWindow ID obtenido: {xid}")
+                self.player.set_xwindow(xid)
+                logger.info("✓ VLC adjuntado correctamente a ventana X11")
+
+            elif self.system == "Darwin":  # macOS
+                logger.info("🍎 macOS detectado - intentando set_nsobject()")
+                try:
+                    self.player.set_nsobject(self.winId())
+                    logger.info("✓ VLC adjuntado a ventana macOS")
+                except Exception as e:
+                    logger.warning(f"⚠ set_nsobject falló: {e}, usando configuración por defecto")
+            else:
+                logger.warning(f"⚠ SO desconocido: {self.system}, VLC usará configuración por defecto")
+
+            # Finalmente, entrar a fullscreen (en pantalla objetivo)
+            handle = self.windowHandle()
+            if handle is not None and self._target_screen is not None:
+                try:
+                    handle.setScreen(self._target_screen)
+                except Exception:
+                    pass
+            self.showFullScreen()
+            logger.info("✓ Ventana en fullscreen")
+
+        except Exception as e:
+            logger.error(f"❌ Error al adjuntar VLC: {e}", exc_info=True)
 
     def start_playback(self):
         """Iniciar reproducción y sincronización."""

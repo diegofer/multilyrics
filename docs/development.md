@@ -89,3 +89,17 @@ pyside6-uic ui/main_window.ui -o ui/main_window.py
 - Adding new audio analysis features
 - Contributing guidelines
 - Release process
+
+## Linux Video Fix
+
+For details on the Linux second-screen video window and testing:
+
+- Fix overview: `docs/FIXES_VIDEO_LINUX.md`
+- Testing guide: `docs/TESTING_VIDEO_LINUX.md`
+- Helper script: `scripts/test_video_display.py`
+
+Quick run:
+
+```bash
+python3 scripts/test_video_display.py
+```

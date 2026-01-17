@@ -272,10 +272,18 @@ class ControlsWidget(QWidget):
 
         Double click hides the video window and changes icon to inactive state.
         """
-        if obj == self.show_video_btn and event.type() == QEvent.MouseButtonDblClick:
-            # Double click - hide video
-            self.show_video_btn.setChecked(False)
-            self.show_video_btn.setIcon(QIcon("assets/img/chromecast.svg"))
-            self.show_video_btn.setToolTip("click para proyectar video")
-            return True  # Event handled, don't propagate
+        if obj == self.show_video_btn:
+            if event.type() == QEvent.MouseButtonDblClick:
+                # Double click - hide video
+                self.show_video_btn.setChecked(False)
+                self.show_video_btn.setIcon(QIcon("assets/img/chromecast.svg"))
+                self.show_video_btn.setToolTip("click para proyectar video")
+                # Emit toggled signal so MainWindow knows to hide video
+                self.show_video_btn.toggled.emit(False)
+                return True  # Event handled, don't propagate
+
+            elif event.type() == QEvent.MouseButtonPress:
+                # Single click - already handled by toggled signal
+                pass
+
         return super().eventFilter(obj, event)
