@@ -151,6 +151,9 @@ class MainWindow(QMainWindow):
         self.controls.pause_clicked.connect(self.on_pause_clicked)
         self.controls.edit_mode_toggled.connect(self.on_edit_mode_toggled)
 
+        # Connect show_video_btn to control video window visibility
+        self.controls.show_video_btn.toggled.connect(self._on_show_video_toggled)
+
         # Connect zoom mode controls
         self.controls.zoom_mode_changed.connect(self.on_zoom_mode_changed)
         self.timeline_view.zoom_mode_changed.connect(self.on_timeline_zoom_mode_changed)
@@ -275,6 +278,20 @@ class MainWindow(QMainWindow):
         # Update status bar with zoom mode
         if mode in mode_display_names:
             self.statusBar().showMessage(f"Modo de Zoom: {mode_display_names[mode]}", 3000)
+
+    @Slot(bool)
+    def _on_show_video_toggled(self, checked: bool):
+        """Show or hide video window based on button state.
+
+        Single click shows, double click hides.
+        VLC player remains attached to window handle throughout.
+        """
+        if checked:
+            logger.debug("Mostrando ventana de video")
+            self.video_player.show_window()
+        else:
+            logger.debug("Ocultando ventana de video")
+            self.video_player.hide_window()
 
     @Slot(bool)
     def _on_playback_state_changed(self, is_playing: bool) -> None:
