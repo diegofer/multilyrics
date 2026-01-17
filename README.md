@@ -54,64 +54,98 @@ This project uses several open-source libraries. See [CREDITS.md](CREDITS.md) fo
 
 ---
 
-## 🚀 Installation
+## 🚀 Quick Start
 
-### Ubuntu (20.04+)
+### Prerequisites
 
-## Requisitos del sistema
+- **Python:** 3.11+ (recommended)
+- **FFmpeg:** System-wide installation required
+- **Operating System:** Windows 10/11, Ubuntu 20.04+, macOS 10.13+
 
-- Sistema: Ubuntu 20.04 o superior
-- Python: 3.11 recomendado
-- Paquetes del sistema necesarios:
-
-Instala dependencias del sistema necesarias (FFmpeg, PortAudio, libsndfile, compiladores):
+### Basic Installation
 
 ```bash
-sudo apt update
-sudo apt install -y python3 python3-venv python3-pip ffmpeg libsndfile1 libportaudio2 build-essential
-```
+# Clone repository
+git clone <repository-url>
+cd multilyrics
 
-Si usas alguna librería que compile extensiones (por ejemplo `sounddevice`, `soundfile`), puede ser necesario el paquete de desarrollo de PortAudio:
-
-```bash
-sudo apt install -y portaudio19-dev
-```
-
-## Uso del virtualenv incluido (opcional)
-
-El repositorio puede venir con un entorno virtual dentro de la carpeta `env/`. Para usarlo:
-
-```bash
-# Desde la raíz del proyecto
-source env/bin/activate
-pip install --upgrade pip
-pip install -r requirements.txt
-```
-
-## Crear un nuevo virtualenv (recomendado)
-
-Si prefieres crear uno nuevo:
-
-```bash
+# Create virtual environment
 python3 -m venv venv
-source venv/bin/activate
-pip install --upgrade pip
+source venv/bin/activate  # On Windows: venv\Scripts\activate
+
+# Install dependencies
 pip install -r requirements.txt
-```
 
-## Ejecutar la aplicación
-
-Con el virtualenv activado, ejecuta:
-
-```bash
+# Run application
 python main.py
 ```
 
-## Solución de problemas comunes
+### Platform-Specific Setup
 
-- Error relacionado con PortAudio o `sounddevice`: instala `portaudio19-dev` (ver arriba) y vuelve a instalar las dependencias del entorno.
-- Error relacionado con `libsndfile`: confirma `libsndfile1` instalado.
-- Si faltan paquetes en `requirements.txt`, instálalos con `pip install <paquete>` y considera actualizar `requirements.txt` con `pip freeze > requirements.txt` dentro del entorno.
+Different platforms require additional configuration for optimal performance:
+
+#### 🐧 Linux
+
+**Audio optimization (Ubuntu 22.04+):**
+```bash
+# Install PipeWire for better latency
+chmod +x scripts/setup_pipewire_ubuntu.sh
+./scripts/setup_pipewire_ubuntu.sh
+# Restart system after installation
+```
+
+**System dependencies:**
+```bash
+sudo apt update
+sudo apt install -y python3 python3-venv python3-pip \
+    ffmpeg libsndfile1 libportaudio2 portaudio19-dev build-essential
+```
+
+📖 **Full guide:** [`docs/SETUP_AUDIO_LINUX.md`](docs/SETUP_AUDIO_LINUX.md)
+
+#### 🪟 Windows
+
+- **Audio Backend:** WASAPI (auto-detected, no configuration needed)
+- **FFmpeg:** Download from [ffmpeg.org](https://ffmpeg.org/) and add to PATH
+
+📖 **Full guide:** `docs/SETUP_AUDIO_WINDOWS.md` *(coming soon)*
+
+#### 🍎 macOS
+
+- **Audio Backend:** CoreAudio (auto-detected, no configuration needed)
+- **FFmpeg:** Install via Homebrew: `brew install ffmpeg`
+
+📖 **Full guide:** `docs/SETUP_AUDIO_MACOS.md` *(coming soon)*
+
+---
+
+## 📚 Documentation
+
+- **[Development Guide](docs/development.md)** - Setup, testing, and contribution workflow
+- **[Architecture](docs/architecture.md)** - Technical design and patterns
+- **[Audio Setup (Linux)](docs/SETUP_AUDIO_LINUX.md)** - PipeWire/PulseAudio configuration
+- **[Video Fixes (Linux)](docs/FIXES_VIDEO_LINUX.md)** - Second-screen troubleshooting
+- **[Copilot Instructions](.github/copilot-instructions.md)** - AI development guidelines
+
+---
+
+## 🛠️ Troubleshooting
+
+### Common Issues
+
+**Linux: No audio output**
+→ Check `pactl info | grep "Server Name"` - may need PipeWire setup
+
+**Linux: Video window on wrong screen**
+→ See [`docs/FIXES_VIDEO_LINUX.md`](docs/FIXES_VIDEO_LINUX.md)
+
+**All platforms: Audio glitches on old hardware**
+→ Increase buffer size in `core/constants.py` → `AUDIO_BLOCKSIZE = 2048`
+
+**Missing dependencies**
+→ Reinstall: `pip install -r requirements.txt --force-reinstall`
+
+For detailed troubleshooting, see platform-specific guides in `docs/`.
 
 ---
 

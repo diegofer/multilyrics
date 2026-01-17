@@ -82,6 +82,56 @@ pyside6-uic ui/main_window.ui -o ui/main_window.py
 - Time: seconds (float)
 - UI: pixels (int)
 
+## Platform-Specific Setup
+
+MultiLyrics supports Windows, Linux, and macOS with optimized configurations for each platform.
+
+### Linux Audio Configuration
+
+**PipeWire Setup (Ubuntu 22.04+):**
+```bash
+chmod +x scripts/setup_pipewire_ubuntu.sh
+./scripts/setup_pipewire_ubuntu.sh
+# Restart system after installation
+```
+
+**Verification:**
+```bash
+pactl info | grep "Server Name"
+# Expected: PulseAudio (built on PipeWire)
+```
+
+**Full documentation:** [`SETUP_AUDIO_LINUX.md`](SETUP_AUDIO_LINUX.md)
+
+### Linux Video Configuration
+
+**Second-screen video window fix:**
+- Fix overview: [`FIXES_VIDEO_LINUX.md`](FIXES_VIDEO_LINUX.md)
+- Testing guide: [`TESTING_VIDEO_LINUX.md`](TESTING_VIDEO_LINUX.md)
+
+**Quick test:**
+```bash
+python3 scripts/test_video_display.py
+```
+
+### Windows Audio Configuration
+
+*(Documentation coming soon: `SETUP_AUDIO_WINDOWS.md`)*
+
+- **Audio Backend:** WASAPI (auto-detected)
+- **Buffer Size:** 512 samples (default)
+- **Latency:** Low (~10ms)
+
+### macOS Audio Configuration
+
+*(Documentation coming soon: `SETUP_AUDIO_MACOS.md`)*
+
+- **Audio Backend:** CoreAudio (auto-detected)
+- **Buffer Size:** 512 samples (default)
+- **Latency:** Low (~10ms)
+
+---
+
 ## Future Sections
 
 - Debugging tips
@@ -89,17 +139,3 @@ pyside6-uic ui/main_window.ui -o ui/main_window.py
 - Adding new audio analysis features
 - Contributing guidelines
 - Release process
-
-## Linux Video Fix
-
-For details on the Linux second-screen video window and testing:
-
-- Fix overview: `docs/FIXES_VIDEO_LINUX.md`
-- Testing guide: `docs/TESTING_VIDEO_LINUX.md`
-- Helper script: `scripts/test_video_display.py`
-
-Quick run:
-
-```bash
-python3 scripts/test_video_display.py
-```
