@@ -36,19 +36,33 @@ Notes:
 - By default playback is stereo: mono tracks are duplicated to both channels; stereo tracks are used as-is.
 """
 import threading
-import numpy as np
-import soundfile as sf
-import sounddevice as sd
 import time
 from typing import List, Optional, Union
+
+import numpy as np
+import sounddevice as sd
+import soundfile as sf
+
 from utils.logger import get_logger
 
 logger = get_logger(__name__)
 
 class MultiTrackPlayer:
-    def __init__(self, samplerate: int = 44100, blocksize: int = 1024, dtype: str = 'float32'):
+    def __init__(self, samplerate: int = 44100, blocksize: int = 2048, dtype: str = 'float32'):
+        """
+        Initialize MultiTrack Audio Player.
+
+        Args:
+            samplerate: Sample rate (44100 or 48000)
+            blocksize: Buffer size in samples. HARDWARE-DEPENDENT:
+                       - 512: Low latency (~10ms @ 48kHz) - Modern CPUs only
+                       - 1024: Balanced (~21ms @ 48kHz) - Good for most systems
+                       - 2048: High stability (~43ms @ 48kHz) - Legacy hardware (2008-2012)
+                       - 4096: Very stable (~85ms @ 48kHz) - Very old CPUs
+            dtype: Audio data type (always 'float32')
+        """
         self.samplerate = samplerate
-        self.blocksize = blocksize
+        self.blocksize = blocksize  # Default 2048 for stability on legacy hardware
         self.dtype = dtype
 
         # Data structures
@@ -227,12 +241,25 @@ class MultiTrackPlayer:
 
             # Create and start stream if not already
             if self._stream is None:
-                self._stream = sd.OutputStream(samplerate=self.samplerate,
-                                               blocksize=self.blocksize,
-                                               channels=self._n_output_channels,
-                                               dtype=self.dtype,
-                                               callback=self._callback,
-                                               finished_callback=self._on_stream_finished)
+                # ═══════════════════════════════════════════════════════════════
+                # AUDIO STREAM CONFIGURATION - OPTIMIZED FOR LEGACY HARDWARE
+                # ═══════════════════════════════════════════════════════════════
+                # latency='high': Solicita al driver ALSA mayor buffer interno
+                #                 Crítico para CPUs antiguas (Sandy Bridge, Core 2 Duo)
+                # prime_output_buffers: Pre-llena buffers antes de iniciar stream
+                #                       Evita underruns en el primer frame
+                # ═══════════════════════════════════════════════════════════════
+                self._stream = sd.OutputStream(
+                    samplerate=self.samplerate,
+                    blocksize=self.blocksize,
+                    channels=self._n_output_channels,
+                    dtype=self.dtype,
+                    callback=self._callback,
+                    finished_callback=self._on_stream_finished,
+                    latency='high',  # ← CRÍTICO para hardware antiguo
+                    prime_output_buffers_using_stream_callback=True  # ← Pre-llenar buffers
+                )
+                logger.info(f"🔊 Audio stream initialized: {self.samplerate}Hz, blocksize={self.blocksize}, latency=high")
                 self._stream.start()
             else:
                 if not self._stream.active:
@@ -387,6 +414,8 @@ if __name__ == "__main__":
         logger.info("\nStopping...")
         player.stop()
     player.close()
+
+# End of module
 
 # End of module
 

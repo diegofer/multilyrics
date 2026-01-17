@@ -121,6 +121,14 @@ class MainWindow(QMainWindow):
         # Asignar SyncController a VideoLyrics para que reporte posición
         self.video_player.sync_controller = self.sync
 
+        # ===========================================================================
+        # LEGACY HARDWARE OPTIMIZATION: Initialize UI state
+        # ===========================================================================
+        # Sincronizar estado del toggle de video con detección automática
+        # Si hardware antiguo deshabilitó video, actualizar UI
+        # ===========================================================================
+        self.controls.set_video_enabled_state(self.video_player.is_video_enabled())
+
         # Asignar players al PlaybackManager para control centralizado
         self.playback.set_audio_player(self.audio_player)
         self.playback.set_video_player(self.video_player)
@@ -153,6 +161,14 @@ class MainWindow(QMainWindow):
 
         # Connect show_video_btn to control video window visibility
         self.controls.show_video_btn.toggled.connect(self._on_show_video_toggled)
+
+        # ===========================================================================
+        # LEGACY HARDWARE OPTIMIZATION: Video enable/disable control
+        # ===========================================================================
+        # Conectar toggle de video para permitir habilitar/deshabilitar manualmente
+        # Útil cuando hardware antiguo tiene video deshabilitado por defecto
+        # ===========================================================================
+        self.controls.video_enabled_changed.connect(self._on_video_enabled_changed)
 
         # Connect zoom mode controls
         self.controls.zoom_mode_changed.connect(self.on_zoom_mode_changed)
@@ -292,6 +308,20 @@ class MainWindow(QMainWindow):
         else:
             logger.debug("Ocultando ventana de video")
             self.video_player.hide_window()
+
+    @Slot(bool)
+    def _on_video_enabled_changed(self, enabled: bool):
+        """Handle video enable/disable toggle from UI.
+
+        Args:
+            enabled: True to enable video playback, False to disable
+        """
+        logger.info(f"Usuario {'habilitó' if enabled else 'deshabilitó'} video manualmente")
+        self.video_player.enable_video(enabled)
+
+        # Si se deshabilitó video durante reproducción, detenerlo
+        if not enabled and self.video_player.player.is_playing():
+            self.video_player.stop()
 
     @Slot(bool)
     def _on_playback_state_changed(self, is_playing: bool) -> None:

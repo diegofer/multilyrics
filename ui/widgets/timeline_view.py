@@ -46,7 +46,16 @@ logger = get_logger(__name__)
 # Performance & zoom/downsampling settings
 MIN_SAMPLES_PER_PIXEL = 10   # Do not allow fewer than 10 samples per pixel (visual limit)
 MAX_ZOOM_LEVEL = 500.0      # Max zoom factor multiplier
-GLOBAL_DOWNSAMPLE_FACTOR = 1024  # For global view, aggregate at least this many samples per visual bucket
+
+# ===========================================================================
+# HARDWARE OPTIMIZATION PROFILES
+# ===========================================================================
+# GLOBAL_DOWNSAMPLE_FACTOR: Agregación de samples en vista GENERAL
+# - 1024: Hardware moderno (2015+) - Suave y detallado
+# - 2048: Hardware medio (2012-2015) - Balance performance/calidad
+# - 4096: Hardware antiguo (2008-2012) - Máxima estabilidad en CPU legacy
+# ===========================================================================
+GLOBAL_DOWNSAMPLE_FACTOR = 4096  # Configurado para i5-2410M (Sandy Bridge)
 
 class ZoomMode(Enum):
     """Tres modos de zoom predefinidos con diferentes comportamientos"""
@@ -940,6 +949,27 @@ class TimelineView(QWidget):
     # PAINT EVENT (waveform + playhead)
     # ==============================================================
     def paintEvent(self, event):
+        # ===========================================================================
+        # LEGACY HARDWARE OPTIMIZATION: Paint Throttling
+        # ===========================================================================
+        # Limita redraws a max 30 FPS (~33ms/frame) en lugar de 60 FPS
+        # Reduce carga de CPU en hardware antiguo (Sandy Bridge, Core 2 Duo)
+        # Hardware moderno: Puede aumentarse a 60 FPS (0.016 threshold)
+        # ===========================================================================
+        import time
+        if not hasattr(self, '_last_paint_time'):
+            self._last_paint_time = 0.0
+
+        current_time = time.time()
+        elapsed = current_time - self._last_paint_time
+
+        # Si no ha pasado suficiente tiempo, retornar sin repintar
+        if elapsed < 0.033:  # 30 FPS max (1/30 = 0.033s)
+            return
+
+        self._last_paint_time = current_time
+        # ===========================================================================
+
         painter = QPainter(self)
         painter.fillRect(self.rect(), StyleManager.get_color("bg_panel"))
 
@@ -994,8 +1024,14 @@ class TimelineView(QWidget):
         # Determinar downsample_factor para optimización en modo GENERAL
         downsample_factor = None
         if self.current_zoom_mode == ZoomMode.GENERAL:
-            # En modo GENERAL, usar downsample para mejor performance
-            downsample_factor = GLOBAL_DOWNSAMPLE_FACTOR
+            # ===========================================================================
+            # LEGACY HARDWARE OPTIMIZATION: Aggressive Downsampling
+            # ===========================================================================
+            # En modo GENERAL, forzar downsample mínimo de 4096 samples por bucket
+            # Reduce drásticamente el número de operaciones de dibujado
+            # Hardware moderno: Puede usar valores menores (1024-2048)
+            # ===========================================================================
+            downsample_factor = max(GLOBAL_DOWNSAMPLE_FACTOR, 4096)  # Mínimo 4096 para legacy
 
         # 1. Waveform (base layer)
         with safe_operation("Painting waveform track", silent=True):
