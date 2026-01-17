@@ -13,6 +13,26 @@
 - 🎥 **Video Lyrics**: Optional video playback synchronized with audio
 - 🎚️ **Professional Mixer**: Per-track mute/solo, logarithmic volume curves, master gain with headroom
 - 🔄 **Live Worship Optimized**: Tracks start at 90% (-6 dB) for easy bass/drums boost during service
+- 🎵 **Flexible Audio Formats**: Full support for WAV and OGG Vorbis stems (10:1 compression without quality loss)
+
+## 🎵 Supported Audio Formats
+
+Multi Lyrics supports multiple audio formats for maximum flexibility:
+
+### Stems (Individual Tracks)
+- **WAV** (Recommended for master/timeline): Uncompressed, best for waveform rendering
+- **OGG Vorbis**: Compressed format with ~10:1 ratio, ideal for saving disk space
+  - Example: 50MB WAV stem → 5-8MB OGG (quality 5)
+  - Fully supported for playback, solo/mute, and mixing
+  - No quality loss perceptible in worship context
+
+### Master Track
+- **WAV only**: Required for timeline waveform visualization performance
+
+### Video
+- **MP4** with H.264/AAC: Synchronized video lyrics playback
+
+**Mix and match formats freely** - your multi can have `bass.ogg`, `drums.wav`, `vox.ogg` all in the same session.
 
 ## 📜 License
 
