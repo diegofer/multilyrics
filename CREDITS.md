@@ -91,6 +91,16 @@ All fonts included in `assets/fonts/` are either:
 - Public Domain
 - Distributed with proper attribution in their respective directories
 
+## Icons
+
+### Iconoir
+- **License**: MIT
+- **Repository**: https://github.com/iconoir-icons/iconoir
+- **Website**: https://iconoir.com/
+- **Usage**: SVG icons throughout the application UI
+- **Copyright**: Iconoir contributors
+- **Note**: Icons are used under the MIT License which permits commercial and non-commercial use
+
 ## GPL Compliance
 
 Multi Lyrics respects all GPL and LGPL requirements:

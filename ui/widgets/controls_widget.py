@@ -1,11 +1,11 @@
 from PySide6.QtWidgets import QWidget, QHBoxLayout, QVBoxLayout, QFrame, QLabel,QPushButton, QMenu, QButtonGroup, QSizePolicy
-from PySide6.QtCore import Qt, QSize, Signal, Slot, QPoint
+from PySide6.QtCore import Qt, QSize, Signal, Slot, QPoint, QEvent
 from PySide6.QtGui import QIcon
 from utils.helpers import clamp_menu_to_window, format_time
 
 class ControlsWidget(QWidget):
 
-    play_clicked = Signal() 
+    play_clicked = Signal()
     pause_clicked = Signal()
     action_1_clicked = Signal()
     edit_mode_toggled = Signal(bool)  # Signal for edit mode state
@@ -47,7 +47,7 @@ class ControlsWidget(QWidget):
         self.frame_5 = QFrame(self)
         self.frame_5.setLayout(QHBoxLayout())
         self.frame_5.setObjectName(u"controls_frame_5")
-        
+
         self.frame_6 = QFrame(self)
         self.frame_6.setLayout(QHBoxLayout())
         self.frame_6.setObjectName(u"controls_frame_6")
@@ -58,8 +58,13 @@ class ControlsWidget(QWidget):
         self.frame_7.setObjectName(u"controls_frame_7")
         self.frame_7.layout().setContentsMargins(0, 0, 0, 0)
 
+        self.frame_8 = QFrame(self)
+        self.frame_8.setLayout(QHBoxLayout())
+        self.frame_8.setObjectName(u"controls_frame_8")
+        self.frame_8.layout().setContentsMargins(0, 0, 0, 0)
+
         # Etiqueta para mostrar el tiempo transcurrido y duración total
-        self.total_duration_label = QLabel("00:00") 
+        self.total_duration_label = QLabel("00:00")
         self.total_duration_label.setObjectName("label_time")
         self.current_time_label = QLabel("00:00")
         self.current_time_label.setObjectName("label_time")
@@ -76,7 +81,7 @@ class ControlsWidget(QWidget):
         self.play_toggle_btn.setSizePolicy(QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Expanding)
         self.play_toggle_btn.toggled.connect(self._on_play_toggle)
 
-        
+
         # Toggle button for editing mode
         self.edit_toggle_btn = QPushButton("Editar")
         self.edit_toggle_btn.setObjectName("edit_mode")
@@ -85,50 +90,22 @@ class ControlsWidget(QWidget):
         self.edit_toggle_btn.setEnabled(False)  # Disabled by default
         self.edit_toggle_btn.toggled.connect(self._on_edit_toggle)
         self.edit_toggle_btn.setSizePolicy(QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Expanding)
-        
-        # Botones para cambiar modo de zoom
-        #self.zoom_general_btn = QPushButton("Z1")
-        #self.zoom_general_btn.setCheckable(True)
-        #self.zoom_general_btn.setChecked(True)  # Modo por defecto
-        #self.zoom_general_btn.setFixedSize(100, 40)
-        #self.zoom_general_btn.setToolTip("Modo General: Ver toda la forma de onda")
-        
-        #self.zoom_playback_btn = QPushButton("Z2")
-        #self.zoom_playback_btn.setCheckable(True)
-        #self.zoom_playback_btn.setFixedSize(100, 40)
-        #self.zoom_playback_btn.setToolTip("Modo Reproducción: Zoom adaptado para ver letras")
-        
-        #self.zoom_edit_btn = QPushButton("Z3")
-        #self.zoom_edit_btn.setCheckable(True)
-        #self.zoom_edit_btn.setFixedSize(100, 40)
-        #self.zoom_edit_btn.setToolTip("Modo Edición: Zoom libre para edición precisa")
-        
-        # Agrupar botones de zoom para que sean mutuamente exclusivos
-        #self.zoom_button_group = QButtonGroup(self)
-        #self.zoom_button_group.addButton(self.zoom_general_btn, 0)
-        #self.zoom_button_group.addButton(self.zoom_playback_btn, 1)
-        #self.zoom_button_group.addButton(self.zoom_edit_btn, 2)
-        #self.zoom_button_group.setExclusive(True)
-        
-        # Conectar señales
-        #self.zoom_general_btn.clicked.connect(lambda: self._on_zoom_mode_changed("GENERAL"))
-        #self.zoom_playback_btn.clicked.connect(lambda: self._on_zoom_mode_changed("PLAYBACK"))
-        #self.zoom_edit_btn.clicked.connect(lambda: self._on_zoom_mode_changed("EDIT"))
 
         # button for settings menu
-        self.menu_btn = QPushButton()
-        self.menu_btn.setIcon(QIcon("assets/img/settings.svg"))
-        self.menu_btn.setIconSize(QSize(50, 50))
-        self.menu_btn.setSizePolicy(QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Expanding)
+        self.settings_btn = QPushButton()
+        self.settings_btn.setIcon(QIcon("assets/img/settings.svg"))
+        self.settings_btn.setIconSize(QSize(50, 50))
+        self.settings_btn.setSizePolicy(QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Expanding)
 
-        self.menu = QMenu()
-        action_1 = self.menu.addAction("Crear")
-        accion2 = self.menu.addAction("Opción 2")
-        accion3 = self.menu.addAction("Opción 3")
-
-        action_1.triggered.connect(self._emit_action_1)
-
-        self.menu_btn.clicked.connect(self.show_settings_menu)
+        # BUTTON qpushbutton para mostrar la ventana de video u ocultarla al dar doble click
+        self.show_video_btn = QPushButton()
+        self.show_video_btn.setIcon(QIcon("assets/img/chromecast.svg"))
+        self.show_video_btn.setIconSize(QSize(40, 40))
+        self.show_video_btn.setCheckable(True)
+        self.show_video_btn.setSizePolicy(QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Expanding)
+        self.show_video_btn.clicked.connect(self._on_show_video_clicked)
+        # Install event filter to capture double clicks
+        self.show_video_btn.installEventFilter(self)
 
         # agregar botones a frames
         self.frame_1.layout().addWidget(self.total_duration_label)
@@ -136,12 +113,9 @@ class ControlsWidget(QWidget):
         self.frame_2.layout().addWidget(self.tempo_compass_label)
         self.frame_4.layout().addWidget(self.play_toggle_btn)
         self.frame_6.layout().addWidget(self.edit_toggle_btn)
-        self.frame_7.layout().addWidget(self.menu_btn)
-        
-        # Agregar botones de zoom a su frame
-        #self.frame_zoom.layout().addWidget(self.zoom_general_btn)
-        #self.frame_zoom.layout().addWidget(self.zoom_playback_btn)
-        #self.frame_zoom.layout().addWidget(self.zoom_edit_btn)
+        self.frame_7.layout().addWidget(self.settings_btn)
+        self.frame_8.layout().addWidget(self.show_video_btn)
+
 
         self.main_layout.addWidget(self.frame_1)
         self.main_layout.addWidget(self.frame_2)
@@ -151,7 +125,7 @@ class ControlsWidget(QWidget):
         #self.main_layout.addWidget(self.frame_zoom)
         self.main_layout.addWidget(self.frame_6)
         self.main_layout.addWidget(self.frame_7)
-
+        self.main_layout.addWidget(self.frame_8)
         self.main_layout.setStretch(0, 1)
         self.main_layout.setStretch(1, 1)
         self.main_layout.setStretch(2, 2)
@@ -159,6 +133,7 @@ class ControlsWidget(QWidget):
         self.main_layout.setStretch(4, 2)
         self.main_layout.setStretch(5, 1)
         self.main_layout.setStretch(6, 1)
+        self.main_layout.setStretch(7, 1)
 
     def _emit_play(self):
         self.play_clicked.emit()
@@ -182,7 +157,7 @@ class ControlsWidget(QWidget):
 
     def _on_edit_toggle(self, checked: bool):
         """Handler for edit mode toggle.
-        
+
         When checked -> activate edit mode, when unchecked -> deactivate.
         """
         self.edit_toggle_btn.setProperty("editing", checked)
@@ -194,9 +169,17 @@ class ControlsWidget(QWidget):
         if checked:
             self.edit_toggle_btn.setText("Hecho")
         else:
-            self.edit_toggle_btn.setText("Editar") 
+            self.edit_toggle_btn.setText("Editar")
 
         self.edit_mode_toggled.emit(checked)
+
+    def _on_show_video_clicked(self):
+        """Handler for show video button click (single click only).
+
+        Single click always shows the video window.
+        """
+        self.show_video_btn.setChecked(True)
+        self.show_video_btn.setIcon(QIcon("assets/img/chromecast-active.svg"))
 
     def set_playing_state(self, playing: bool):
         """Externally set the playing state: update toggle and icon."""
@@ -208,7 +191,7 @@ class ControlsWidget(QWidget):
 
     def set_edit_mode_enabled(self, enabled: bool):
         """Enable or disable the edit mode button.
-        
+
         Call this when a multitrack song is selected/deselected.
         """
         self.edit_toggle_btn.setEnabled(enabled)
@@ -233,7 +216,7 @@ class ControlsWidget(QWidget):
 
     def show_settings_menu(self):
         # Sacamos la esquina superior derecha del botón
-        global_top_right = self.menu_btn.mapToGlobal(self.menu_btn.rect().topRight())
+        global_top_right = self.settings_button.mapToGlobal(self.settings_button.rect().topRight())
         menu_size = self.menu.sizeHint()
 
         # Queremos mostrarlo ARRIBA y pegado a la derecha
@@ -246,14 +229,14 @@ class ControlsWidget(QWidget):
         final_pos = clamp_menu_to_window(self.menu, desired_pos, self.window())
 
         self.menu.popup(final_pos)
-    
+
     def _on_zoom_mode_changed(self, mode: str):
         """Handler para cambios de modo de zoom."""
         self.zoom_mode_changed.emit(mode)
-    
+
     def set_zoom_mode(self, mode: str):
         """Actualiza visualmente el botón de zoom activo.
-        
+
         Args:
             mode: "GENERAL", "PLAYBACK", o "EDIT"
         """
@@ -265,4 +248,16 @@ class ControlsWidget(QWidget):
             pass
         elif mode == "EDIT":
             #self.zoom_edit_btn.setChecked(True)
-            pass 
+            pass
+
+    def eventFilter(self, obj, event):
+        """Event filter to handle double click on show_video_btn.
+
+        Double click hides the video window and changes icon to inactive state.
+        """
+        if obj == self.show_video_btn and event.type() == QEvent.MouseButtonDblClick:
+            # Double click - hide video
+            self.show_video_btn.setChecked(False)
+            self.show_video_btn.setIcon(QIcon("assets/img/chromecast.svg"))
+            return True  # Event handled, don't propagate
+        return super().eventFilter(obj, event)
