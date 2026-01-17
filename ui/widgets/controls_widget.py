@@ -103,6 +103,7 @@ class ControlsWidget(QWidget):
         self.show_video_btn.setIconSize(QSize(40, 40))
         self.show_video_btn.setCheckable(True)
         self.show_video_btn.setSizePolicy(QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Expanding)
+        self.show_video_btn.setToolTip("click para proyectar video")
         self.show_video_btn.clicked.connect(self._on_show_video_clicked)
         # Install event filter to capture double clicks
         self.show_video_btn.installEventFilter(self)
@@ -180,6 +181,7 @@ class ControlsWidget(QWidget):
         """
         self.show_video_btn.setChecked(True)
         self.show_video_btn.setIcon(QIcon("assets/img/chromecast-active.svg"))
+        self.show_video_btn.setToolTip("doble click para cerrar video")
 
     def set_playing_state(self, playing: bool):
         """Externally set the playing state: update toggle and icon."""
@@ -259,5 +261,6 @@ class ControlsWidget(QWidget):
             # Double click - hide video
             self.show_video_btn.setChecked(False)
             self.show_video_btn.setIcon(QIcon("assets/img/chromecast.svg"))
+            self.show_video_btn.setToolTip("click para proyectar video")
             return True  # Event handled, don't propagate
         return super().eventFilter(obj, event)
