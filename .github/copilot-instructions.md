@@ -113,6 +113,71 @@ for stem_path in song_dir / "tracks":
 - Lock playback button until 100% loaded
 - Display "Loading: 45%" during pre-load phase
 
+### Garbage Collection Management (GC)
+
+**Critical Rule**: Python's garbage collector can cause unpredictable pauses (10-100ms) that introduce audio glitches on legacy hardware.
+
+**Implementation Pattern:**
+```python
+# In AudioEngine.__init__()
+self.gc_policy = 'disable_during_playback'  # Recommended for legacy hardware
+self._gc_was_enabled = gc.isenabled()
+
+# Disable GC before starting playback
+def play(self):
+    if self.gc_policy == 'disable_during_playback' and gc.isenabled():
+        self._gc_was_enabled = True
+        gc.disable()
+    # ... start playback
+
+# Restore GC after stopping/pausing
+def stop(self):
+    # ... stop playback
+    if self.gc_policy == 'disable_during_playback' and self._gc_was_enabled:
+        gc.enable()
+```
+
+**When to Use:**
+- **Legacy hardware (2008-2012)**: Always disable GC during playback (`gc_policy='disable_during_playback'`)
+- **Modern hardware (2015+)**: Can keep GC enabled (`gc_policy='normal'`) if CPU has headroom
+- **Audio profiles**: Different profiles can set different GC policies based on detected hardware
+
+**Why This Works:**
+1. Playback sessions are short (3-5 minutes) - no memory leak risk
+2. All audio data pre-loaded before playback starts
+3. Callback does no allocation (only reads pre-loaded arrays)
+4. GC restored during pauses and after stop (safe to collect then)
+
+### Sample Rate Handling
+
+**Critical Rule**: All tracks in a multi must have the same sample rate. No live resampling in audio callback (too CPU-intensive for legacy hardware).
+
+**Auto-Detection Pattern:**
+```python
+# In AudioEngine.__init__()
+self.samplerate = None  # Auto-detect from first track
+
+# In load_tracks()
+first_data, first_sr = sf.read(paths[0], dtype='float32', always_2d=True)
+
+if self.samplerate is None:
+    self.samplerate = first_sr  # Auto-detect
+    logger.info(f"🎵 Auto-detected sample rate: {self.samplerate} Hz")
+elif first_sr != self.samplerate:
+    raise ValueError(f"Sample rate mismatch: expected {self.samplerate} Hz, got {first_sr} Hz")
+
+# Validate all remaining tracks
+for p in paths[1:]:
+    data, sr = sf.read(p, dtype='float32', always_2d=True)
+    if sr != self.samplerate:
+        raise ValueError(f"Sample rate mismatch in {p}")
+```
+
+**Error Messages:**
+- Always suggest ffmpeg command to fix mismatches: `ffmpeg -i 'input.wav' -ar 48000 output.wav`
+- Check sample rate at load time, not during playback
+- Support both 44.1 kHz and 48 kHz (most common rates)
+
 ## Critical Patterns
 
 ### Design Anti-Patterns (What NOT to Do)

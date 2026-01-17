@@ -74,7 +74,9 @@ class MainWindow(QMainWindow):
         self.ui.timeline_layout.addWidget(self.timeline_view)
 
         #Instanciar Player (needed before master track creation)
-        self.audio_player = MultiTrackPlayer()
+        # samplerate=None: auto-detect from first track loaded
+        # gc_policy='disable_during_playback': prevent GC pauses during playback (critical for legacy hardware)
+        self.audio_player = MultiTrackPlayer(samplerate=None, blocksize=2048, gc_policy='disable_during_playback')
 
         #Agregar tracks widgets (master track receives both engine and timeline_view)
         self.master_track = TrackWidget(

@@ -35,6 +35,7 @@ Notes:
 - Tracks shorter than the longest will be padded with zeros to align durations.
 - By default playback is stereo: mono tracks are duplicated to both channels; stereo tracks are used as-is.
 """
+import gc
 import threading
 import time
 from typing import List, Optional, Union
@@ -48,22 +49,27 @@ from utils.logger import get_logger
 logger = get_logger(__name__)
 
 class MultiTrackPlayer:
-    def __init__(self, samplerate: int = 44100, blocksize: int = 2048, dtype: str = 'float32'):
+    def __init__(self, samplerate: Optional[int] = None, blocksize: int = 2048, dtype: str = 'float32', gc_policy: str = 'disable_during_playback'):
         """
         Initialize MultiTrack Audio Player.
 
         Args:
-            samplerate: Sample rate (44100 or 48000)
+            samplerate: Sample rate (44100 or 48000). If None, auto-detects from first track loaded.
             blocksize: Buffer size in samples. HARDWARE-DEPENDENT:
                        - 512: Low latency (~10ms @ 48kHz) - Modern CPUs only
                        - 1024: Balanced (~21ms @ 48kHz) - Good for most systems
                        - 2048: High stability (~43ms @ 48kHz) - Legacy hardware (2008-2012)
                        - 4096: Very stable (~85ms @ 48kHz) - Very old CPUs
             dtype: Audio data type (always 'float32')
+            gc_policy: Garbage collection policy during playback:
+                      - 'disable_during_playback': Disable GC during playback to prevent audio glitches (recommended for legacy hardware)
+                      - 'normal': Keep GC enabled (for modern systems with sufficient CPU headroom)
         """
-        self.samplerate = samplerate
+        self.samplerate = samplerate  # None until first track loaded
         self.blocksize = blocksize  # Default 2048 for stability on legacy hardware
         self.dtype = dtype
+        self.gc_policy = gc_policy
+        self._gc_was_enabled = gc.isenabled()  # Store initial GC state
 
         # Data structures
         self._tracks = []            # list of arrays shape (n_samples, channels_per_track) float32
@@ -95,20 +101,55 @@ class MultiTrackPlayer:
         # Should be a callable taking a single bool argument (playing)
         self.playStateCallback = None
 
+    def _disable_gc_if_needed(self):
+        """Disable garbage collection during playback to prevent audio glitches on legacy hardware."""
+        if self.gc_policy == 'disable_during_playback' and gc.isenabled():
+            self._gc_was_enabled = True
+            gc.disable()
+            logger.info("🗑️  GC disabled during playback (prevents audio glitches on legacy hardware)")
+
+    def _restore_gc_if_needed(self):
+        """Restore garbage collection after playback stops."""
+        if self.gc_policy == 'disable_during_playback' and self._gc_was_enabled:
+            gc.enable()
+            logger.info("🗑️  GC re-enabled after playback stopped")
 
     def load_tracks(self, paths: List[str]):
         """
         Load a list of file paths. Files may be mono or stereo.
         They will be converted to float32 and stored.
+
+        If samplerate was None at initialization, auto-detects from first track.
+        All tracks must have the same sample rate (no live resampling for stability).
         """
-        arrays = []
-        srs = []
-        max_frames = 0
-        for p in paths:
+        if not paths:
+            raise ValueError("No paths provided to load_tracks")
+
+        # Load first track to auto-detect sample rate if needed
+        first_data, first_sr = sf.read(paths[0], dtype='float32', always_2d=True)
+
+        if self.samplerate is None:
+            self.samplerate = first_sr
+            logger.info(f"🎵 Auto-detected sample rate: {self.samplerate} Hz from first track")
+        elif first_sr != self.samplerate:
+            raise ValueError(
+                f"❌ Sample rate mismatch: expected {self.samplerate} Hz, "
+                f"got {first_sr} Hz from {paths[0]}\n"
+                f"💡 Fix with: ffmpeg -i '{paths[0]}' -ar {self.samplerate} output.wav"
+            )
+
+        arrays = [first_data]
+        max_frames = first_data.shape[0]
+
+        # Load remaining tracks and validate sample rate
+        for p in paths[1:]:
             data, sr = sf.read(p, dtype='float32', always_2d=True)  # shape (frames, channels)
-            srs.append(sr)
             if sr != self.samplerate:
-                raise ValueError(f"Samplerate mismatch: {p} has {sr}, player expects {self.samplerate}. Resample first.")
+                raise ValueError(
+                    f"❌ Sample rate mismatch: expected {self.samplerate} Hz, "
+                    f"got {sr} Hz from {p}\n"
+                    f"💡 Fix with: ffmpeg -i '{p}' -ar {self.samplerate} output.wav"
+                )
             arrays.append(data)
             if data.shape[0] > max_frames:
                 max_frames = data.shape[0]
@@ -232,6 +273,9 @@ class MultiTrackPlayer:
         If `start_frame` is None (the default), playback will resume from the
         current position (useful after a pause).
         """
+        # Disable GC during playback to prevent audio glitches
+        self._disable_gc_if_needed()
+
         with self._lock:
             if self._n_tracks == 0:
                 raise RuntimeError("No tracks loaded")
@@ -275,6 +319,10 @@ class MultiTrackPlayer:
         # called when stream finishes
         with self._lock:
             self._playing = False
+
+        # Restore GC after playback finishes
+        self._restore_gc_if_needed()
+
         # Notify play state change (stream finished -> not playing)
         try:
             if self.playStateCallback is not None:
@@ -291,6 +339,10 @@ class MultiTrackPlayer:
                 except Exception:
                     pass
             self._pos = 0
+
+        # Restore GC after playback stops
+        self._restore_gc_if_needed()
+
         # Notify play state changed -> not playing
         try:
             if self.playStateCallback is not None:
@@ -301,6 +353,10 @@ class MultiTrackPlayer:
     def pause(self):
         with self._lock:
             self._playing = False
+
+        # Restore GC when paused (safe to collect during pause)
+        self._restore_gc_if_needed()
+
         # Notify play state changed -> not playing
         try:
             if self.playStateCallback is not None:
@@ -309,6 +365,9 @@ class MultiTrackPlayer:
             pass
 
     def resume(self):
+        # Disable GC when resuming playback
+        self._disable_gc_if_needed()
+
         with self._lock:
             if self._stream is not None and not self._stream.active:
                 self._stream.start()
@@ -376,6 +435,9 @@ class MultiTrackPlayer:
             self._pos = min(max(0, frame), self._n_frames)
 
     def close(self):
+        # Restore GC before closing
+        self._restore_gc_if_needed()
+
         with self._lock:
             if self._stream is not None:
                 try:
