@@ -1021,17 +1021,25 @@ class TimelineView(QWidget):
         # Paint all tracks in order (bottom to top layering)
         # ----------------------------------------------------------
 
-        # Determinar downsample_factor para optimización en modo GENERAL
+        # ===========================================================================
+        # LEGACY HARDWARE OPTIMIZATION: Mode-Specific Downsampling
+        # ===========================================================================
+        # Aplicar downsample agresivo en GENERAL y PLAYBACK para reducir CPU usage
+        # GENERAL: Vista completa, 4096 samples/bucket (muy agresivo)
+        # PLAYBACK: Vista reproducción, 4096 samples/bucket (igualmente agresivo)
+        # EDIT: Sin downsample (máxima precisión para edición)
+        #
+        # Rationale: Durante reproducción en hardware legacy, priorizar estabilidad
+        # del audio sobre calidad visual del waveform. El usuario está viendo las
+        # letras principalmente, no necesita resolución alta de la forma de onda.
+        # ===========================================================================
         downsample_factor = None
         if self.current_zoom_mode == ZoomMode.GENERAL:
-            # ===========================================================================
-            # LEGACY HARDWARE OPTIMIZATION: Aggressive Downsampling
-            # ===========================================================================
-            # En modo GENERAL, forzar downsample mínimo de 4096 samples por bucket
-            # Reduce drásticamente el número de operaciones de dibujado
-            # Hardware moderno: Puede usar valores menores (1024-2048)
-            # ===========================================================================
-            downsample_factor = max(GLOBAL_DOWNSAMPLE_FACTOR, 4096)  # Mínimo 4096 para legacy
+            downsample_factor = max(GLOBAL_DOWNSAMPLE_FACTOR, 4096)  # Máximo downsample
+        elif self.current_zoom_mode == ZoomMode.PLAYBACK:
+            # PLAYBACK también usa downsample agresivo en hardware legacy
+            downsample_factor = 4096  # Igual que GENERAL - priorizar audio sobre visual
+        # EDIT mode: downsample_factor = None (sin optimización, máxima calidad)
 
         # 1. Waveform (base layer)
         with safe_operation("Painting waveform track", silent=True):

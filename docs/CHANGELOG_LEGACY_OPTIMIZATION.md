@@ -6,14 +6,18 @@
 
 ---
 
-## ✅ Estado: Implementado y Verificado
+## ✅ Estado: Implementado y Verificado (v2 - Flicker Fix)
 
-### Resultados
+### Resultados v1 (Stuttering Fix)
 - ✅ **Stuttering eliminado** - Reproducción fluida de 4 stems simultáneos
 - ✅ **ALSA underruns eliminados** - No más mensajes "underrun occurred"
-- ✅ **Timeline sin parpadeo** - Throttling optimizado con `event.accept()`
 - ✅ **193 tests pasados** - Suite completa sin errores
 - ✅ **Sintaxis verificada** - Todos los archivos compilados correctamente
+
+### Resultados v2 (Flicker Reduction)
+- ✅ **Downsample en PLAYBACK mode** - 4096 samples/bucket durante reproducción
+- ✅ **Prioriza audio sobre visual** - Forma de onda simplificada, letras claras
+- 🔄 **Pendiente testing en hardware** - Usuario debe verificar reducción de parpadeo
 
 ---
 
@@ -56,21 +60,28 @@ def paintEvent(self, event):
     if should_paint:
         self._last_paint_time = current_time
     else:
-        event.accept()  # ← Fix parpadeo (antes era event.ignore())
-        return
+        return  # Simple return (no event manipulation)
 ```
 - **Antes:** 60+ FPS sin throttling
-- **Ahora:** 30 FPS con `event.accept()` silencioso
-- **Fix Parpadeo:** Cambiado de `event.ignore()` a `event.accept()` para evitar reenvíos de Qt
+- **Ahora:** 30 FPS con simple return
+- **Fix Parpadeo v1:** Cambiado de `event.ignore()` a simple `return` para evitar reenvíos de Qt
 
-#### Downsample Agresivo
+#### Downsample Agresivo (Todos los Modos)
 ```python
 # Líneas 50-62
 GLOBAL_DOWNSAMPLE_FACTOR = 4096  # Configurado para i5-2410M
+
+# Líneas 1025-1042 (v2 - PLAYBACK mode downsample)
+if self.current_zoom_mode == ZoomMode.GENERAL:
+    downsample_factor = max(GLOBAL_DOWNSAMPLE_FACTOR, 4096)
+elif self.current_zoom_mode == ZoomMode.PLAYBACK:
+    downsample_factor = 4096  # Igual que GENERAL - priorizar audio
 ```
-- **Antes:** `1024 samples/bucket`
-- **Ahora:** `4096 samples/bucket` (4x reducción)
-- **Beneficio:** Reduce drásticamente operaciones de dibujado en modo GENERAL
+- **Antes:** PLAYBACK mode sin downsample (alta resolución visual)
+- **Ahora v1:** `1024 → 4096` samples/bucket en GENERAL mode
+- **Ahora v2:** `4096` samples/bucket también en PLAYBACK mode
+- **Beneficio v2:** Reduce aún más CPU durante reproducción, donde usuario ve letras (no waveform)
+- **Rationale:** Priorizar estabilidad de audio sobre calidad visual durante playback
 
 ---
 
