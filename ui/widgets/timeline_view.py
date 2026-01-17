@@ -140,6 +140,9 @@ class TimelineView(QWidget):
         # --- Lyrics Edit Mode ---
         self._lyrics_edit_mode: bool = False
 
+        # --- Paint Throttling (Dirty Flag) ---
+        self._paint_pending = False  # True si ya hay un update() esperando
+
         # --- Edit Mode Buttons ---
         self._edit_buttons_visible = False
         self._button_width = 140
@@ -781,8 +784,8 @@ class TimelineView(QWidget):
         with safe_operation("Updating widget position from timeline", silent=True):
             # Use existing conversion and clamping logic
             self.set_position_seconds(float(new_time))
-        # Schedule repaint on every playhead change (Qt will coalesce updates)
-        self.update()
+        # Schedule repaint ONLY if no paint is already pending (throttling)
+        self._request_update()
 
     def closeEvent(self, event: QCloseEvent) -> None:
         # Ensure we unsubscribe observer to avoid holding references after
@@ -811,7 +814,7 @@ class TimelineView(QWidget):
         self.playhead_sample = int(max(0, min(sample, len(self.samples)-1)))
         # Ensure playhead stays visible within the current viewport (similar to Audacity behavior)
         self._ensure_playhead_visible()
-        self.update()
+        self._request_update()
 
     def _ensure_playhead_visible(self, margin_px: int = None) -> None:
         """Ensure the playhead is inside the visible area with optional pixel margins.
@@ -946,29 +949,28 @@ class TimelineView(QWidget):
             super().keyPressEvent(event)
 
     # ==============================================================
+    # PAINT THROTTLING SYSTEM
+    # ==============================================================
+    def _request_update(self) -> None:
+        """Request a paint update with intelligent throttling.
+
+        Uses a dirty flag to prevent queuing multiple update() calls.
+        Only one paint is ever pending at a time, reducing event queue
+        congestion and eliminating flicker on legacy hardware.
+
+        This is the CORRECT way to throttle Qt painting - at the source
+        (before calling update()), not in paintEvent (after Qt queued it).
+        """
+        if not self._paint_pending:
+            self._paint_pending = True
+            self.update()
+
+    # ==============================================================
     # PAINT EVENT (waveform + playhead)
     # ==============================================================
     def paintEvent(self, event):
-        # ===========================================================================
-        # LEGACY HARDWARE OPTIMIZATION: Paint Throttling
-        # ===========================================================================
-        # Limita redraws a max 30 FPS (~33ms/frame) en lugar de 60 FPS
-        # Reduce carga de CPU en hardware antiguo (Sandy Bridge, Core 2 Duo)
-        # Hardware moderno: Puede aumentarse a 60 FPS (0.016 threshold)
-        # ===========================================================================
-        import time
-        if not hasattr(self, '_last_paint_time'):
-            self._last_paint_time = 0.0
-
-        current_time = time.time()
-        elapsed = current_time - self._last_paint_time
-
-        # Si no ha pasado suficiente tiempo, retornar sin repintar
-        if elapsed < 0.033:  # 30 FPS max (1/30 = 0.033s)
-            return
-
-        self._last_paint_time = current_time
-        # ===========================================================================
+        # Reset dirty flag - estamos pintando ahora
+        self._paint_pending = False
 
         painter = QPainter(self)
         painter.fillRect(self.rect(), StyleManager.get_color("bg_panel"))
@@ -1022,24 +1024,14 @@ class TimelineView(QWidget):
         # ----------------------------------------------------------
 
         # ===========================================================================
-        # LEGACY HARDWARE OPTIMIZATION: Mode-Specific Downsampling
+        # LEGACY HARDWARE OPTIMIZATION: Downsample only in GENERAL mode
         # ===========================================================================
-        # Aplicar downsample agresivo en GENERAL y PLAYBACK para reducir CPU usage
         # GENERAL: Vista completa, 4096 samples/bucket (muy agresivo)
-        # PLAYBACK: Vista reproducción, 4096 samples/bucket (igualmente agresivo)
-        # EDIT: Sin downsample (máxima precisión para edición)
-        #
-        # Rationale: Durante reproducción en hardware legacy, priorizar estabilidad
-        # del audio sobre calidad visual del waveform. El usuario está viendo las
-        # letras principalmente, no necesita resolución alta de la forma de onda.
+        # PLAYBACK/EDIT: Sin downsample (calidad visual completa)
         # ===========================================================================
         downsample_factor = None
         if self.current_zoom_mode == ZoomMode.GENERAL:
-            downsample_factor = max(GLOBAL_DOWNSAMPLE_FACTOR, 4096)  # Máximo downsample
-        elif self.current_zoom_mode == ZoomMode.PLAYBACK:
-            # PLAYBACK también usa downsample agresivo en hardware legacy
-            downsample_factor = 4096  # Igual que GENERAL - priorizar audio sobre visual
-        # EDIT mode: downsample_factor = None (sin optimización, máxima calidad)
+            downsample_factor = max(GLOBAL_DOWNSAMPLE_FACTOR, 4096)  # Solo en GENERAL
 
         # 1. Waveform (base layer)
         with safe_operation("Painting waveform track", silent=True):
