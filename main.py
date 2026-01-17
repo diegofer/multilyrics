@@ -696,12 +696,14 @@ class MainWindow(QMainWindow):
 
         # Reset edit mode state when changing songs
         self.controls.set_edit_mode_enabled(True)  # Enable edit button for new song
+        self.controls.set_play_mode_enabled(True)  # Enable play button for new song
         # If edit mode was active, deactivate it
         if self.controls.edit_toggle_btn.isChecked():
             self.controls.edit_toggle_btn.setChecked(False)  # This triggers _on_edit_toggle
 
         # Activar boton de edit mode en controles
         self.controls.set_edit_mode_enabled(True)  # Cuando hay multitrack seleccionado
+        self.controls.set_play_mode_enabled(True)  # Cuando hay multitrack seleccionado
 
     def closeEvent(self, event: QCloseEvent):
         # cerrar ventana videoplayer

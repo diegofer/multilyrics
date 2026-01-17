@@ -1,7 +1,11 @@
-from PySide6.QtWidgets import QWidget, QHBoxLayout, QVBoxLayout, QFrame, QLabel,QPushButton, QMenu, QButtonGroup, QSizePolicy
-from PySide6.QtCore import Qt, QSize, Signal, Slot, QPoint, QEvent
+from PySide6.QtCore import QEvent, QPoint, QSize, Qt, Signal, Slot
 from PySide6.QtGui import QIcon
+from PySide6.QtWidgets import (QButtonGroup, QFrame, QHBoxLayout, QLabel,
+                               QMenu, QPushButton, QSizePolicy, QVBoxLayout,
+                               QWidget)
+
 from utils.helpers import clamp_menu_to_window, format_time
+
 
 class ControlsWidget(QWidget):
 
@@ -79,6 +83,7 @@ class ControlsWidget(QWidget):
         self.play_toggle_btn.setIcon(QIcon("assets/img/play.svg"))
         self.play_toggle_btn.setIconSize(QSize(50, 50))
         self.play_toggle_btn.setSizePolicy(QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Expanding)
+        self.play_toggle_btn.setEnabled(False)  # Disabled by default
         self.play_toggle_btn.toggled.connect(self._on_play_toggle)
 
 
@@ -200,6 +205,16 @@ class ControlsWidget(QWidget):
         if not enabled:
             # Reset to unchecked when disabled
             self.edit_toggle_btn.setChecked(False)
+
+    def set_play_mode_enabled(self, enabled: bool):
+        """Enable or disable the play mode button.
+
+        Call this when a multitrack song is selected/deselected.
+        """
+        self.play_toggle_btn.setEnabled(enabled)
+        if not enabled:
+            # Reset to unchecked when disabled
+            self.play_toggle_btn.setChecked(False)
 
     def _emit_action_1(self):
         self.action_1_clicked.emit()
