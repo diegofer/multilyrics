@@ -7,8 +7,26 @@ Multi Lyrics is a professional multitrack audio/video player with synchronized l
 
 ## Architecture
 
+## Rol: Actúa como un experto en audio de baja latencia con Python y sounddevice.
+
+### Target Hardware & Platform Support
+
+MultiLyrics is designed to support:
+- **Windows 10/11** (x64, native WASAPI audio)
+- **Linux** (ALSA/PulseAudio/PipeWire) including legacy systems (Mint XFCE, Ubuntu 20.04+)
+- **macOS 10.13+** (CoreAudio)
+- **Legacy Hardware**: Intel Core 2 Duo (2008–2009), 8GB RAM, SSD/HDD
+
+#### Audio Specifications
+- **Sample Rates**: Auto-detect 44.1 kHz or 48 kHz from first loaded track
+- **Buffer Size**: 512 samples (fixed, ~10.67 ms @ 48kHz for stable playback)
+- **Output**: Stereo (L/R channels)
+- **Audio Format**: WAV (uncompressed, pre-extracted from MP4)
+
+**Design Consequence**: Pre-load full WAV into RAM at song selection to avoid disk I/O during playback, critical for legacy hardware stability.
+
 ### Core Data Flow Pattern: Single Source of Truth
-**Critical architectural principle**: `TimelineModel` is the **canonical source** of playhead time.
+**Critical architectural principle**: `TimelineModel` is the **canonical source** of playhead time. The sounddevice callback is the only true clock—all timing derives from samples processed in the callback.
 
 ```
 Audio Playback (sounddevice)
@@ -59,17 +77,90 @@ The audio callback runs in a high-priority thread. **NEVER** do these inside the
 - Prints or logging (`print()`, `logging.info()`)
 - Qt Signal emissions (`Signal.emit()` can cause deadlocks)
 - Memory allocation (`list.append()`, `dict[key] = value`)
+- **Any NumPy allocation** (`np.zeros()`, `np.concatenate()`)
 
 **✅ ALLOWED:**
-- Operations on pre-loaded NumPy arrays
+- Vectorized operations on pre-loaded NumPy arrays
 - Basic arithmetic (`+`, `-`, `*`, `/`, `np.clip()`)
 - Reading atomic variables (`bool`, `int`, `float`)
+- Array slicing (read-only): `audio_data[start:end]`
 
 **Communication Patterns:**
 - **UI → Callback**: Use `queue.Queue` (thread-safe, non-blocking)
 - **Callback → UI**: Update atomic counters, emit signals from separate thread
 
+### Memory Architecture: Pre-Load Strategy
+
+All WAV files must be loaded into NumPy arrays **at song selection time**, before playback begins. This is critical for legacy hardware (2008–2009) that cannot handle real-time disk I/O during playback.
+
+```python
+# In SongModel or AudioEngine.load()
+self.audio_data = {}  # {track_name: np.ndarray(dtype=float32)}
+
+for stem_path in song_dir / "tracks":
+    audio, sr = librosa.load(stem_path, sr=self.sample_rate, mono=False)
+    self.audio_data[stem_name] = audio.astype(np.float32)  # Pre-load once
+```
+
+**Why pre-load?**
+1. Legacy hardware (2008–2009) cannot handle real-time disk I/O + audio processing
+2. Disk latency (even SSDs) introduces jitter in audio callback
+3. 8GB RAM is sufficient for multi-song library (~1.5GB per 6 stems)
+4. Pre-loading trades startup time (acceptable) for rock-solid playback
+
+**UI Feedback During Pre-Load:**
+- Show progress bar while loading (may take 2–3 sec on legacy disk)
+- Lock playback button until 100% loaded
+- Display "Loading: 45%" during pre-load phase
+
 ## Critical Patterns
+
+### Design Anti-Patterns (What NOT to Do)
+
+#### ❌ Anti-Pattern 1: Secondary Timer for Playhead
+```python
+# WRONG: Qt timer independent of audio callback
+QTimer().timeout.connect(self.update_playhead)  # ❌ Causes desync
+```
+**Why**: UI timer ≠ audio clock. Will desynchronize with actual playback.
+
+**Correct**:
+```python
+# Audio callback updates atomic counter
+# UI reads counter via observer callback (async)
+unsub = timeline.on_playhead_changed(self.update_display)
+```
+
+#### ❌ Anti-Pattern 2: Heavy DSP in Callback
+```python
+def audio_callback(self, indata, frames, time_info, status):
+    # WRONG: FFT, convolution, resampling in callback
+    fft_result = np.fft.fft(indata)  # ❌ Too slow, will glitch
+```
+**Why**: Real-time constraint violated. Causes audio underruns on legacy hardware.
+
+**Correct**: Pre-compute offline during loading, store results in SongModel.
+
+#### ❌ Anti-Pattern 3: Direct UI Updates from Callback
+```python
+def audio_callback(self, indata, frames, time_info, status):
+    self.waveform_widget.update_position(self.playback_frame)  # ❌ DEADLOCK
+```
+**Why**: Qt is not thread-safe from audio thread context.
+
+**Correct**: Update atomic variable, emit signal from separate thread.
+
+#### ❌ Anti-Pattern 4: Over-Engineering on Legacy Hardware
+```python
+# WRONG: Excessive abstraction on 2008 CPU
+observer_manager = ObserverRegistry()
+factory = AudioEngineFactory()
+bridge = StrategyBridge()
+# ❌ Memory overhead, CPU wasted on meta-logic
+```
+**Why**: Legacy hardware has limited CPU. Prefer simple, direct calls.
+
+**Correct**: Direct method calls, minimal OOP overhead.
 
 ### Dependency Injection for Widgets
 UI widgets that interact with business logic receive dependencies via constructor (not Qt signals to parent):
@@ -153,7 +244,52 @@ def separate_stems(audio_path):
     # ... processing
 ```
 
-This prevents slow startup times and protects audio/UI stability.
+This prevents slow startup times and protects audio/UI stability on legacy hardware.
+
+### Multi-Platform Audio Implementation
+
+#### Windows (PySide6 + WASAPI)
+```python
+# sounddevice will auto-select WASAPI automatically
+device = sd.default.device  # Native Windows audio
+```
+
+#### Linux (ALSA/PulseAudio/PipeWire)
+```python
+# User may need to select device from dropdown
+# Provide device selection in settings for flexibility
+import sounddevice as sd
+print(sd.query_devices())  # Let user choose if needed
+```
+
+#### macOS (CoreAudio)
+```python
+# CoreAudio is default via sounddevice
+# Test on macOS 10.13+ for compatibility
+```
+
+#### Linux Legacy (XFCE on 2008 Hardware)
+- Test on **Linux Mint 21 XFCE** (lightweight desktop)
+- Verify with ALSA (minimal overhead)
+- May need to build `libportaudio2` from source if unavailable
+- Use `installer.py` to verify `libportaudio2` presence at startup
+
+### Performance Budgets
+
+**Callback Budget** (512 samples @ 48 kHz = 10.67 ms):
+- Audio mixing: **< 5 ms** (headroom for system jitter)
+- Gain application: **< 1 ms**
+- Output copy: **< 2 ms**
+
+**UI Update Budget** (30 FPS = 33 ms per frame):
+- Waveform redraw: **< 10 ms** (use downsample factor in GENERAL zoom)
+- Playhead position update: **< 5 ms** (async observer callback)
+
+**Memory Budget** (8 GB system):
+- OS + Python runtime: ~500 MB
+- PySide6 GUI: ~200 MB
+- Audio library (6 songs × 3 min @ 48kHz stereo): ~1.5 GB
+- **Headroom**: ~5.8 GB (safe for typical usage)
 
 ## Development Workflows
 
