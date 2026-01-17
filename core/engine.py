@@ -38,11 +38,20 @@ Notes:
 import gc
 import threading
 import time
-from typing import List, Optional, Union
+from collections import deque
+from typing import Dict, List, Optional, Union
 
 import numpy as np
 import sounddevice as sd
 import soundfile as sf
+
+try:
+    import psutil
+    PSUTIL_AVAILABLE = True
+except ImportError:
+    PSUTIL_AVAILABLE = False
+    import warnings
+    warnings.warn("psutil not installed - RAM validation disabled. Install with: pip install psutil")
 
 from utils.logger import get_logger
 
@@ -101,6 +110,11 @@ class MultiTrackPlayer:
         # Should be a callable taking a single bool argument (playing)
         self.playStateCallback = None
 
+        # Latency measurement (Tarea #4)
+        self._callback_durations = deque(maxlen=100)  # Last 100 callback durations in seconds
+        self._xrun_count = 0  # Count of callbacks exceeding time budget
+        self._total_callbacks = 0  # Total callback invocations
+
     def _disable_gc_if_needed(self):
         """Disable garbage collection during playback to prevent audio glitches on legacy hardware."""
         if self.gc_policy == 'disable_during_playback' and gc.isenabled():
@@ -113,6 +127,38 @@ class MultiTrackPlayer:
         if self.gc_policy == 'disable_during_playback' and self._gc_was_enabled:
             gc.enable()
             logger.info("🗑️  GC re-enabled after playback stopped")
+
+    def _validate_ram(self, total_bytes_needed: int) -> None:
+        """Validate sufficient RAM is available before pre-loading tracks.
+
+        Args:
+            total_bytes_needed: Total bytes required for all tracks
+
+        Raises:
+            MemoryError: If insufficient RAM available (uses <70% safety threshold)
+        """
+        if not PSUTIL_AVAILABLE:
+            logger.warning("⚠️  psutil not available - skipping RAM validation")
+            return
+
+        mem = psutil.virtual_memory()
+        available_bytes = mem.available
+        total_gb = total_bytes_needed / (1024**3)
+        available_gb = available_bytes / (1024**3)
+
+        # Use 70% of available RAM as safety threshold
+        safe_threshold = available_bytes * 0.70
+
+        logger.info(f"💾 Pre-load size: {total_gb:.2f} GB | Available RAM: {available_gb:.2f} GB")
+
+        if total_bytes_needed > safe_threshold:
+            raise MemoryError(
+                f"❌ Insufficient RAM for pre-load:\n"
+                f"   Required: {total_gb:.2f} GB\n"
+                f"   Available: {available_gb:.2f} GB\n"
+                f"   Safe threshold (70%): {safe_threshold/(1024**3):.2f} GB\n"
+                f"💡 Close other applications or reduce track count"
+            )
 
     def load_tracks(self, paths: List[str]):
         """
@@ -161,6 +207,11 @@ class MultiTrackPlayer:
                 pad = np.zeros((max_frames - arr.shape[0], arr.shape[1]), dtype='float32')
                 arr = np.concatenate([arr, pad], axis=0)
             norm_tracks.append(arr)
+
+        # Tarea #2: RAM Validation - Calculate total bytes and validate before storing
+        total_bytes = sum(arr.nbytes for arr in norm_tracks)
+        self._validate_ram(total_bytes)
+
         self._tracks = norm_tracks
         self._n_tracks = len(norm_tracks)
         self._n_frames = max_frames
@@ -230,6 +281,9 @@ class MultiTrackPlayer:
         sounddevice callback: must be fast and avoid Python allocation when possible.
         outdata is a writable numpy array shape (frames, channels)
         """
+        # Tarea #4: Latency measurement - Start timing
+        callback_start = time.perf_counter()
+
         if status:
             # Log status occasionally; not ideal in tight real-time but useful for debugging.
             logger.warning(f"Stream status: {status}")
@@ -264,6 +318,25 @@ class MultiTrackPlayer:
             # Call audio time callback if set
             if self.audioTimeCallback is not None:
                 self.audioTimeCallback(frames)
+
+        # Tarea #4: Latency measurement - End timing and store stats
+        callback_end = time.perf_counter()
+        callback_duration = callback_end - callback_start
+
+        # Calculate time budget for this blocksize
+        time_budget = self.blocksize / self.samplerate if self.samplerate else 0.043  # ~43ms @ 2048/48000
+
+        # Store duration and detect xruns (callback exceeding 80% of budget)
+        self._callback_durations.append(callback_duration)
+        self._total_callbacks += 1
+
+        if callback_duration > time_budget * 0.80:
+            self._xrun_count += 1
+            if self._xrun_count % 10 == 1:  # Log every 10th xrun to avoid spam
+                logger.warning(
+                    f"⚠️  Audio callback xrun detected: {callback_duration*1000:.2f}ms "
+                    f"(budget: {time_budget*1000:.2f}ms, usage: {(callback_duration/time_budget)*100:.1f}%)"
+                )
 
     def play(self, start_frame: Optional[int] = None):
         """
@@ -433,6 +506,49 @@ class MultiTrackPlayer:
         frame = int(seconds * self.samplerate)
         with self._lock:
             self._pos = min(max(0, frame), self._n_frames)
+
+    def get_latency_stats(self) -> Dict[str, float]:
+        """Get audio callback latency statistics.
+
+        Returns:
+            Dictionary with:
+            - mean_ms: Average callback duration in milliseconds
+            - max_ms: Peak callback duration in milliseconds
+            - min_ms: Minimum callback duration in milliseconds
+            - xruns: Count of callbacks exceeding 80% of time budget
+            - budget_ms: Time budget for current blocksize in milliseconds
+            - usage_pct: Average percentage of time budget used
+            - total_callbacks: Total number of callbacks processed
+        """
+        with self._lock:
+            if not self._callback_durations:
+                return {
+                    'mean_ms': 0.0,
+                    'max_ms': 0.0,
+                    'min_ms': 0.0,
+                    'xruns': 0,
+                    'budget_ms': 0.0,
+                    'usage_pct': 0.0,
+                    'total_callbacks': 0
+                }
+
+            durations = list(self._callback_durations)
+            mean_duration = sum(durations) / len(durations)
+            max_duration = max(durations)
+            min_duration = min(durations)
+
+            # Calculate time budget
+            time_budget = self.blocksize / self.samplerate if self.samplerate else 0.043
+
+            return {
+                'mean_ms': mean_duration * 1000,
+                'max_ms': max_duration * 1000,
+                'min_ms': min_duration * 1000,
+                'xruns': self._xrun_count,
+                'budget_ms': time_budget * 1000,
+                'usage_pct': (mean_duration / time_budget) * 100 if time_budget > 0 else 0.0,
+                'total_callbacks': self._total_callbacks
+            }
 
     def close(self):
         # Restore GC before closing
