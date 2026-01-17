@@ -8,6 +8,8 @@ Se han implementado dos correcciones principales para resolver los problemas de 
 
 2. **Event filter mejorado para doble click** - Se emite correctamente la señal `toggled` cuando el usuario hace doble click para cerrar la ventana.
 
+3. **Audio de video deshabilitado en VLC** - Se fuerza `--no-audio` (y `:audio-track=-1`) para que VLC nunca emita sonido; el único audio permitido proviene del AudioEngine.
+
 **Estado**: ✅ Validado (sintaxis correcta, lista para testing)
 
 ## Problemas Identificados

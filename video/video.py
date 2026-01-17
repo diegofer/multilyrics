@@ -44,7 +44,8 @@ class VideoLyrics(QWidget):
             )
 
         # VLC con optimizaciones para hardware antiguo si es necesario
-        vlc_args = ['--quiet', '--no-video-title-show', '--log-verbose=2']
+        # Restricción vital: forzar '--no-audio' para que VLC nunca emita sonido; el AudioEngine es el único dueño del audio
+        vlc_args = ['--quiet', '--no-video-title-show', '--log-verbose=2', '--no-audio']
 
         if self._is_legacy_hardware:
             # Optimizaciones para CPUs antiguas
@@ -177,6 +178,8 @@ class VideoLyrics(QWidget):
             logger.debug("Reproductor detenido")
 
         media = self.instance.media_new(video_path)
+        # Deshabilitar audio del video - el audio será controlado por el AudioEngine
+        media.add_option("--no-audio")
         self.player.set_media(media)
         media.release()
         logger.debug(f"📹 Video cargado: {video_path}")
@@ -308,13 +311,19 @@ class VideoLyrics(QWidget):
             logger.error(f"❌ Error al adjuntar VLC: {e}", exc_info=True)
 
     def start_playback(self):
-        """Iniciar reproducción y sincronización (solo si video está habilitado)."""
+        """Iniciar reproducción y sincronización (solo si video está habilitado y ventana visible)."""
         if self._video_auto_disabled:
             logger.debug("📹 Video deshabilitado - saltando reproducción")
             return
 
+        # Solo reproducir si la ventana está visible (usuario activó show_video_btn)
+        if not self.isVisible():
+            logger.debug("📹 Ventana de video oculta - saltando reproducción de video (audio continuará)")
+            return
+
         logger.debug("⏯ Reproduciendo video...")
         self.player.play()
+        self.player.audio_set_mute(True)  # Asegurar que audio está muteado antes de reproducir
         app_state.video_is_playing = True
 
         # Habilitar sincronización
