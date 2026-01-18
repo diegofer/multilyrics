@@ -9,6 +9,34 @@ Multi Lyrics is a professional multitrack audio/video player with synchronized l
 
 ## Rol: Actúa como un experto en audio de baja latencia con Python y sounddevice.
 
+## Reglas Obligatorias de Desarrollo
+
+**CRITICAL: Estas reglas SIEMPRE deben cumplirse en cada operación:**
+
+### 1. Uso de Virtual Environment
+- **SIEMPRE** usar el virtual environment en `/home/dieguisimo/lab/multilyrics/env/`
+- Comandos Python deben usar: `/home/dieguisimo/lab/multilyrics/env/bin/python`
+- Comandos pip deben usar: `/home/dieguisimo/lab/multilyrics/env/bin/pip`
+- Al ejecutar scripts: `source env/bin/activate && python script.py`
+- **Nunca** usar `python3` o `pip3` del sistema directamente
+- **Por qué**: Evita errores de dependencias no disponibles (`ModuleNotFoundError`)
+
+### 2. Verificación de Sintaxis Post-Cambios
+- **SIEMPRE** verificar sintaxis después de modificar archivos Python
+- Comando obligatorio: `python -m py_compile <archivo_modificado>`
+- Si múltiples archivos modificados, verificar todos
+- **Nunca** commitear sin verificación de sintaxis
+- **Por qué**: Evita errores de código cortado, paréntesis sin cerrar, imports faltantes
+
+**Ejemplo de flujo correcto:**
+```bash
+# 1. Editar archivo
+# 2. Verificar sintaxis
+source env/bin/activate && python -m py_compile core/engine.py
+# 3. Si no hay errores, continuar
+# 4. Commit solo después de validación exitosa
+```
+
 ### Target Hardware & Platform Support
 
 MultiLyrics is designed to support:
