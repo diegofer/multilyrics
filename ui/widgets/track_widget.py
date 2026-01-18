@@ -16,9 +16,12 @@ You should have received a copy of the GNU General Public License
 along with this program. If not, see <https://www.gnu.org/licenses/>.
 """
 
-from PySide6.QtWidgets import QWidget, QVBoxLayout, QLabel, QSlider, QPushButton
-from PySide6.QtCore import Qt, Signal
 from typing import Optional
+
+from PySide6.QtCore import Qt, Signal
+from PySide6.QtWidgets import (QLabel, QPushButton, QSlider, QVBoxLayout,
+                               QWidget)
+
 from utils.helpers import get_logarithmic_volume
 
 
@@ -112,8 +115,11 @@ class TrackWidget(QWidget):
     def _connect_signals(self):
         """Connect internal signals to engine methods (Dependency Injection pattern)."""
         if self.is_master:
-            # Master track: connect directly to both engine and timeline_view
+            # Master track: connect slider to dual control (preview + audio gain)
             self.slider.valueChanged.connect(self._on_master_volume_changed)
+            # Master track also needs mute button
+            if self.engine:
+                self.mute_button.toggled.connect(self._on_mute_toggled)
         else:
             # Individual tracks: connect directly to engine
             if self.engine:

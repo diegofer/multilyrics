@@ -495,14 +495,34 @@ class MultiTrackPlayer:
 
     def get_position_seconds(self) -> float:
         with self._lock:
+            if self.samplerate is None:
+                return 0.0
             return float(self._pos) / float(self.samplerate)
 
     def get_duration_seconds(self) -> float:
         """Return total duration of the loaded tracks in seconds."""
         with self._lock:
+            if self.samplerate is None or self._n_frames == 0:
+                return 0.0
             return float(self._n_frames) / float(self.samplerate)
 
     def seek_seconds(self, seconds: float):
+        """Seek to a specific time position in seconds.
+
+        Args:
+            seconds: Target position in seconds
+
+        Raises:
+            RuntimeError: If no tracks are loaded or samplerate not detected
+        """
+        if self.samplerate is None:
+            logger.warning("⚠️  Cannot seek: no tracks loaded (samplerate not detected)")
+            return
+
+        if self._n_tracks == 0:
+            logger.warning("⚠️  Cannot seek: no tracks loaded")
+            return
+
         frame = int(seconds * self.samplerate)
         with self._lock:
             self._pos = min(max(0, frame), self._n_frames)
