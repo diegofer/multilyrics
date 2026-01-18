@@ -31,8 +31,8 @@ from utils.logger import get_logger
 logger = get_logger(__name__)
 
 from core import constants
-from core.engine import MultiTrackPlayer
 from core.audio_profiles import get_profile_manager
+from core.engine import MultiTrackPlayer
 from core.extraction_orchestrator import ExtractionOrchestrator
 from core.playback_manager import PlaybackManager
 from core.sync import SyncController
@@ -81,7 +81,7 @@ class MainWindow(QMainWindow):
         logger.info(f"🎛️  Using audio profile: {audio_profile.name}")
         logger.info(f"   Description: {audio_profile.description}")
         logger.info(f"   Settings: blocksize={audio_profile.blocksize}, gc_policy={audio_profile.gc_policy}")
-        
+
         # Create player with profile settings
         self.audio_player = MultiTrackPlayer(**audio_profile.to_engine_kwargs())
         self.current_audio_profile = audio_profile  # Store for later reference
