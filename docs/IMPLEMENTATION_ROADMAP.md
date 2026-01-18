@@ -103,12 +103,28 @@
 
 ## 🟡 PRIORIDAD MEDIA
 
-### ⏸️ Tarea #6: Script de validación de multi
-- **Estado**: ❌ NO INICIADA
+### ✅ Tarea #6: Script de validación de multi
+- **Estado**: ✅ COMPLETADA (2026-01-18)
 - **Archivos**: `scripts/validate_multi.py`
-- **Tiempo Estimado**: 1h
+- **Tiempo Real**: 1h
 - **Objetivo**: Validar sample rate de todos los tracks offline
 - **Dependencias**: Tarea #3 completada ✅
+- **Commit**: (pendiente)
+
+#### Validación:
+- ✅ Sintaxis: `python -m py_compile scripts/validate_multi.py`
+- ✅ Validación single multi: OK (La Bondad de Dios - 4 tracks @ 44100 Hz)
+- ✅ Validación --all: OK (2/2 multis passed)
+- ✅ Detección de mismatch: OK (44100 vs 48000 Hz detectado correctamente)
+- ✅ Generación de comandos ffmpeg: OK
+- ✅ Logging informativo con emojis: OK
+
+#### Resultados:
+- Script completo con 3 modos: single multi, --all, help
+- Detecta sample rate mismatches y genera comandos de corrección
+- Warnings para duration/channel mismatches (no críticos)
+- Estadísticas detalladas por track y resumen general
+- Exit code 0 (success) o 1 (failed) para integración en CI/CD
 
 ---
 
@@ -211,6 +227,27 @@ Después de cada tarea completada:
 - **Decisión**: Decision tree basado en CPU year, cores y RAM
 - **Resultado**: Auto-selección correcta "Balanced" para hardware 2018
 - **Alternativa**: Manual override disponible para casos especiales
+
+### Tarea #6 (Multi Validation)
+- **Aprendizaje**: soundfile.info() lee metadata sin cargar audio completo en RAM
+- **Decisión**: Validación offline previene errores al cargar en la app
+- **Resultado**: Detección correcta de mismatches + generación automática de fix commands
+- **Beneficio**: Usuarios pueden validar multis descargados antes de usar
+
+---
+
+## 📊 Estadísticas Generales
+
+**Tiempo Invertido**: ~9.5h  
+**Progreso**: 55% completado (6/11 tareas)
+
+**Desglose por Prioridad**:
+- 🔴 Alta: 5/5 completadas (100%) ✅
+- 🟡 Media: 1/4 completadas (25%)
+- 🟢 Baja: 0/2 completadas (0%)
+
+**Tareas Restantes**: 5.5h estimadas  
+**Próxima Tarea**: Integrar LatencyMonitor en Settings (30min)
 
 ---
 
