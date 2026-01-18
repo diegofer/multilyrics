@@ -30,6 +30,9 @@ venv.bak/
 *.lnk
 *.zip
 
+# User configuration
+config/settings.json
+
 # Distribution / packaging
 Python
 build/

@@ -47,29 +47,33 @@ class LatencyMonitor(QWidget):
     def init_ui(self):
         """Initialize UI layout and labels."""
         layout = QVBoxLayout(self)
-        layout.setContentsMargins(8, 4, 8, 4)
-        layout.setSpacing(2)
+        layout.setContentsMargins(0, 0, 0, 0)
+        layout.setSpacing(3)
 
-        # Title label
-        title_label = QLabel("🎛️ Audio Engine Stats")
+        # Title label (compact header)
+        title_label = QLabel("🎛️ Audio Monitor")
         title_font = StyleManager.get_font()
-        title_font.setBold(True)
+        title_font.setPointSize(9)
         title_label.setFont(title_font)
-        title_label.setStyleSheet(f"color: {StyleManager.get_color('text_primary')};")
+        title_label.setStyleSheet(f"color: {StyleManager.get_color('text_bright').name()}; padding: 6px;")
+        title_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        title_label.setMaximumHeight(32)  # Compact header height
         layout.addWidget(title_label)
 
         # Stats label (monospace for alignment)
-        self.stats_label = QLabel("Waiting for playback...")
-        stats_font = QFont("Courier New", 9)  # Monospace font
+        self.stats_label = QLabel("⏸️  Waiting for playback...")
+        stats_font = StyleManager.get_font(mono=True)  # Monospace font
         self.stats_label.setFont(stats_font)
         self.stats_label.setWordWrap(False)
+        self.stats_label.setAlignment(Qt.AlignmentFlag.AlignLeft)
+        self.stats_label.setStyleSheet("padding: 6px;")
         layout.addWidget(self.stats_label)
 
         # Set background
         self.setStyleSheet(f"""
             QWidget {{
-                background-color: {StyleManager.get_color('surface_dark')};
-                border: 1px solid {StyleManager.get_color('border_subtle')};
+                background-color: {StyleManager.get_color('bg_panel').name()};
+                border: 1px solid {StyleManager.get_color('border_light').name()};
                 border-radius: 4px;
             }}
         """)
@@ -84,7 +88,7 @@ class LatencyMonitor(QWidget):
 
             if stats['total_callbacks'] == 0:
                 self.stats_label.setText("⏸️  No playback activity")
-                self.stats_label.setStyleSheet(f"color: {StyleManager.get_color('text_secondary')};")
+                self.stats_label.setStyleSheet(f"color: {StyleManager.get_color('text_dim').name()}; padding: 6px;")
                 return
 
             # Determine color based on usage percentage
@@ -99,22 +103,22 @@ class LatencyMonitor(QWidget):
                 color = "#FF4444"  # Red (critical)
                 status = "✗"
 
-            # Format stats text
+            # Format stats text (vertical layout for narrow widget)
             text = (
-                f"{status} Avg: {stats['mean_ms']:.2f}ms | "
-                f"Peak: {stats['max_ms']:.2f}ms | "
-                f"Budget: {stats['budget_ms']:.2f}ms\n"
-                f"Usage: {usage_pct:.1f}% | "
-                f"Xruns: {stats['xruns']} | "
-                f"Callbacks: {stats['total_callbacks']}"
+                f"{status} Avg:  {stats['mean_ms']:>6.2f} ms\n"
+                f"  Peak: {stats['max_ms']:>6.2f} ms\n"
+                f"  Budget: {stats['budget_ms']:>4.1f} ms\n"
+                f"  Usage:  {usage_pct:>5.1f} %\n"
+                f"  Xruns:  {stats['xruns']:>6}\n"
+                f"  Calls:  {stats['total_callbacks']:>6}"
             )
 
             self.stats_label.setText(text)
-            self.stats_label.setStyleSheet(f"color: {color};")
+            self.stats_label.setStyleSheet(f"color: {color}; padding: 6px;")
 
         except Exception as e:
             self.stats_label.setText(f"❌ Error reading stats: {e}")
-            self.stats_label.setStyleSheet(f"color: {StyleManager.get_color('error')};")
+            self.stats_label.setStyleSheet(f"color: {StyleManager.get_color('error')}; padding: 6px;")
 
     def closeEvent(self, event):
         """Stop timer when widget is closed."""

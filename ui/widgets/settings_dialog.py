@@ -95,7 +95,7 @@ class SettingsDialog(QDialog):
             profile = self.parent_window.current_audio_profile
             profile_label = QLabel(
                 f"🎛️ Active Profile: <b>{profile.name}</b><br>"
-                f"<span style='color: {StyleManager.get_color('text_secondary')}; font-size: 10px;'>"
+                f"<span style='color: {StyleManager.get_color('text_dim').name()}; font-size: 10px;'>"
                 f"{profile.description}</span>"
             )
             profile_label.setWordWrap(True)
@@ -133,8 +133,8 @@ class SettingsDialog(QDialog):
                 background-color: {StyleManager.get_color('bg_main')};
             }}
             QGroupBox {{
-                color: {StyleManager.get_color('text_primary')};
-                border: 1px solid {StyleManager.get_color('border_subtle')};
+                color: {StyleManager.get_color('text_bright')};
+                border: 1px solid {StyleManager.get_color('border_light')};
                 border-radius: 4px;
                 margin-top: 8px;
                 padding-top: 8px;
@@ -149,7 +149,7 @@ class SettingsDialog(QDialog):
                 color: {StyleManager.get_color('text_primary')};
             }}
             QCheckBox {{
-                color: {StyleManager.get_color('text_primary')};
+                color: {StyleManager.get_color('text_bright')};
                 spacing: 8px;
             }}
             QCheckBox::indicator {{
@@ -164,9 +164,9 @@ class SettingsDialog(QDialog):
                 border: 1px solid {StyleManager.get_color('accent_cyan')};
             }}
             QPushButton {{
-                background-color: {StyleManager.get_color('surface_medium')};
-                color: {StyleManager.get_color('text_primary')};
-                border: 1px solid {StyleManager.get_color('border_subtle')};
+                background-color: {StyleManager.get_color('blue_deep_medium')};
+                color: {StyleManager.get_color('text_bright')};
+                border: 1px solid {StyleManager.get_color('border_light')};
                 border-radius: 4px;
                 padding: 6px 12px;
                 font-weight: bold;
