@@ -109,7 +109,7 @@
 - **Tiempo Real**: 1h
 - **Objetivo**: Validar sample rate de todos los tracks offline
 - **Dependencias**: Tarea #3 completada ✅
-- **Commit**: (pendiente)
+- **Commit**: `e1b31bb`
 
 #### Validación:
 - ✅ Sintaxis: `python -m py_compile scripts/validate_multi.py`
