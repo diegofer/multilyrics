@@ -104,7 +104,7 @@ class MainWindow(QMainWindow):
 
         # Add Latency Monitor (initially hidden, shown via Settings)
         self.latency_monitor = LatencyMonitor(self.audio_player)
-        self.ui.mixer_tracks_layout.addWidget(self.latency_monitor)
+        self.ui.monitor_layout.addWidget(self.latency_monitor)
         # Load visibility from settings
         show_latency = SettingsDialog.get_setting("audio.show_latency_monitor", False)
         self.latency_monitor.setVisible(show_latency)
