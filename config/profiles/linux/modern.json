@@ -1,0 +1,23 @@
+{
+  "name": "Modern Hardware",
+  "description": "Optimizado para CPUs modernos (2019+): Ryzen 3000+, Intel 9th Gen+",
+  "target_hardware": {
+    "cpu_year_min": 2019,
+    "cpu_year_max": 2030,
+    "ram_min_gb": 16,
+    "cores_min": 6
+  },
+  "audio_settings": {
+    "blocksize": 1024,
+    "samplerate": null,
+    "gc_policy": "normal",
+    "latency_mode": "low",
+    "prime_buffers": true
+  },
+  "performance": {
+    "target_latency_ms": 21,
+    "xrun_tolerance": 1,
+    "cpu_threshold_pct": 50
+  },
+  "notes": "Latencia moderada con GC habilitado. CPU moderno puede manejar GC sin glitches."
+}

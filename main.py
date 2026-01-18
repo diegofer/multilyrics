@@ -32,6 +32,7 @@ logger = get_logger(__name__)
 
 from core import constants
 from core.engine import MultiTrackPlayer
+from core.audio_profiles import get_profile_manager
 from core.extraction_orchestrator import ExtractionOrchestrator
 from core.playback_manager import PlaybackManager
 from core.sync import SyncController
@@ -73,10 +74,17 @@ class MainWindow(QMainWindow):
         self.timeline_view = TimelineView()
         self.ui.timeline_layout.addWidget(self.timeline_view)
 
-        #Instanciar Player (needed before master track creation)
-        # samplerate=None: auto-detect from first track loaded
-        # gc_policy='disable_during_playback': prevent GC pauses during playback (critical for legacy hardware)
-        self.audio_player = MultiTrackPlayer(samplerate=None, blocksize=2048, gc_policy='disable_during_playback')
+        #Instanciar Player con audio profile auto-detectado
+        # Tarea #5: Audio Profile System - Auto-detect hardware and load optimal profile
+        profile_manager = get_profile_manager()
+        audio_profile = profile_manager.auto_select_profile()
+        logger.info(f"🎛️  Using audio profile: {audio_profile.name}")
+        logger.info(f"   Description: {audio_profile.description}")
+        logger.info(f"   Settings: blocksize={audio_profile.blocksize}, gc_policy={audio_profile.gc_policy}")
+        
+        # Create player with profile settings
+        self.audio_player = MultiTrackPlayer(**audio_profile.to_engine_kwargs())
+        self.current_audio_profile = audio_profile  # Store for later reference
 
         #Agregar tracks widgets (master track receives both engine and timeline_view)
         self.master_track = TrackWidget(

@@ -1,0 +1,23 @@
+{
+  "name": "Legacy Hardware",
+  "description": "Optimizado para CPUs antiguas (2008-2012): Intel Core 2 Duo, Sandy Bridge, AMD Phenom",
+  "target_hardware": {
+    "cpu_year_min": 2008,
+    "cpu_year_max": 2012,
+    "ram_min_gb": 4,
+    "cores_min": 2
+  },
+  "audio_settings": {
+    "blocksize": 4096,
+    "samplerate": null,
+    "gc_policy": "disable_during_playback",
+    "latency_mode": "high",
+    "prime_buffers": true
+  },
+  "performance": {
+    "target_latency_ms": 85,
+    "xrun_tolerance": 5,
+    "cpu_threshold_pct": 80
+  },
+  "notes": "Máxima estabilidad para hardware antiguo. Latencia alta pero sin glitches."
+}
