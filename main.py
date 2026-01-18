@@ -43,6 +43,8 @@ from ui.main_window import Ui_MainWindow
 from ui.styles import StyleManager
 from ui.widgets.add import AddDialog
 from ui.widgets.controls_widget import ControlsWidget
+from ui.widgets.latency_monitor import LatencyMonitor
+from ui.widgets.settings_dialog import SettingsDialog
 from ui.widgets.spinner_dialog import SpinnerDialog
 from ui.widgets.timeline_view import TimelineView, ZoomMode
 from ui.widgets.track_widget import TrackWidget
@@ -99,6 +101,13 @@ class MainWindow(QMainWindow):
         #Agregar controls widget
         self.controls = ControlsWidget()
         self.ui.controls_layout.addWidget(self.controls)
+
+        # Add Latency Monitor (initially hidden, shown via Settings)
+        self.latency_monitor = LatencyMonitor(self.audio_player)
+        self.ui.mixer_tracks_layout.addWidget(self.latency_monitor)
+        # Load visibility from settings
+        show_latency = SettingsDialog.get_setting("audio.show_latency_monitor", False)
+        self.latency_monitor.setVisible(show_latency)
 
         # Configurar StatusBar
         self.statusBar().showMessage("Listo")
@@ -169,6 +178,9 @@ class MainWindow(QMainWindow):
 
         # Connect show_video_btn to control video window visibility
         self.controls.show_video_btn.toggled.connect(self._on_show_video_toggled)
+
+        # Connect settings button to open settings dialog
+        self.controls.settings_btn.clicked.connect(self._on_settings_clicked)
 
         # ===========================================================================
         # LEGACY HARDWARE OPTIMIZATION: Video enable/disable control
@@ -242,6 +254,17 @@ class MainWindow(QMainWindow):
     def on_multi_selected(self, path: str) -> None:
         logger.debug(f"Multi selected: {path}")
         self.set_active_song(path)
+
+    @Slot()
+    def _on_settings_clicked(self) -> None:
+        """Open settings dialog."""
+        settings_dialog = SettingsDialog(self)
+        settings_dialog.exec()
+
+    def set_latency_monitor_visible(self, visible: bool):
+        """Show or hide latency monitor widget."""
+        self.latency_monitor.setVisible(visible)
+        logger.info(f"🎛️  Latency monitor: {'shown' if visible else 'hidden'}")
 
     @Slot()
     def on_play_clicked(self) -> None:

@@ -128,11 +128,29 @@
 
 ---
 
-### ⏸️ Tarea #7: Widget de latency monitor
-- **Estado**: ⚠️ PARCIALMENTE COMPLETADA (widget creado, falta integración en Settings)
-- **Archivos**: `ui/widgets/latency_monitor.py` ✅, UI settings pendiente
-- **Tiempo Real**: 30 min (widget básico)
-- **Pendiente**: Integración en Settings → Audio → Show Latency Monitor
+### ✅ Tarea #7: Widget de latency monitor
+- **Estado**: ✅ COMPLETADA (2026-01-18)
+- **Archivos**: `ui/widgets/settings_dialog.py`, `main.py`, `ui/widgets/latency_monitor.py` (ya existía)
+- **Tiempo Real**: 30min
+- **Objetivo**: Integrar LatencyMonitor en Settings con checkbox show/hide
+- **Dependencias**: Tarea #4 completada ✅
+- **Commit**: (pendiente)
+
+#### Validación:
+- ✅ Sintaxis: `python -m py_compile settings_dialog.py main.py`
+- ✅ Aplicación inicia correctamente
+- ✅ LatencyMonitor agregado a UI (inicialmente oculto)
+- ✅ Settings carga configuración desde config/settings.json
+- ✅ Checkbox funcional: muestra/oculta monitor en tiempo real
+- ✅ Persistencia: configuración guardada entre sesiones
+
+#### Resultados:
+- SettingsDialog creado con Audio Settings group
+- Checkbox "Show Latency Monitor" con tooltip
+- Método estático get_setting() para lectura global de config
+- MainWindow.set_latency_monitor_visible() para control de visibilidad
+- Configuración persistente en config/settings.json
+- Botón settings ya existía en controls_widget, solo conectado
 
 ---
 
@@ -234,20 +252,26 @@ Después de cada tarea completada:
 - **Resultado**: Detección correcta de mismatches + generación automática de fix commands
 - **Beneficio**: Usuarios pueden validar multis descargados antes de usar
 
+### Tarea #7 (Latency Monitor Integration)
+- **Aprendizaje**: Settings dialog con persistencia JSON simple es suficiente
+- **Decisión**: Checkbox en Settings para mostrar/ocultar widget de debug
+- **Resultado**: Integración transparente, no invasiva, configuración persistente
+- **Beneficio**: Usuarios avanzados pueden monitorear stats sin código
+
 ---
 
 ## 📊 Estadísticas Generales
 
-**Tiempo Invertido**: ~9.5h  
-**Progreso**: 55% completado (6/11 tareas)
+**Tiempo Invertido**: ~10h  
+**Progreso**: 64% completado (7/11 tareas)
 
 **Desglose por Prioridad**:
 - 🔴 Alta: 5/5 completadas (100%) ✅
-- 🟡 Media: 1/4 completadas (25%)
+- 🟡 Media: 2/4 completadas (50%)
 - 🟢 Baja: 0/2 completadas (0%)
 
-**Tareas Restantes**: 5.5h estimadas  
-**Próxima Tarea**: Integrar LatencyMonitor en Settings (30min)
+**Tareas Restantes**: 5h estimadas  
+**Próxima Tarea**: Benchmark script (2h) o Profile documentation (1h)
 
 ---
 
