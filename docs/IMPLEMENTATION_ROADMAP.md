@@ -134,7 +134,7 @@
 - **Tiempo Real**: 30min
 - **Objetivo**: Integrar LatencyMonitor en Settings con checkbox show/hide
 - **Dependencias**: Tarea #4 completada ✅
-- **Commit**: (pendiente)
+- **Commit**: `16177b1`
 
 #### Validación:
 - ✅ Sintaxis: `python -m py_compile settings_dialog.py main.py`
