@@ -1,5 +1,12 @@
 # Multi Lyrics - AI Agent Instructions
 
+> **Documentación relacionada:**
+> - [PROJECT_BLUEPRINT.md](PROJECT_BLUEPRINT.md) - Resumen ejecutivo del proyecto
+> - [ROADMAP_FEATURES.md](ROADMAP_FEATURES.md) - Features futuras no implementadas
+> - [../docs/IMPLEMENTATION_ROADMAP.md](../docs/IMPLEMENTATION_ROADMAP.md) - Historial de tareas completadas
+
+---
+
 ## Project Overview
 Multi Lyrics is a professional multitrack audio/video player with synchronized lyrics display designed for churches and worship teams. Built with PySide6 (Qt for Python), it features advanced audio analysis (beat detection, chord recognition), waveform visualization, and audio-video synchronization.
 
