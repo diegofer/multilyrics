@@ -130,7 +130,9 @@ class MainWindow(QMainWindow):
 
         #Instanciar Player y enlazar con SyncController
         self.sync = SyncController(44100)
-        self.audio_player.audioTimeCallback = self.sync.audio_callback
+        # CRITICAL FIX: Use polling pattern instead of callback to prevent Windows deadlock
+        # Audio engine updates atomic counter, sync controller polls from Qt thread
+        self.sync.audio_engine = self.audio_player
 
         # Create single canonical TimelineModel instance shared across all components
         self.timeline_model = TimelineModel()
@@ -268,17 +270,21 @@ class MainWindow(QMainWindow):
 
     @Slot()
     def on_play_clicked(self) -> None:
+        # CRITICAL: Start position polling timer BEFORE starting audio
+        # This ensures timer is running when audio callback begins (prevents deadlock)
+        self.sync.start_sync()
+
         #considerar correr primero video y luego audio para evitar delay en video
         self.audio_player.play()
         self.video_player.start_playback()
         # Update UI toggle
         self.controls.set_playing_state(True)
-
-    @Slot()
     def on_pause_clicked(self) -> None:
         self.audio_player.pause()
         #self.waveform.pause_play()
         self.video_player.pause()
+        # Stop position polling timer after pause
+        self.sync.stop_sync()
         # Update UI toggle
         self.controls.set_playing_state(False)
 

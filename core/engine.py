@@ -105,8 +105,10 @@ class MultiTrackPlayer:
         # Master gain (global output gain, 0.0 .. 1.0)
         self.master_gain = 1.0
 
-        # Sync controller callback opcional
-        self.audioTimeCallback = None  # function to call with current time in seconds
+        # Atomic counter for frames processed (updated from audio callback)
+        # Read by Qt thread via polling to avoid Qt Signal emission from audio thread
+        # CRITICAL: This pattern prevents deadlock on Windows WASAPI during buffer priming
+        self._frames_processed = 0  # Atomic int, safe to read/write from different threads
 
         # Playback state change callback opcional
         # Should be a callable taking a single bool argument (playing)
@@ -321,9 +323,10 @@ class MultiTrackPlayer:
                 except Exception:
                     pass
 
-            # Call audio time callback if set
-            if self.audioTimeCallback is not None:
-                self.audioTimeCallback(frames)
+        # Update atomic counter OUTSIDE lock (safe from audio thread, no Qt Signal emission)
+        # Qt thread will poll this counter via QTimer to emit signals safely
+        # CRITICAL: Update outside lock to prevent contention with Qt polling thread
+        self._frames_processed = self._pos
 
         # Tarea #4: Latency measurement - End timing and store stats
         callback_end = time.perf_counter()
@@ -355,6 +358,7 @@ class MultiTrackPlayer:
         # Disable GC during playback to prevent audio glitches
         self._disable_gc_if_needed()
 
+        # Prepare state and create stream under lock
         with self._lock:
             if self._n_tracks == 0:
                 raise RuntimeError("No tracks loaded")
@@ -362,7 +366,7 @@ class MultiTrackPlayer:
                 self._pos = int(start_frame)
             self._playing = True
 
-            # Create and start stream if not already
+            # Create stream if not already (but don't start yet)
             if self._stream is None:
                 # ═══════════════════════════════════════════════════════════════
                 # AUDIO STREAM CONFIGURATION - OPTIMIZED FOR LEGACY HARDWARE
@@ -383,10 +387,11 @@ class MultiTrackPlayer:
                     prime_output_buffers_using_stream_callback=True  # ← Pre-llenar buffers
                 )
                 logger.info(f"🔊 Audio stream initialized: {self.samplerate}Hz, blocksize={self.blocksize}, latency=high")
-                self._stream.start()
-            else:
-                if not self._stream.active:
-                    self._stream.start()
+
+        # CRITICAL: Start stream OUTSIDE lock to prevent deadlock during priming
+        # The priming callback needs to acquire self._lock, so we must release it first
+        if self._stream is not None:
+            self._stream.start()
         # Notify play state changed -> playing
         try:
             if self.playStateCallback is not None:
@@ -418,6 +423,7 @@ class MultiTrackPlayer:
                 except Exception:
                     pass
             self._pos = 0
+            self._frames_processed = 0
 
         # Restore GC after playback stops
         self._restore_gc_if_needed()
@@ -432,6 +438,14 @@ class MultiTrackPlayer:
     def pause(self):
         with self._lock:
             self._playing = False
+            should_stop = self._stream is not None and self._stream.active
+
+        # Stop stream outside lock to prevent deadlock
+        if should_stop:
+            try:
+                self._stream.stop()
+            except Exception:
+                pass
 
         # Restore GC when paused (safe to collect during pause)
         self._restore_gc_if_needed()
@@ -448,9 +462,12 @@ class MultiTrackPlayer:
         self._disable_gc_if_needed()
 
         with self._lock:
-            if self._stream is not None and not self._stream.active:
-                self._stream.start()
             self._playing = True
+            should_start = self._stream is not None and not self._stream.active
+
+        # Start stream outside lock to prevent deadlock
+        if should_start:
+            self._stream.start()
         # Notify play state changed -> playing
         try:
             if self.playStateCallback is not None:

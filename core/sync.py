@@ -1,19 +1,22 @@
-from PySide6.QtCore import QObject, Signal, Slot
+from PySide6.QtCore import QObject, Signal, Slot, QTimer
 import numpy as np
 
 from core.clock import AudioClock
 from utils.error_handler import safe_operation
+from utils.logger import get_logger
+
+logger = get_logger(__name__)
 
 class SyncController(QObject):
     """
     Controlador centralizado de sincronización audio-video.
-    
+
     Responsabilidades:
     - Mantener reloj de audio suavizado desde callback de sounddevice
     - Recibir posición de video desde VideoLyrics
     - Calcular diferencias y decidir correcciones
     - Emitir señales para que VideoLyrics ejecute las correcciones
-    
+
     Umbrales de sincronización (en ms):
     - SOFT_THRESHOLD: si diff está dentro, corrección suave
     - HARD_THRESHOLD: si diff supera, corrección dura (salto directo)
@@ -30,15 +33,27 @@ class SyncController(QObject):
         self.samplerate = samplerate
         self._smooth_audio_time = 0.0
         self.alpha = 0.1  # coeficiente de suavizado EMA
-        
+
         # Umbrales de sincronización (ms)
         self.SOFT_THRESHOLD = 80
         self.HARD_THRESHOLD = 300
         self.CORR_MAX_MS = 20
-        
+
         # Estado video
         self._video_time = 0.0
         self.is_syncing = False  # flag para evitar correcciones durante buscas
+
+        # Audio engine reference (set externally after construction)
+        self.audio_engine = None
+
+        # QTimer for polling audio position (prevents Qt Signal emission from audio thread)
+        # Polls at ~60 FPS for smooth playhead updates
+        self._position_timer = QTimer(self)
+        self._position_timer.setInterval(16)  # ~60 FPS (16ms)
+        self._position_timer.timeout.connect(self._poll_audio_position)
+
+        # Track last known frames to calculate delta
+        self._last_frames_processed = 0
 
     # ----------------------------------------------------------
     #  PROPIEDAD PARA LEER EL TIEMPO ACTUAL DEL AUDIO SUAVIZADO
@@ -49,29 +64,47 @@ class SyncController(QObject):
         return self._smooth_audio_time
 
     # ----------------------------------------------------------
-    #  LLAMADO DESDE EL CALLBACK DE SOUNDDEVICE
+    #  POLLING DESDE QT THREAD (REEMPLAZA audio_callback)
     # ----------------------------------------------------------
-    def audio_callback(self, frames: int):
+    def _poll_audio_position(self):
         """
-        Llamar desde el callback de sounddevice.
-        Actualiza reloj, suaviza tiempo y emite signal para UI.
+        Poll audio position from engine's atomic counter (Qt thread safe).
+        Called by QTimer every ~16ms (60 FPS) during playback.
+
+        CRITICAL: This method runs in Qt thread, NOT audio thread.
+        Safe to emit Qt Signals without causing deadlock on Windows WASAPI.
         """
-        # 1) Actualizar contador base
-        self.clock.update(frames)
-        raw_time = self.clock.get_time()
+        if self.audio_engine is None:
+            logger.debug("\u26a0\ufe0f  Poll: audio_engine is None")
+            return
 
-        # 2) Suavizar (EMA)
-        self._smooth_audio_time = (
-            (1 - self.alpha) * self._smooth_audio_time +
-            self.alpha * raw_time
-        )
+        # Read atomic counter from audio engine (thread-safe read)
+        current_frames = self.audio_engine._frames_processed
+        logger.debug(f"\ud83d\udd04 Poll: current_frames={current_frames}, last={self._last_frames_processed}")
 
-        # 3) Emitir para UI
-        self.audioTimeUpdated.emit(self._smooth_audio_time)
-        
-        # 4) Si estamos sincronizando, calcular correcciones
-        if self.is_syncing:
-            self._calculate_video_correction()
+        # Calculate delta since last poll
+        frames_delta = current_frames - self._last_frames_processed
+        if frames_delta > 0:
+            # 1) Update clock with delta
+            self.clock.update(frames_delta)
+            raw_time = self.clock.get_time()
+
+            # 2) Smooth time (EMA)
+            self._smooth_audio_time = (
+                (1 - self.alpha) * self._smooth_audio_time +
+                self.alpha * raw_time
+            )
+
+            # 3) Emit signal for UI (SAFE: we're in Qt thread)
+            logger.debug(f"\u2705 Emitting audioTimeUpdated: {self._smooth_audio_time:.3f}s")
+            self.audioTimeUpdated.emit(self._smooth_audio_time)
+
+            # 4) Calculate video corrections if syncing
+            if self.is_syncing:
+                self._calculate_video_correction()
+
+            # Update last known position
+            self._last_frames_processed = current_frames
 
     # ----------------------------------------------------------
     #  RECIBIR POSICIÓN DE VIDEO
@@ -123,15 +156,19 @@ class SyncController(QObject):
             self.videoCorrectionNeeded.emit(correction)
 
     # ----------------------------------------------------------
-    #  CONTROL DE SINCRONIZACIÓN
+    #  CONTROL DE SINCRONIZACIÓN Y POLLING
     # ----------------------------------------------------------
     def start_sync(self):
         """Habilita la sincronización automática de video."""
         self.is_syncing = True
+        if not self._position_timer.isActive():
+            self._position_timer.start()
 
     def stop_sync(self):
         """Detiene la sincronización automática de video."""
         self.is_syncing = False
+        if self._position_timer.isActive():
+            self._position_timer.stop()
 
     def reset(self):
         """Reinicia el reloj y estado de sincronización."""
@@ -139,6 +176,9 @@ class SyncController(QObject):
         self._smooth_audio_time = 0.0
         self._video_time = 0.0
         self.is_syncing = False
+        self._last_frames_processed = 0
+        if self._position_timer.isActive():
+            self._position_timer.stop()
 
     def set_audio_time(self, seconds: float):
         """Set audio clock and smooth time to a specific value (seek)."""
@@ -147,5 +187,8 @@ class SyncController(QObject):
             self.clock.set_time(seconds)
         # Set smoothed value directly so downstream logic immediately sees it
         self._smooth_audio_time = float(seconds)
+        # Reset frame tracking to sync with engine after seek
+        if self.audio_engine is not None:
+            self._last_frames_processed = self.audio_engine._frames_processed
         # Emit updated position for UI
         self.audioTimeUpdated.emit(self._smooth_audio_time)
