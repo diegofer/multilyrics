@@ -31,6 +31,7 @@ from utils.logger import get_logger
 logger = get_logger(__name__)
 
 from core import constants
+from core.audio_profiles import get_profile_manager
 from core.engine import MultiTrackPlayer
 from core.extraction_orchestrator import ExtractionOrchestrator
 from core.playback_manager import PlaybackManager
@@ -42,6 +43,8 @@ from ui.main_window import Ui_MainWindow
 from ui.styles import StyleManager
 from ui.widgets.add import AddDialog
 from ui.widgets.controls_widget import ControlsWidget
+from ui.widgets.latency_monitor import LatencyMonitor
+from ui.widgets.settings_dialog import SettingsDialog
 from ui.widgets.spinner_dialog import SpinnerDialog
 from ui.widgets.timeline_view import TimelineView, ZoomMode
 from ui.widgets.track_widget import TrackWidget
@@ -73,8 +76,17 @@ class MainWindow(QMainWindow):
         self.timeline_view = TimelineView()
         self.ui.timeline_layout.addWidget(self.timeline_view)
 
-        #Instanciar Player (needed before master track creation)
-        self.audio_player = MultiTrackPlayer()
+        #Instanciar Player con audio profile auto-detectado
+        # Tarea #5: Audio Profile System - Auto-detect hardware and load optimal profile
+        profile_manager = get_profile_manager()
+        audio_profile = profile_manager.auto_select_profile()
+        logger.info(f"🎛️  Using audio profile: {audio_profile.name}")
+        logger.info(f"   Description: {audio_profile.description}")
+        logger.info(f"   Settings: blocksize={audio_profile.blocksize}, gc_policy={audio_profile.gc_policy}")
+
+        # Create player with profile settings
+        self.audio_player = MultiTrackPlayer(**audio_profile.to_engine_kwargs())
+        self.current_audio_profile = audio_profile  # Store for later reference
 
         #Agregar tracks widgets (master track receives both engine and timeline_view)
         self.master_track = TrackWidget(
@@ -90,6 +102,13 @@ class MainWindow(QMainWindow):
         self.controls = ControlsWidget()
         self.ui.controls_layout.addWidget(self.controls)
 
+        # Add Latency Monitor (initially hidden, shown via Settings)
+        self.latency_monitor = LatencyMonitor(self.audio_player)
+        self.ui.monitor_layout.addWidget(self.latency_monitor)
+        # Load visibility from settings
+        show_latency = SettingsDialog.get_setting("audio.show_latency_monitor", False)
+        self.latency_monitor.setVisible(show_latency)
+
         # Configurar StatusBar
         self.statusBar().showMessage("Listo")
         self.statusBar().setStyleSheet(f"""
@@ -104,7 +123,7 @@ class MainWindow(QMainWindow):
 
         #Agregar modals
         self.loader = SpinnerDialog(self)
-        self.add_dialog = AddDialog()
+        # add_dialog se crea bajo demanda en open_add_dialog()
 
         #Agregar video player
         self.video_player = VideoLyrics()
@@ -121,6 +140,14 @@ class MainWindow(QMainWindow):
         # Asignar SyncController a VideoLyrics para que reporte posición
         self.video_player.sync_controller = self.sync
 
+        # ===========================================================================
+        # LEGACY HARDWARE OPTIMIZATION: Initialize UI state
+        # ===========================================================================
+        # Sincronizar estado del toggle de video con detección automática
+        # Si hardware antiguo deshabilitó video, actualizar UI
+        # ===========================================================================
+        self.controls.set_video_enabled_state(self.video_player.is_video_enabled())
+
         # Asignar players al PlaybackManager para control centralizado
         self.playback.set_audio_player(self.audio_player)
         self.playback.set_video_player(self.video_player)
@@ -130,8 +157,6 @@ class MainWindow(QMainWindow):
 
         #Conectar Signals
         self.plus_btn.clicked.connect(self.open_add_dialog)
-        self.add_dialog.search_widget.multi_selected.connect(self.on_multi_selected)
-        self.add_dialog.drop_widget.file_imported.connect(self.extraction_process)
 
         # Connect Controls to TimelineModel (canonical source of playhead time)
         self._timeline_unsub_controls = self.timeline_model.on_playhead_changed(
@@ -153,6 +178,17 @@ class MainWindow(QMainWindow):
 
         # Connect show_video_btn to control video window visibility
         self.controls.show_video_btn.toggled.connect(self._on_show_video_toggled)
+
+        # Connect settings button to open settings dialog
+        self.controls.settings_btn.clicked.connect(self._on_settings_clicked)
+
+        # ===========================================================================
+        # LEGACY HARDWARE OPTIMIZATION: Video enable/disable control
+        # ===========================================================================
+        # Conectar toggle de video para permitir habilitar/deshabilitar manualmente
+        # Útil cuando hardware antiguo tiene video deshabilitado por defecto
+        # ===========================================================================
+        self.controls.video_enabled_changed.connect(self._on_video_enabled_changed)
 
         # Connect zoom mode controls
         self.controls.zoom_mode_changed.connect(self.on_zoom_mode_changed)
@@ -203,12 +239,32 @@ class MainWindow(QMainWindow):
 
     @Slot()
     def open_add_dialog(self) -> None:
-        self.add_dialog.exec()
+        """Crear diálogo bajo demanda para evitar problemas de compositor en hardware legacy.
+
+        Pattern inspirado en commit 314fab0 (VideoLyrics fix): crear ventanas frescas
+        en lugar de reutilizar instancias previas evita artifacts visuales en compositores débiles.
+        """
+        # Crear diálogo bajo demanda
+        add_dialog = AddDialog()
+        add_dialog.search_widget.multi_selected.connect(self.on_multi_selected)
+        add_dialog.drop_widget.file_imported.connect(self.extraction_process)
+        add_dialog.exec()
 
     @Slot()
     def on_multi_selected(self, path: str) -> None:
         logger.debug(f"Multi selected: {path}")
         self.set_active_song(path)
+
+    @Slot()
+    def _on_settings_clicked(self) -> None:
+        """Open settings dialog."""
+        settings_dialog = SettingsDialog(self)
+        settings_dialog.exec()
+
+    def set_latency_monitor_visible(self, visible: bool):
+        """Show or hide latency monitor widget."""
+        self.latency_monitor.setVisible(visible)
+        logger.info(f"🎛️  Latency monitor: {'shown' if visible else 'hidden'}")
 
     @Slot()
     def on_play_clicked(self) -> None:
@@ -292,6 +348,20 @@ class MainWindow(QMainWindow):
         else:
             logger.debug("Ocultando ventana de video")
             self.video_player.hide_window()
+
+    @Slot(bool)
+    def _on_video_enabled_changed(self, enabled: bool):
+        """Handle video enable/disable toggle from UI.
+
+        Args:
+            enabled: True to enable video playback, False to disable
+        """
+        logger.info(f"Usuario {'habilitó' if enabled else 'deshabilitó'} video manualmente")
+        self.video_player.enable_video(enabled)
+
+        # Si se deshabilitó video durante reproducción, detenerlo
+        if not enabled and self.video_player.player.is_playing():
+            self.video_player.stop()
 
     @Slot(bool)
     def _on_playback_state_changed(self, is_playing: bool) -> None:
@@ -507,8 +577,7 @@ class MainWindow(QMainWindow):
         multi_name = self._current_multi_path.name if self._current_multi_path else "Desconocido"
         self.statusBar().showMessage(f"Multi cargado: {multi_name}", 5000)
 
-        # Update multis list in search widget
-        self.add_dialog.search_widget.get_fresh_multis_list()
+        # Note: No need to refresh AddDialog list - it's created fresh on each open
 
         # Clean up stored state
         self._current_multi_path = None
@@ -586,8 +655,7 @@ class MainWindow(QMainWindow):
         )
         self.statusBar().showMessage("Metadata actualizada exitosamente", 4000)
 
-        # Refresh playlist to show new display name
-        self.add_dialog.search_widget.refresh_multis_list()
+        # Note: No need to refresh AddDialog list - it's created fresh on each open
 
     def _reload_lyrics_track(self, lyrics_model: 'LyricsModel') -> None:
         """Reload the lyrics track in timeline with new lyrics model"""

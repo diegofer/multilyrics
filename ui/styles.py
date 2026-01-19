@@ -1,6 +1,8 @@
-from PySide6.QtGui import QPalette, QColor, QFontDatabase, QFont
-from PySide6.QtCore import Qt
 import os
+
+from PySide6.QtCore import Qt
+from PySide6.QtGui import QColor, QFont, QFontDatabase, QPalette
+
 
 class StyleManager:
     """

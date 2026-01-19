@@ -33,8 +33,30 @@ class VideoLyrics(QWidget):
         self.system = platform.system()
         logger.debug(f"SO detectado: {self.system}")
 
-        # VLC
-        vlc_args = ['--quiet', '--no-video-title-show', '--log-verbose=2']
+        # Detectar hardware antiguo y determinar si video debe estar deshabilitado
+        self._is_legacy_hardware = self._detect_legacy_hardware()
+        self._video_auto_disabled = self._is_legacy_hardware
+
+        if self._video_auto_disabled:
+            logger.warning(
+                "⚠️ Hardware antiguo detectado - Video deshabilitado por defecto para prevenir stuttering. "
+                "Puede habilitarlo manualmente si lo desea."
+            )
+
+        # VLC con optimizaciones para hardware antiguo si es necesario
+        # Restricción vital: forzar '--no-audio' para que VLC nunca emita sonido; el AudioEngine es el único dueño del audio
+        vlc_args = ['--quiet', '--no-video-title-show', '--log-verbose=2', '--no-audio']
+
+        if self._is_legacy_hardware:
+            # Optimizaciones para CPUs antiguas
+            vlc_args.extend([
+                '--avcodec-hurry-up',         # Skip frames si CPU lenta
+                '--avcodec-skiploopfilter=4', # Saltear deblocking (menos CPU)
+                '--avcodec-threads=2',        # Limitar threads (dejar para audio)
+                '--file-caching=1000',        # Buffer más grande (menos picos)
+            ])
+            logger.info("🔧 VLC configurado con optimizaciones para hardware antiguo")
+
         self.instance = vlc.Instance(vlc_args)
         self.player = self.instance.media_player_new()
         self.player.audio_set_mute(True)
@@ -60,16 +82,107 @@ class VideoLyrics(QWidget):
         # Referencia a SyncController (se asigna desde main.py)
         self.sync_controller = None
 
+    def _detect_legacy_hardware(self) -> bool:
+        """Detectar si el sistema es hardware antiguo que puede tener problemas con video 1080p.
+
+        Criterios conservadores (solo marca como legacy si detecta señales claras):
+        - CPUs Intel Sandy Bridge o anteriores (2011 y más antiguos)
+        - CPUs AMD pre-2013
+        - RAM < 6GB
+
+        Returns:
+            bool: True si es hardware legacy, False si es moderno o no se puede determinar
+        """
+        try:
+            if self.system == "Linux":
+                # Leer info de CPU desde /proc/cpuinfo
+                try:
+                    with open("/proc/cpuinfo", "r") as f:
+                        cpuinfo = f.read().lower()
+
+                        # CPUs específicas conocidas por tener problemas
+                        legacy_cpu_markers = [
+                            "i5-2410m",  # Sandy Bridge (2011) - el caso del usuario
+                            "i3-2",      # Sandy Bridge i3
+                            "i5-2",      # Sandy Bridge i5
+                            "i7-2",      # Sandy Bridge i7
+                            "core(tm)2 duo",  # Core 2 Duo (2006-2009)
+                            "core(tm)2 quad", # Core 2 Quad (2007-2009)
+                            "pentium(r) dual", # Pentium Dual Core
+                        ]
+
+                        for marker in legacy_cpu_markers:
+                            if marker in cpuinfo:
+                                logger.info(f"🔍 CPU Legacy detectada: {marker}")
+                                return True
+
+                except FileNotFoundError:
+                    logger.debug("/proc/cpuinfo no encontrado - asumiendo hardware moderno")
+                except Exception as e:
+                    logger.debug(f"Error leyendo cpuinfo: {e}")
+
+            # Detección de RAM baja (cross-platform con psutil si está disponible)
+            try:
+                import psutil
+                ram_gb = psutil.virtual_memory().total / (1024**3)
+                if ram_gb < 6:
+                    logger.info(f"🔍 RAM limitada detectada: {ram_gb:.1f}GB < 6GB")
+                    return True
+            except ImportError:
+                logger.debug("psutil no disponible - saltando detección de RAM")
+            except Exception as e:
+                logger.debug(f"Error detectando RAM: {e}")
+
+        except Exception as e:
+            logger.warning(f"Error en detección de hardware: {e}")
+
+        # Por defecto, asumir hardware moderno (enfoque conservador)
+        logger.info("✅ Hardware moderno detectado o no pudo determinarse - video habilitado")
+        return False
+
+    def is_video_enabled(self) -> bool:
+        """Verificar si video está habilitado (automático o manual).
+
+        Returns:
+            bool: True si video puede reproducirse, False si está deshabilitado
+        """
+        return not self._video_auto_disabled
+
+    def enable_video(self, enable: bool = True):
+        """Habilitar o deshabilitar video manualmente (override de detección automática).
+
+        Args:
+            enable: True para habilitar video, False para deshabilitar
+        """
+        self._video_auto_disabled = not enable
+
+        if enable:
+            logger.info("📹 Video habilitado manualmente")
+        else:
+            logger.info("🚫 Video deshabilitado manualmente")
+            # Si estaba reproduciendo, detener
+            if self.player.is_playing():
+                self.stop()
+
     def set_media(self, video_path):
-        """Cargar un archivo de video."""
+        """Cargar un archivo de video (solo si está habilitado)."""
+        # Si video está deshabilitado, no cargar nada pero no fallar
+        if self._video_auto_disabled:
+            logger.info(f"📹 Video deshabilitado - omitiendo carga de {video_path}")
+            logger.info("💡 Puede habilitar video manualmente con enable_video() si su hardware lo soporta")
+            return
+
         if self.player.is_playing():
             self.player.stop()
             app_state.video_is_playing = False
             logger.debug("Reproductor detenido")
 
         media = self.instance.media_new(video_path)
+        # Deshabilitar audio del video - el audio será controlado por el AudioEngine
+        media.add_option("--no-audio")
         self.player.set_media(media)
         media.release()
+        logger.debug(f"📹 Video cargado: {video_path}")
 
     def show_window(self):
         """Mostrar la ventana de video en la pantalla secundaria.
@@ -198,9 +311,19 @@ class VideoLyrics(QWidget):
             logger.error(f"❌ Error al adjuntar VLC: {e}", exc_info=True)
 
     def start_playback(self):
-        """Iniciar reproducción y sincronización."""
+        """Iniciar reproducción y sincronización (solo si video está habilitado y ventana visible)."""
+        if self._video_auto_disabled:
+            logger.debug("📹 Video deshabilitado - saltando reproducción")
+            return
+
+        # Solo reproducir si la ventana está visible (usuario activó show_video_btn)
+        if not self.isVisible():
+            logger.debug("📹 Ventana de video oculta - saltando reproducción de video (audio continuará)")
+            return
+
         logger.debug("⏯ Reproduciendo video...")
         self.player.play()
+        self.player.audio_set_mute(True)  # Asegurar que audio está muteado antes de reproducir
         app_state.video_is_playing = True
 
         # Habilitar sincronización

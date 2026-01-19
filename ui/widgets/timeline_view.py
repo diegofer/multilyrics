@@ -46,7 +46,16 @@ logger = get_logger(__name__)
 # Performance & zoom/downsampling settings
 MIN_SAMPLES_PER_PIXEL = 10   # Do not allow fewer than 10 samples per pixel (visual limit)
 MAX_ZOOM_LEVEL = 500.0      # Max zoom factor multiplier
-GLOBAL_DOWNSAMPLE_FACTOR = 1024  # For global view, aggregate at least this many samples per visual bucket
+
+# ===========================================================================
+# HARDWARE OPTIMIZATION PROFILES
+# ===========================================================================
+# GLOBAL_DOWNSAMPLE_FACTOR: Agregación de samples en vista GENERAL
+# - 1024: Hardware moderno (2015+) - Suave y detallado
+# - 2048: Hardware medio (2012-2015) - Balance performance/calidad
+# - 4096: Hardware antiguo (2008-2012) - Máxima estabilidad en CPU legacy
+# ===========================================================================
+GLOBAL_DOWNSAMPLE_FACTOR = 4096  # Configurado para i5-2410M (Sandy Bridge)
 
 class ZoomMode(Enum):
     """Tres modos de zoom predefinidos con diferentes comportamientos"""
@@ -130,6 +139,9 @@ class TimelineView(QWidget):
 
         # --- Lyrics Edit Mode ---
         self._lyrics_edit_mode: bool = False
+
+        # --- Paint Throttling (Dirty Flag) ---
+        self._paint_pending = False  # True si ya hay un update() esperando
 
         # --- Edit Mode Buttons ---
         self._edit_buttons_visible = False
@@ -772,8 +784,8 @@ class TimelineView(QWidget):
         with safe_operation("Updating widget position from timeline", silent=True):
             # Use existing conversion and clamping logic
             self.set_position_seconds(float(new_time))
-        # Schedule repaint on every playhead change (Qt will coalesce updates)
-        self.update()
+        # Schedule repaint ONLY if no paint is already pending (throttling)
+        self._request_update()
 
     def closeEvent(self, event: QCloseEvent) -> None:
         # Ensure we unsubscribe observer to avoid holding references after
@@ -802,7 +814,7 @@ class TimelineView(QWidget):
         self.playhead_sample = int(max(0, min(sample, len(self.samples)-1)))
         # Ensure playhead stays visible within the current viewport (similar to Audacity behavior)
         self._ensure_playhead_visible()
-        self.update()
+        self._request_update()
 
     def _ensure_playhead_visible(self, margin_px: int = None) -> None:
         """Ensure the playhead is inside the visible area with optional pixel margins.
@@ -937,9 +949,29 @@ class TimelineView(QWidget):
             super().keyPressEvent(event)
 
     # ==============================================================
+    # PAINT THROTTLING SYSTEM
+    # ==============================================================
+    def _request_update(self) -> None:
+        """Request a paint update with intelligent throttling.
+
+        Uses a dirty flag to prevent queuing multiple update() calls.
+        Only one paint is ever pending at a time, reducing event queue
+        congestion and eliminating flicker on legacy hardware.
+
+        This is the CORRECT way to throttle Qt painting - at the source
+        (before calling update()), not in paintEvent (after Qt queued it).
+        """
+        if not self._paint_pending:
+            self._paint_pending = True
+            self.update()
+
+    # ==============================================================
     # PAINT EVENT (waveform + playhead)
     # ==============================================================
     def paintEvent(self, event):
+        # Reset dirty flag - estamos pintando ahora
+        self._paint_pending = False
+
         painter = QPainter(self)
         painter.fillRect(self.rect(), StyleManager.get_color("bg_panel"))
 
@@ -991,11 +1023,15 @@ class TimelineView(QWidget):
         # Paint all tracks in order (bottom to top layering)
         # ----------------------------------------------------------
 
-        # Determinar downsample_factor para optimización en modo GENERAL
+        # ===========================================================================
+        # LEGACY HARDWARE OPTIMIZATION: Downsample only in GENERAL mode
+        # ===========================================================================
+        # GENERAL: Vista completa, 4096 samples/bucket (muy agresivo)
+        # PLAYBACK/EDIT: Sin downsample (calidad visual completa)
+        # ===========================================================================
         downsample_factor = None
         if self.current_zoom_mode == ZoomMode.GENERAL:
-            # En modo GENERAL, usar downsample para mejor performance
-            downsample_factor = GLOBAL_DOWNSAMPLE_FACTOR
+            downsample_factor = max(GLOBAL_DOWNSAMPLE_FACTOR, 4096)  # Solo en GENERAL
 
         # 1. Waveform (base layer)
         with safe_operation("Painting waveform track", silent=True):

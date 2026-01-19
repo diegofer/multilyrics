@@ -1,0 +1,8 @@
+{
+  "audio": {
+    "show_latency_monitor": false
+  },
+  "ui": {
+    "theme": "deep_tech_blue"
+  }
+}

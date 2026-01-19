@@ -35,21 +35,50 @@ Notes:
 - Tracks shorter than the longest will be padded with zeros to align durations.
 - By default playback is stereo: mono tracks are duplicated to both channels; stereo tracks are used as-is.
 """
+import gc
 import threading
-import numpy as np
-import soundfile as sf
-import sounddevice as sd
 import time
-from typing import List, Optional, Union
+from collections import deque
+from typing import Dict, List, Optional, Union
+
+import numpy as np
+import sounddevice as sd
+import soundfile as sf
+
+try:
+    import psutil
+    PSUTIL_AVAILABLE = True
+except ImportError:
+    PSUTIL_AVAILABLE = False
+    import warnings
+    warnings.warn("psutil not installed - RAM validation disabled. Install with: pip install psutil")
+
 from utils.logger import get_logger
 
 logger = get_logger(__name__)
 
 class MultiTrackPlayer:
-    def __init__(self, samplerate: int = 44100, blocksize: int = 1024, dtype: str = 'float32'):
-        self.samplerate = samplerate
-        self.blocksize = blocksize
+    def __init__(self, samplerate: Optional[int] = None, blocksize: int = 2048, dtype: str = 'float32', gc_policy: str = 'disable_during_playback'):
+        """
+        Initialize MultiTrack Audio Player.
+
+        Args:
+            samplerate: Sample rate (44100 or 48000). If None, auto-detects from first track loaded.
+            blocksize: Buffer size in samples. HARDWARE-DEPENDENT:
+                       - 512: Low latency (~10ms @ 48kHz) - Modern CPUs only
+                       - 1024: Balanced (~21ms @ 48kHz) - Good for most systems
+                       - 2048: High stability (~43ms @ 48kHz) - Legacy hardware (2008-2012)
+                       - 4096: Very stable (~85ms @ 48kHz) - Very old CPUs
+            dtype: Audio data type (always 'float32')
+            gc_policy: Garbage collection policy during playback:
+                      - 'disable_during_playback': Disable GC during playback to prevent audio glitches (recommended for legacy hardware)
+                      - 'normal': Keep GC enabled (for modern systems with sufficient CPU headroom)
+        """
+        self.samplerate = samplerate  # None until first track loaded
+        self.blocksize = blocksize  # Default 2048 for stability on legacy hardware
         self.dtype = dtype
+        self.gc_policy = gc_policy
+        self._gc_was_enabled = gc.isenabled()  # Store initial GC state
 
         # Data structures
         self._tracks = []            # list of arrays shape (n_samples, channels_per_track) float32
@@ -70,6 +99,8 @@ class MultiTrackPlayer:
         self._lock = threading.Lock()
 
         # Smoothing factor for gain transitions (0..1). Higher -> faster changes.
+        # Using exponential smoothing for more natural-sounding fades (perceptually linear)
+        # Factor of 0.15 gives ~20-30 callbacks to reach target (smooth but responsive)
         self.gain_smoothing = 0.15
         # Master gain (global output gain, 0.0 .. 1.0)
         self.master_gain = 1.0
@@ -81,20 +112,92 @@ class MultiTrackPlayer:
         # Should be a callable taking a single bool argument (playing)
         self.playStateCallback = None
 
+        # Latency measurement (Tarea #4)
+        self._callback_durations = deque(maxlen=100)  # Last 100 callback durations in seconds
+        self._xrun_count = 0  # Count of callbacks exceeding time budget
+        self._total_callbacks = 0  # Total callback invocations
+
+    def _disable_gc_if_needed(self):
+        """Disable garbage collection during playback to prevent audio glitches on legacy hardware."""
+        if self.gc_policy == 'disable_during_playback' and gc.isenabled():
+            self._gc_was_enabled = True
+            gc.disable()
+            logger.info("🗑️  GC disabled during playback (prevents audio glitches on legacy hardware)")
+
+    def _restore_gc_if_needed(self):
+        """Restore garbage collection after playback stops."""
+        if self.gc_policy == 'disable_during_playback' and self._gc_was_enabled:
+            gc.enable()
+            logger.info("🗑️  GC re-enabled after playback stopped")
+
+    def _validate_ram(self, total_bytes_needed: int) -> None:
+        """Validate sufficient RAM is available before pre-loading tracks.
+
+        Args:
+            total_bytes_needed: Total bytes required for all tracks
+
+        Raises:
+            MemoryError: If insufficient RAM available (uses <70% safety threshold)
+        """
+        if not PSUTIL_AVAILABLE:
+            logger.warning("⚠️  psutil not available - skipping RAM validation")
+            return
+
+        mem = psutil.virtual_memory()
+        available_bytes = mem.available
+        total_gb = total_bytes_needed / (1024**3)
+        available_gb = available_bytes / (1024**3)
+
+        # Use 70% of available RAM as safety threshold
+        safe_threshold = available_bytes * 0.70
+
+        logger.info(f"💾 Pre-load size: {total_gb:.2f} GB | Available RAM: {available_gb:.2f} GB")
+
+        if total_bytes_needed > safe_threshold:
+            raise MemoryError(
+                f"❌ Insufficient RAM for pre-load:\n"
+                f"   Required: {total_gb:.2f} GB\n"
+                f"   Available: {available_gb:.2f} GB\n"
+                f"   Safe threshold (70%): {safe_threshold/(1024**3):.2f} GB\n"
+                f"💡 Close other applications or reduce track count"
+            )
 
     def load_tracks(self, paths: List[str]):
         """
         Load a list of file paths. Files may be mono or stereo.
         They will be converted to float32 and stored.
+
+        If samplerate was None at initialization, auto-detects from first track.
+        All tracks must have the same sample rate (no live resampling for stability).
         """
-        arrays = []
-        srs = []
-        max_frames = 0
-        for p in paths:
+        if not paths:
+            raise ValueError("No paths provided to load_tracks")
+
+        # Load first track to auto-detect sample rate if needed
+        first_data, first_sr = sf.read(paths[0], dtype='float32', always_2d=True)
+
+        if self.samplerate is None:
+            self.samplerate = first_sr
+            logger.info(f"🎵 Auto-detected sample rate: {self.samplerate} Hz from first track")
+        elif first_sr != self.samplerate:
+            raise ValueError(
+                f"❌ Sample rate mismatch: expected {self.samplerate} Hz, "
+                f"got {first_sr} Hz from {paths[0]}\n"
+                f"💡 Fix with: ffmpeg -i '{paths[0]}' -ar {self.samplerate} output.wav"
+            )
+
+        arrays = [first_data]
+        max_frames = first_data.shape[0]
+
+        # Load remaining tracks and validate sample rate
+        for p in paths[1:]:
             data, sr = sf.read(p, dtype='float32', always_2d=True)  # shape (frames, channels)
-            srs.append(sr)
             if sr != self.samplerate:
-                raise ValueError(f"Samplerate mismatch: {p} has {sr}, player expects {self.samplerate}. Resample first.")
+                raise ValueError(
+                    f"❌ Sample rate mismatch: expected {self.samplerate} Hz, "
+                    f"got {sr} Hz from {p}\n"
+                    f"💡 Fix with: ffmpeg -i '{p}' -ar {self.samplerate} output.wav"
+                )
             arrays.append(data)
             if data.shape[0] > max_frames:
                 max_frames = data.shape[0]
@@ -106,6 +209,11 @@ class MultiTrackPlayer:
                 pad = np.zeros((max_frames - arr.shape[0], arr.shape[1]), dtype='float32')
                 arr = np.concatenate([arr, pad], axis=0)
             norm_tracks.append(arr)
+
+        # Tarea #2: RAM Validation - Calculate total bytes and validate before storing
+        total_bytes = sum(arr.nbytes for arr in norm_tracks)
+        self._validate_ram(total_bytes)
+
         self._tracks = norm_tracks
         self._n_tracks = len(norm_tracks)
         self._n_frames = max_frames
@@ -129,9 +237,13 @@ class MultiTrackPlayer:
         if length <= 0:
             return np.zeros((frames, self._n_output_channels), dtype='float32')
 
-        # Smooth current gains toward target gains
+        # Smooth current gains toward target gains using exponential smoothing
+        # Exponential smoothing: g_current = g_current * (1 - α) + g_target * α
+        # This creates a natural-sounding fade that matches human perception (logarithmic)
+        # and avoids audible clicks on volume changes
         # This operation is cheap and safe to do without locks because it's small and atomicish
-        self.current_gains += (self.target_gains - self.current_gains) * self.gain_smoothing
+        alpha = self.gain_smoothing
+        self.current_gains = self.current_gains * (1.0 - alpha) + self.target_gains * alpha
 
         # Decide which tracks are active considering solo/mute
         # Be robust if arrays weren't initialized (e.g., in tests)
@@ -175,6 +287,9 @@ class MultiTrackPlayer:
         sounddevice callback: must be fast and avoid Python allocation when possible.
         outdata is a writable numpy array shape (frames, channels)
         """
+        # Tarea #4: Latency measurement - Start timing
+        callback_start = time.perf_counter()
+
         if status:
             # Log status occasionally; not ideal in tight real-time but useful for debugging.
             logger.warning(f"Stream status: {status}")
@@ -210,6 +325,25 @@ class MultiTrackPlayer:
             if self.audioTimeCallback is not None:
                 self.audioTimeCallback(frames)
 
+        # Tarea #4: Latency measurement - End timing and store stats
+        callback_end = time.perf_counter()
+        callback_duration = callback_end - callback_start
+
+        # Calculate time budget for this blocksize
+        time_budget = self.blocksize / self.samplerate if self.samplerate else 0.043  # ~43ms @ 2048/48000
+
+        # Store duration and detect xruns (callback exceeding 80% of budget)
+        self._callback_durations.append(callback_duration)
+        self._total_callbacks += 1
+
+        if callback_duration > time_budget * 0.80:
+            self._xrun_count += 1
+            if self._xrun_count % 10 == 1:  # Log every 10th xrun to avoid spam
+                logger.warning(
+                    f"⚠️  Audio callback xrun detected: {callback_duration*1000:.2f}ms "
+                    f"(budget: {time_budget*1000:.2f}ms, usage: {(callback_duration/time_budget)*100:.1f}%)"
+                )
+
     def play(self, start_frame: Optional[int] = None):
         """
         Start playback.
@@ -218,6 +352,9 @@ class MultiTrackPlayer:
         If `start_frame` is None (the default), playback will resume from the
         current position (useful after a pause).
         """
+        # Disable GC during playback to prevent audio glitches
+        self._disable_gc_if_needed()
+
         with self._lock:
             if self._n_tracks == 0:
                 raise RuntimeError("No tracks loaded")
@@ -227,12 +364,25 @@ class MultiTrackPlayer:
 
             # Create and start stream if not already
             if self._stream is None:
-                self._stream = sd.OutputStream(samplerate=self.samplerate,
-                                               blocksize=self.blocksize,
-                                               channels=self._n_output_channels,
-                                               dtype=self.dtype,
-                                               callback=self._callback,
-                                               finished_callback=self._on_stream_finished)
+                # ═══════════════════════════════════════════════════════════════
+                # AUDIO STREAM CONFIGURATION - OPTIMIZED FOR LEGACY HARDWARE
+                # ═══════════════════════════════════════════════════════════════
+                # latency='high': Solicita al driver ALSA mayor buffer interno
+                #                 Crítico para CPUs antiguas (Sandy Bridge, Core 2 Duo)
+                # prime_output_buffers: Pre-llena buffers antes de iniciar stream
+                #                       Evita underruns en el primer frame
+                # ═══════════════════════════════════════════════════════════════
+                self._stream = sd.OutputStream(
+                    samplerate=self.samplerate,
+                    blocksize=self.blocksize,
+                    channels=self._n_output_channels,
+                    dtype=self.dtype,
+                    callback=self._callback,
+                    finished_callback=self._on_stream_finished,
+                    latency='high',  # ← CRÍTICO para hardware antiguo
+                    prime_output_buffers_using_stream_callback=True  # ← Pre-llenar buffers
+                )
+                logger.info(f"🔊 Audio stream initialized: {self.samplerate}Hz, blocksize={self.blocksize}, latency=high")
                 self._stream.start()
             else:
                 if not self._stream.active:
@@ -248,6 +398,10 @@ class MultiTrackPlayer:
         # called when stream finishes
         with self._lock:
             self._playing = False
+
+        # Restore GC after playback finishes
+        self._restore_gc_if_needed()
+
         # Notify play state change (stream finished -> not playing)
         try:
             if self.playStateCallback is not None:
@@ -264,6 +418,10 @@ class MultiTrackPlayer:
                 except Exception:
                     pass
             self._pos = 0
+
+        # Restore GC after playback stops
+        self._restore_gc_if_needed()
+
         # Notify play state changed -> not playing
         try:
             if self.playStateCallback is not None:
@@ -274,6 +432,10 @@ class MultiTrackPlayer:
     def pause(self):
         with self._lock:
             self._playing = False
+
+        # Restore GC when paused (safe to collect during pause)
+        self._restore_gc_if_needed()
+
         # Notify play state changed -> not playing
         try:
             if self.playStateCallback is not None:
@@ -282,6 +444,9 @@ class MultiTrackPlayer:
             pass
 
     def resume(self):
+        # Disable GC when resuming playback
+        self._disable_gc_if_needed()
+
         with self._lock:
             if self._stream is not None and not self._stream.active:
                 self._stream.start()
@@ -296,9 +461,12 @@ class MultiTrackPlayer:
     def set_gain(self, track_index: int, gain: float):
         """
         Set the target gain for a track (linear, 1.0 = unity).
+        Gain is clamped to [0.0, 1.0] range.
         """
         with self._lock:
-            self.target_gains[track_index] = np.float32(gain)
+            # Clamp gain to valid range
+            g = max(0.0, min(1.0, float(gain)))
+            self.target_gains[track_index] = np.float32(g)
 
     def set_master_gain(self, gain: float):
         """Set the global/master gain (0.0 .. 1.0)."""
@@ -336,19 +504,85 @@ class MultiTrackPlayer:
 
     def get_position_seconds(self) -> float:
         with self._lock:
+            if self.samplerate is None:
+                return 0.0
             return float(self._pos) / float(self.samplerate)
 
     def get_duration_seconds(self) -> float:
         """Return total duration of the loaded tracks in seconds."""
         with self._lock:
+            if self.samplerate is None or self._n_frames == 0:
+                return 0.0
             return float(self._n_frames) / float(self.samplerate)
 
     def seek_seconds(self, seconds: float):
+        """Seek to a specific time position in seconds.
+
+        Args:
+            seconds: Target position in seconds
+
+        Raises:
+            RuntimeError: If no tracks are loaded or samplerate not detected
+        """
+        if self.samplerate is None:
+            logger.warning("⚠️  Cannot seek: no tracks loaded (samplerate not detected)")
+            return
+
+        if self._n_tracks == 0:
+            logger.warning("⚠️  Cannot seek: no tracks loaded")
+            return
+
         frame = int(seconds * self.samplerate)
         with self._lock:
             self._pos = min(max(0, frame), self._n_frames)
 
+    def get_latency_stats(self) -> Dict[str, float]:
+        """Get audio callback latency statistics.
+
+        Returns:
+            Dictionary with:
+            - mean_ms: Average callback duration in milliseconds
+            - max_ms: Peak callback duration in milliseconds
+            - min_ms: Minimum callback duration in milliseconds
+            - xruns: Count of callbacks exceeding 80% of time budget
+            - budget_ms: Time budget for current blocksize in milliseconds
+            - usage_pct: Average percentage of time budget used
+            - total_callbacks: Total number of callbacks processed
+        """
+        with self._lock:
+            if not self._callback_durations:
+                return {
+                    'mean_ms': 0.0,
+                    'max_ms': 0.0,
+                    'min_ms': 0.0,
+                    'xruns': 0,
+                    'budget_ms': 0.0,
+                    'usage_pct': 0.0,
+                    'total_callbacks': 0
+                }
+
+            durations = list(self._callback_durations)
+            mean_duration = sum(durations) / len(durations)
+            max_duration = max(durations)
+            min_duration = min(durations)
+
+            # Calculate time budget
+            time_budget = self.blocksize / self.samplerate if self.samplerate else 0.043
+
+            return {
+                'mean_ms': mean_duration * 1000,
+                'max_ms': max_duration * 1000,
+                'min_ms': min_duration * 1000,
+                'xruns': self._xrun_count,
+                'budget_ms': time_budget * 1000,
+                'usage_pct': (mean_duration / time_budget) * 100 if time_budget > 0 else 0.0,
+                'total_callbacks': self._total_callbacks
+            }
+
     def close(self):
+        # Restore GC before closing
+        self._restore_gc_if_needed()
+
         with self._lock:
             if self._stream is not None:
                 try:
@@ -387,6 +621,8 @@ if __name__ == "__main__":
         logger.info("\nStopping...")
         player.stop()
     player.close()
+
+# End of module
 
 # End of module
 

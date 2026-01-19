@@ -1,0 +1,23 @@
+{
+  "name": "Balanced Performance",
+  "description": "Equilibrio entre latencia y estabilidad para CPUs de gama media (2013-2018)",
+  "target_hardware": {
+    "cpu_year_min": 2013,
+    "cpu_year_max": 2018,
+    "ram_min_gb": 8,
+    "cores_min": 4
+  },
+  "audio_settings": {
+    "blocksize": 2048,
+    "samplerate": null,
+    "gc_policy": "disable_during_playback",
+    "latency_mode": "high",
+    "prime_buffers": true
+  },
+  "performance": {
+    "target_latency_ms": 43,
+    "xrun_tolerance": 3,
+    "cpu_threshold_pct": 70
+  },
+  "notes": "Configuración por defecto recomendada. Buena latencia con alta estabilidad."
+}

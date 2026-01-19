@@ -75,6 +75,16 @@ class Ui_MainWindow(object):
 
         self.mixer_layout.addWidget(self.frame_mixer_tracks)
 
+        self.frame_monitor = QFrame(self.frame_mixer)
+        self.frame_monitor.setObjectName(u"frame_monitor")
+        self.frame_monitor.setFrameShape(QFrame.Shape.StyledPanel)
+        self.frame_monitor.setFrameShadow(QFrame.Shadow.Raised)
+        self.monitor_layout = QVBoxLayout(self.frame_monitor)
+        self.monitor_layout.setObjectName(u"monitor_layout")
+        self.monitor_layout.setContentsMargins(0, 0, 0, 0)
+
+        self.mixer_layout.addWidget(self.frame_monitor)
+
         self.frame_mixer_master = QFrame(self.frame_mixer)
         self.frame_mixer_master.setObjectName(u"frame_mixer_master")
         sizePolicy1 = QSizePolicy(QSizePolicy.Policy.Minimum, QSizePolicy.Policy.Preferred)

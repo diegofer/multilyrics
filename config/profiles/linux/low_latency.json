@@ -1,0 +1,27 @@
+{
+  "name": "Low Latency",
+  "description": "Mínima latencia para hardware de alta gama (2020+) con RT kernel",
+  "target_hardware": {
+    "cpu_year_min": 2020,
+    "cpu_year_max": 2030,
+    "ram_min_gb": 16,
+    "cores_min": 8
+  },
+  "audio_settings": {
+    "blocksize": 512,
+    "samplerate": null,
+    "gc_policy": "normal",
+    "latency_mode": "low",
+    "prime_buffers": true
+  },
+  "performance": {
+    "target_latency_ms": 11,
+    "xrun_tolerance": 0,
+    "cpu_threshold_pct": 40
+  },
+  "notes": "Latencia mínima para producción profesional. Requiere RT kernel y PipeWire optimizado.",
+  "requirements": {
+    "rt_kernel": true,
+    "audio_backend": "pipewire"
+  }
+}
