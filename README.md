@@ -1,261 +1,131 @@
-# Multi Lyrics 🎵
+# MultiLyrics 🎵
 
 [![License: GPL v3](https://img.shields.io/badge/License-GPLv3-blue.svg)](https://www.gnu.org/licenses/gpl-3.0)
 
-**Multi Lyrics** es un reproductor profesional de audio/video multitrack diseñado específicamente para equipos de alabanza e iglesias. Ofrece visualización de letras sincronizadas, análisis avanzado de audio (detección de beats, reconocimiento de acordes) y visualización de formas de onda - todo en un paquete gratuito y de código abierto.
+Professional multitrack audio/video player designed for worship teams and churches. Features synchronized lyrics, beat detection, chord recognition, and waveform visualization.
 
-## 🚀 Inicio Rápido (¡Empieza aquí!)
+## 🚧 Status: Pre-Release (Active Development)
 
-**¿Primera vez?** Te recomendamos seguir la guía completa de instalación para tu sistema:
+**This project is in active development.** Installers for Windows/Mac/Linux coming soon.
 
-→ 🪟 **Windows**: [`docs/INSTALL_WINDOWS.md`](docs/INSTALL_WINDOWS.md) - **Guía paso a paso con explicaciones detalladas**  
-→ 🐧 **Linux/Ubuntu**: [`docs/SETUP_AUDIO_LINUX.md`](docs/SETUP_AUDIO_LINUX.md)  
-→ 🍎 **macOS**: [`docs/SETUP_AUDIO_MACOS.md`](docs/SETUP_AUDIO_MACOS.md)
-
-**¿Ya tienes Python instalado?** Ve directo a [Instalación Rápida](#-instalación-rápida)
+- 🧪 **For Testers:** Download latest builds from [Releases](../../releases)
+- 🧑‍💻 **For Developers:** See [CONTRIBUTING.md](CONTRIBUTING.md)
+- 📖 **Documentation:** [.github/copilot-instructions.md](.github/copilot-instructions.md)
 
 ---
 
-## ✨ Features
+## ✨ Key Features
 
-- 🎛️ **Multitrack Playback**: Play individual stems (drums, bass, vocals, etc.) with independent volume control
-- 📊 **Waveform Visualization**: Interactive timeline with three zoom modes (General, Playback, Edit)
-- 🎼 **Audio Analysis**: Automatic beat detection and chord recognition using madmom
-- 📝 **Synchronized Lyrics**: LRC format support with auto-download from online sources
-- 🎥 **Video Lyrics**: Optional video playback synchronized with audio
-- 🎚️ **Professional Mixer**: Per-track mute/solo, logarithmic volume curves, master gain with headroom
-- 🔄 **Live Worship Optimized**: Tracks start at 90% (-6 dB) for easy bass/drums boost during service
-- 🎵 **Flexible Audio Formats**: Full support for WAV and OGG Vorbis stems (10:1 compression without quality loss)
+- 🎛️ **Multitrack Playback**: Independent stems (drums, bass, vocals, etc.) with per-track volume control
+- 📊 **Waveform Timeline**: Three zoom modes (General, Playback, Edit) with interactive seeking
+- 🎼 **Auto Analysis**: Beat detection and chord recognition (madmom)
+- 📝 **Synchronized Lyrics**: LRC format with auto-download
+- 🎥 **Video Support**: MP4 video lyrics synchronized with audio
+- 🎚️ **Professional Mixer**: Solo/mute, logarithmic volume, master gain
+- 🖥️ **Legacy Hardware**: Optimized for 2008+ CPUs with 4GB RAM
+- 🎵 **Audio Formats**: WAV, OGG Vorbis
 
-## 🎵 Supported Audio Formats
+## 💻 System Requirements
 
-Multi Lyrics supports multiple audio formats for maximum flexibility:
+**Minimum:**
+- Windows 10+, macOS 10.13+, or Linux (Ubuntu 20.04+)
+- CPU: 2008 or newer (Core 2 Duo equivalent)
+- RAM: 4 GB (8 GB recommended)
+- Storage: 500 MB free space
 
-### Stems (Individual Tracks)
-- **WAV** (Recommended for master/timeline): Uncompressed, best for waveform rendering
-- **OGG Vorbis**: Compressed format with ~10:1 ratio, ideal for saving disk space
-  - Example: 50MB WAV stem → 5-8MB OGG (quality 5)
-  - Fully supported for playback, solo/mute, and mixing
-  - No quality loss perceptible in worship context
-
-### Master Track
-- **WAV only**: Required for timeline waveform visualization performance
-
-### Video
-- **MP4** with H.264/AAC: Synchronized video lyrics playback
-
-**Mix and match formats freely** - your multi can have `bass.ogg`, `drums.wav`, `vox.ogg` all in the same session.
+**Audio Formats:**
+- Stems: WAV, OGG Vorbis
+- Master: WAV (for timeline waveform)
+- Video: MP4 (H.264/AAC)
 
 ## 📜 License
 
-Multi Lyrics is free software licensed under the **GNU General Public License v3.0**.
+**GNU General Public License v3.0** - Free and open source.
 
-This means you are free to:
-- ✅ Use the software for any purpose
-- ✅ Study and modify the source code  
-- ✅ Share copies with others
-- ✅ Distribute your modifications
+You can use, modify, and distribute this software freely. See [LICENSE](LICENSE) for details.
 
-**Important:** Any modifications or derivative works must also be licensed under GPL v3.0 and include source code.
-
-See [LICENSE](LICENSE) for the complete license text.
-
-### Third-Party Licenses
-
-This project uses several open-source libraries. See [CREDITS.md](CREDITS.md) for detailed attributions and their respective licenses.
+Third-party attributions: [CREDITS.md](CREDITS.md)
 
 ---
 
-## 🚀 Instalación Rápida
+## 🚀 Quick Start
 
-### ¿Primera vez instalando software de código abierto?
-
-No te preocupes, hemos creado guías paso a paso con capturas de pantalla para cada sistema operativo:
-
-- 🪟 **Windows 10/11**: [`docs/INSTALL_WINDOWS.md`](docs/INSTALL_WINDOWS.md) ⭐ **Guía completa para principiantes**
-- 🐧 **Ubuntu/Linux**: [`docs/SETUP_AUDIO_LINUX.md`](docs/SETUP_AUDIO_LINUX.md)
-- 🍎 **macOS**: [`docs/SETUP_AUDIO_MACOS.md`](docs/SETUP_AUDIO_MACOS.md)
-
-### Para usuarios con experiencia
-
-Si ya tienes Python y FFmpeg instalados:
+### For Developers
 
 ```bash
-# Clonar repositorio
 git clone <repository-url>
 cd multilyrics
-
-# Crear entorno virtual
 python3 -m venv env
-source env/bin/activate  # En Windows: .\env\Scripts\Activate.ps1
-
-# Instalar dependencias
-pip install -r requirements.txt
-
-# Ejecutar aplicación
+source env/bin/activate  # Windows: .\env\Scripts\Activate.ps1
+pip install -r requirements-dev.txt
 python main.py
 ```
 
-### Development Setup
+**Full setup guide:** [CONTRIBUTING.md](CONTRIBUTING.md)
 
-For contributors and developers who want to run tests:
+### For Testers
 
-```bash
-# After activating virtual environment
-pip install -r requirements-dev.txt
+Wait for installer releases (coming soon) or follow developer setup above.
 
-# Run tests
-pytest tests/
+### Audio Profiles
 
-# Run specific test file
-pytest tests/test_engine_mixer.py -v
-```
+MultiLyrics **auto-detects your hardware** and configures audio automatically:
 
-### Configuración por Sistema Operativo
+- **Legacy** (2008-2012): 4GB RAM, ~85ms latency
+- **Balanced** (2013-2018): 8GB RAM, ~43ms latency ⭐ Most users
+- **Modern** (2019+): 16GB RAM, ~21ms latency
 
-Multi Lyrics funciona en Windows, Linux y macOS. Cada sistema tiene su propia configuración óptima:
-
-#### 🪟 Windows 10/11
-
-- **Guía de instalación completa**: [`docs/INSTALL_WINDOWS.md`](docs/INSTALL_WINDOWS.md) ⭐ **Empieza aquí**
-- **Audio Backend**: WASAPI (configurado automáticamente)
-- **FFmpeg**: Se instala manualmente ([guía incluida](docs/INSTALL_WINDOWS.md#paso-2-instalar-ffmpeg))
-
-**¿Primera vez?** La guía te explica TODO paso a paso, incluyendo cómo instalar Python.
-
-#### 🐧 Linux (Ubuntu/Mint)
-
-- **Guía completa**: [`docs/SETUP_AUDIO_LINUX.md`](docs/SETUP_AUDIO_LINUX.md)
-- **Audio optimizado**: PipeWire para menor latencia (script automático incluido)
-- **Dependencias del sistema**:
-  ```bash
-  sudo apt install python3 python3-venv ffmpeg libportaudio2
-  ```
-
-#### 🍎 macOS
-
-- **Guía completa**: [`docs/SETUP_AUDIO_MACOS.md`](docs/SETUP_AUDIO_MACOS.md)
-- **Audio Backend**: CoreAudio (configurado automáticamente)
-- **FFmpeg**: Instalar con Homebrew: `brew install ffmpeg`
+**Troubleshooting:** See platform guides in [`docs/`](docs/)
 
 ---
 
 ## 📚 Documentation
 
-- **[Development Guide](docs/development.md)** - Setup, testing, and contribution workflow
-- **[Architecture](docs/architecture.md)** - Technical design and patterns
-- **[Audio Setup (Linux)](docs/SETUP_AUDIO_LINUX.md)** - PipeWire/PulseAudio configuration
-- **[Video Fixes (Linux)](docs/FIXES_VIDEO_LINUX.md)** - Second-screen troubleshooting
+- **[CONTRIBUTING.md](CONTRIBUTING.md)** - Developer setup and testing guide
 - **[Copilot Instructions](.github/copilot-instructions.md)** - AI development guidelines
+- **[Project Blueprint](.github/PROJECT_BLUEPRINT.md)** - Architecture overview
+- **[Feature Roadmap](.github/ROADMAP_FEATURES.md)** - Planned features
+- **[Implementation Log](docs/IMPLEMENTATION_ROADMAP.md)** - Completed optimizations
 
 ---
 
-## 🛠️ Solución de Problemas
+## 🛠️ Troubleshooting
 
-### Problemas Comunes y Soluciones Rápidas
+**Audio glitches:**
+```bash
+export MULTILYRICS_AUDIO_PROFILE="legacy"  # Try legacy profile
+```
 
-**❌ "Python no se reconoce como comando" (Windows)**
-- **Causa**: Python no se agregó al PATH durante la instalación
-- **Solución**: Reinstala Python y marca la casilla "Add Python to PATH"
-- 📖 Ver: [`docs/INSTALL_WINDOWS.md`](docs/INSTALL_WINDOWS.md#paso-1-instalar-python)
+**Missing dependencies:**
+```bash
+pip install -r requirements.txt --force-reinstall
+```
 
-**❌ "ffmpeg no se reconoce como comando"**
-- **Causa**: FFmpeg no está instalado o no está en el PATH
-- **Windows**: [`docs/INSTALL_WINDOWS.md#paso-2-instalar-ffmpeg`](docs/INSTALL_WINDOWS.md#paso-2-instalar-ffmpeg)
-- **Linux**: `sudo apt install ffmpeg`
-- **macOS**: `brew install ffmpeg`
+**Platform-specific issues:** See [`docs/SETUP_AUDIO_*.md`](docs/)
 
-**❌ Audio con glitches o cortes**
-- **Causa**: Tu hardware puede necesitar un perfil de audio diferente
-- **Solución rápida**: Prueba forzar el perfil "legacy":
-  ```bash
-  export MULTILYRICS_AUDIO_PROFILE="legacy"  # Linux/macOS
-  # o en PowerShell: $env:MULTILYRICS_AUDIO_PROFILE="legacy"
-  python main.py
-  ```
-- 📖 Ver perfiles disponibles: [`docs/SETUP_AUDIO_*.md`](docs/)
-
-**❌ No se ve ninguna ventana al ejecutar `python main.py`**
-- **Causa**: Dependencias no instaladas correctamente
-- **Solución**:
-  ```bash
-  pip install -r requirements.txt --force-reinstall
-  ```
-
-**❌ Linux: Ventana de video en pantalla incorrecta**
-- 📖 Ver: [`docs/FIXES_VIDEO_LINUX.md`](docs/FIXES_VIDEO_LINUX.md)
-
-### ¿Necesitas más ayuda?
-
-1. **Revisa la guía de instalación de tu sistema operativo** (contiene soluciones detalladas)
-2. **Consulta los logs**: La aplicación muestra mensajes de error útiles en la terminal
-3. **Reporta un problema**: Abre un [issue en GitHub](../../issues) con:
-   - Tu sistema operativo y versión
-   - El mensaje de error completo (copia y pega desde la terminal)
-   - Los pasos que seguiste antes del error
-
----
-
-## ❓ Preguntas Frecuentes (FAQ)
-
-### ¿Es realmente gratis?
-
-**Sí, 100% gratis.** Multi Lyrics es software libre bajo licencia GPL v3.0. Puedes usarlo, modificarlo y compartirlo sin costo alguno. Ver [Licencia](#-license) para más detalles.
-
-### ¿Qué tan difícil es instalar esto?
-
-**Para principiantes**: Sigue nuestra [guía de Windows](docs/INSTALL_WINDOWS.md) que te explica TODO paso a paso (incluso cómo instalar Python). Toma unos 20-30 minutos.
-
-**Para usuarios con experiencia**: Si ya tienes Python y FFmpeg, solo 5 minutos con los [comandos rápidos](#para-usuarios-con-experiencia).
-
-### ¿Funciona en mi computadora antigua?
-
-**Probablemente sí.** Multi Lyrics está optimizado para hardware de 2008+ con 4 GB de RAM. Detecta automáticamente tu hardware y ajusta la configuración. Ver [perfiles de audio](docs/SETUP_AUDIO_WINDOWS.md#-perfiles-de-audio-disponibles).
-
-### ¿Necesito conocimientos técnicos?
-
-**No para usarlo.** La instalación requiere seguir instrucciones paso a paso (están bien explicadas), pero una vez instalado, la aplicación es intuitiva con interfaz gráfica.
-
-### ¿Puedo usar esto en mi iglesia?
-
-**¡Claro! Para eso fue diseñado.** Es gratuito y legal usarlo en servicios, conciertos y eventos. Solo recuerda que la música que reproduzcas debe tener los permisos correspondientes (CCLI, etc.).
-
-### ¿Qué formatos de audio soporta?
-
-**WAV y OGG Vorbis** para stems individuales. MP4 con H.264/AAC para video. Ver [Formatos Soportados](#-supported-audio-formats) para más detalles.
-
-### ¿Dónde consigo multitracks para usar?
-
-Multi Lyrics reproduce multitracks que ya tengas. Puedes obtenerlos de:
-- Servicios legales como Multitracks.com, LoopCommunity, PraiseCharts
-- Producciones propias de tu banda/iglesia
-
-**Importante**: Respeta los derechos de autor. Solo usa música que tengas permiso de reproducir.
+**Report bugs:** [GitHub Issues](../../issues) - Include OS, Python version, and error logs
 
 ---
 
 ## 🤝 Contributing
 
-Contributions are welcome! Since this project is GPL v3.0:
-- All contributions must be compatible with GPL v3.0
-- Please include appropriate copyright headers in new files
-- Maintain code quality and follow existing patterns (PEP 8, type hints)
+Contributions welcome! See [CONTRIBUTING.md](CONTRIBUTING.md) for:
+- Quick setup guide
+- Testing checklist
+- Code style guidelines
+- Audio callback rules (CRITICAL)
 
-See [.github/copilot-instructions.md](.github/copilot-instructions.md) for architectural guidelines.
+This project is GPL v3.0 - all contributions must be compatible.
 
 ## 🙏 Acknowledgments
 
-Multi Lyrics is built on the shoulders of giants:
-- **madmom**: Beat tracking and chord recognition
-- **PySide6/Qt**: Cross-platform GUI framework
-- **sounddevice/soundfile**: Real-time audio playback
-- **FFmpeg**: Audio/video processing
+Built with:
+- **madmom** - Beat tracking and chord recognition
+- **PySide6/Qt** - Cross-platform GUI
+- **sounddevice/soundfile** - Real-time audio
+- **FFmpeg** - Audio/video processing
 
-Full credits and citations in [CREDITS.md](CREDITS.md).
-
-## 📧 Contact
-
-For questions, bug reports, or feature requests, please open an issue on GitHub.
+Full credits: [CREDITS.md](CREDITS.md)
 
 ---
 
