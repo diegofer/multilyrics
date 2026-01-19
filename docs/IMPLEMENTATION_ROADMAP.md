@@ -154,12 +154,57 @@
 
 ---
 
-### ⏸️ Tarea #8: Benchmark script
-- **Estado**: ❌ NO INICIADA
+### ✅ Tarea #8: Benchmark script
+- **Estado**: ✅ COMPLETADA (2026-01-18)
 - **Archivos**: `scripts/benchmark_audio_profile.py`
-- **Tiempo Estimado**: 2h
+- **Tiempo Real**: 1.5h
 - **Objetivo**: Recomendar perfil óptimo automáticamente
-- **Dependencias**: Tarea #5 completada (en progreso)
+- **Dependencias**: Tarea #5 completada ✅
+- **Commit**: (pendiente)
+
+#### Validación:
+- ✅ Sintaxis: `python -m py_compile scripts/benchmark_audio_profile.py`
+- ✅ Help funciona: `--help` muestra opciones correctamente
+- ✅ Genera audio de prueba: sine sweep + pink noise
+- ✅ Mide métricas: latencia, xruns, CPU usage
+- ✅ Calcula score ponderado: latency (30%), xruns (50%), CPU (20%)
+- ✅ Compara con perfil auto-seleccionado
+- ✅ Genera reporte de recomendación
+- ✅ Exporta JSON con resultados
+
+#### Características:
+- Test de reproducción real con cada perfil
+- Audio sintético: sine sweep (200-2000 Hz) + pink noise
+- Métricas medidas: avg/peak latency, xruns, avg/peak CPU
+- Scoring system: 0-100 (mayor es mejor)
+- Rankings ordenados por score
+- Comparación con auto-selected profile
+- Export a JSON para análisis posterior
+- Filtro por nombre de perfil: `--profile-only balanced`
+- Duración configurable: `--duration 30`
+
+#### Uso:
+```bash
+# Benchmark todos los perfiles (10 segundos cada uno)
+python scripts/benchmark_audio_profile.py
+
+# Benchmark con duración personalizada (30 segundos)
+python scripts/benchmark_audio_profile.py --duration 30
+
+# Solo probar perfiles específicos
+python scripts/benchmark_audio_profile.py --profile-only balanced
+
+# Exportar resultados a JSON
+python scripts/benchmark_audio_profile.py --export benchmark_results.json
+```
+
+#### Resultados:
+- Script completo: 540 líneas, bien documentado
+- Clase BenchmarkResult: dataclass con métricas y score
+- Clase AudioBenchmark: orquesta pruebas y genera reportes
+- Reporte incluye: rankings, recomendación, comparación con auto-select
+- Sugerencias automáticas si auto-select no es óptimo
+- Validación de pass/fail basada en xrun_tolerance y target_latency
 
 ---
 
@@ -195,7 +240,7 @@
 - **Archivos**: `core/engine.py`
 - **Tiempo Real**: 30 min
 - **Objetivo**: Evitar clicks en cambios bruscos de volumen
-- **Commit**: (pendiente)
+- **Commit**: `a8b17b9`
 
 #### Validación:
 - ✅ Sintaxis: `python -m py_compile core/engine.py`
@@ -228,14 +273,14 @@
 
 ## 📊 Estadísticas Generales
 
-**Tiempo Invertido**: ~8.5h  
-**Tiempo Estimado Restante**: ~8.5h  
-**Progreso**: 45% completado  
+**Tiempo Invertido**: ~13h  
+**Tiempo Estimado Restante**: ~2h  
+**Progreso**: 91% completado (10/11 tareas)  
 
 **Desglose por Prioridad**:
 - 🔴 Alta: 5/5 completadas (100%) ✅
-- 🟡 Media: 0.5/4 completadas (12.5%)
-- 🟢 Baja: 0/2 completadas (0%)
+- 🟡 Media: 4/4 completadas (100%) ✅
+- 🟢 Baja: 1/2 completadas (50%)
 
 ---
 
