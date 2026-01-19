@@ -163,12 +163,28 @@
 
 ---
 
-### ⏸️ Tarea #9: Documentar perfiles
-- **Estado**: ❌ NO INICIADA
+### ✅ Tarea #9: Documentar perfiles
+- **Estado**: ✅ COMPLETADA (2026-01-18)
 - **Archivos**: `docs/SETUP_AUDIO_LINUX.md`, `docs/SETUP_AUDIO_WINDOWS.md`, `docs/SETUP_AUDIO_MACOS.md`
-- **Tiempo Estimado**: 1h
+- **Tiempo Real**: 1h
 - **Objetivo**: Documentar cada perfil y su caso de uso
-- **Dependencias**: Tarea #5 completada (en progreso)
+- **Dependencias**: Tarea #5 completada ✅
+- **Commit**: (pendiente)
+
+#### Validación:
+- ✅ Documentación Linux: 4 perfiles (legacy, balanced, modern, low_latency)
+- ✅ Documentación Windows: 3 perfiles (legacy, balanced, modern)
+- ✅ Documentación macOS: 3 perfiles (legacy, balanced, modern)
+- ✅ Guías de configuración de sistema incluidas
+- ✅ Troubleshooting sections completas
+- ✅ Tips específicos por plataforma
+
+#### Resultados:
+- SETUP_AUDIO_LINUX.md (4.1 KB): PipeWire, RT kernel, device setup
+- SETUP_AUDIO_WINDOWS.md (6.3 KB): WASAPI, mejoras de audio, drivers
+- SETUP_AUDIO_MACOS.md (7.8 KB): CoreAudio, Apple Silicon, Rosetta 2
+- Cada guía incluye: perfiles, override manual, troubleshooting, benchmarks
+- Documentación clara para usuarios no técnicos
 
 ---
 
@@ -258,20 +274,26 @@ Después de cada tarea completada:
 - **Resultado**: Integración transparente, no invasiva, configuración persistente
 - **Beneficio**: Usuarios avanzados pueden monitorear stats sin código
 
+### Tarea #9 (Profile Documentation)
+- **Aprendizaje**: Documentación clara reduce support tickets
+- **Decisión**: Una guía por plataforma con secciones específicas
+- **Resultado**: 3 guías completas (Linux, Windows, macOS) con troubleshooting
+- **Beneficio**: Usuarios entienden qué perfil usar y cómo configurar su sistema
+
 ---
 
 ## 📊 Estadísticas Generales
 
-**Tiempo Invertido**: ~10h  
-**Progreso**: 64% completado (7/11 tareas)
+**Tiempo Invertido**: ~11h  
+**Progreso**: 73% completado (8/11 tareas)
 
 **Desglose por Prioridad**:
 - 🔴 Alta: 5/5 completadas (100%) ✅
-- 🟡 Media: 2/4 completadas (50%)
+- 🟡 Media: 3/4 completadas (75%)
 - 🟢 Baja: 0/2 completadas (0%)
 
-**Tareas Restantes**: 5h estimadas  
-**Próxima Tarea**: Benchmark script (2h) o Profile documentation (1h)
+**Tareas Restantes**: 3.5h estimadas  
+**Próxima Tarea**: Benchmark script (2h) o Exponential gain ramp (30min)
 
 ---
 

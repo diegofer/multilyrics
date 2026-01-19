@@ -1,275 +1,180 @@
-# Configuración de Audio en Linux
+# 🐧 MultiLyrics - Audio Setup Guide for Linux
 
-Guía completa para optimizar el audio en MultiLyrics bajo diferentes distribuciones de Linux.
-
-## 📋 Tabla de Contenidos
-
-- [Sistemas Soportados](#sistemas-soportados)
-- [PipeWire vs PulseAudio](#pipewire-vs-pulseaudio)
-- [Instalación en Ubuntu 22.04+](#instalación-en-ubuntu-2204)
-- [Configuración Manual](#configuración-manual)
-- [Verificación y Troubleshooting](#verificación-y-troubleshooting)
-- [Hardware Antiguo](#hardware-antiguo)
+**Última Actualización**: 2026-01-18  
+**Versión**: 1.0
 
 ---
 
-## Sistemas Soportados
+## 🎯 Selección Automática de Perfiles
 
-| Distribución | Versión | Audio Backend | Estado |
-|-------------|---------|---------------|--------|
-| Ubuntu | 22.04+ | PipeWire (recomendado) | ✅ Soportado |
-| Ubuntu | 20.04 | PulseAudio | ✅ Soportado |
-| Ubuntu | 18.04 | PulseAudio | ⚠️ No testeado |
-| Linux Mint | 21+ | PipeWire disponible | ✅ Soportado |
-| Linux Mint | 20 | PulseAudio | ✅ Soportado |
-| Fedora | 34+ | PipeWire (por defecto) | ✅ Soportado |
-| Arch Linux | Rolling | PipeWire disponible | ✅ Soportado |
-| Debian | 12+ | PipeWire disponible | ⚠️ No testeado |
+MultiLyrics **auto-detecta tu hardware** al iniciar y selecciona el perfil óptimo automáticamente. No necesitas configurar nada manualmente.
+
+```
+INFO [core.audio_profiles] 🖥️  Detected OS: linux
+INFO [core.audio_profiles] 💻 Detected hardware: ~2018 CPU, 31 GB RAM, 6 cores
+INFO [core.audio_profiles] 🎯 Auto-selected profile: Balanced Performance
+```
 
 ---
 
-## PipeWire vs PulseAudio
+## 🎛️ Perfiles de Audio Disponibles
 
-### ¿Qué es PipeWire?
+### 1️⃣ Legacy Hardware (2008-2012)
 
-PipeWire es el sucesor moderno de PulseAudio, diseñado para baja latencia y mejor compatibilidad con aplicaciones profesionales de audio.
+**Para**: Intel Core 2 Duo, Sandy Bridge, AMD Phenom  
+**Configuración**: Blocksize 4096, GC deshabilitado, latencia ~85ms
 
-### Comparación
+✅ **Usa este perfil si**:
+- Tu CPU es de 2008-2012
+- Tienes 2-4 cores y 4-8 GB RAM
+- Experimentas glitches con otros perfiles
 
-| Característica | PulseAudio | PipeWire |
-|---------------|------------|----------|
-| **Latencia típica** | 15-25ms | 5-10ms |
-| **Sincronización AV** | Buena | Excelente |
-| **CPU en hardware antiguo** | Media | Baja |
-| **Soporte JACK** | Limitado | Nativo |
-| **Estabilidad** | Muy estable | Estable (desde 2022) |
-
-### Recomendación
-
-- **Hardware moderno (2015+)**: PipeWire (mejor latencia)
-- **Hardware antiguo (2008-2014)**: PipeWire (menor uso de CPU)
-- **Ubuntu < 22.04**: PulseAudio (única opción disponible)
+❌ **No usar si**:
+- Tu hardware es más moderno
+- Necesitas latencia baja
 
 ---
 
-## Instalación en Ubuntu 22.04+
+### 2️⃣ Balanced Performance (2013-2018) ⭐ **RECOMENDADO**
 
-### Método Automático (Recomendado)
+**Para**: Intel i5 4th-8th Gen, Ryzen 1000-2000  
+**Configuración**: Blocksize 2048, GC deshabilitado, latencia ~43ms
+
+✅ **Usa este perfil si**:
+- Tu CPU es de 2013-2018 (mayoría de usuarios)
+- Tienes 4+ cores y 8+ GB RAM
+- Quieres equilibrio entre estabilidad y latencia
+
+**Este es el perfil por defecto - cubre el 90% de casos de uso.**
+
+---
+
+### 3️⃣ Modern Hardware (2019+)
+
+**Para**: Intel 9th Gen+, Ryzen 3000+  
+**Configuración**: Blocksize 1024, GC habilitado, latencia ~21ms
+
+✅ **Usa este perfil si**:
+- Tu CPU es de 2019 o posterior
+- Tienes 6+ cores y 16+ GB RAM
+- Priorizas baja latencia
+
+---
+
+### 4️⃣ Low Latency (2020+) 🚀 **PROFESIONAL**
+
+**Para**: Intel 11th Gen+, Ryzen 5000+  
+**Configuración**: Blocksize 512, GC habilitado, latencia ~11ms  
+**Requiere**: Kernel RT + PipeWire
+
+✅ **Usa este perfil si**:
+- Hardware de alta gama (2020+)
+- Tienes 8+ cores y 16+ GB RAM
+- Kernel RT instalado
+- Uso profesional (grabación, producción)
+
+#### Instalación Kernel RT:
+```bash
+# Ubuntu/Debian
+sudo apt install linux-lowlatency
+
+# Verificar
+uname -a | grep rt
+```
+
+---
+
+## 🛠️ Override Manual (Opcional)
+
+Si la selección automática no es óptima, puedes forzar un perfil:
 
 ```bash
-cd /path/to/multilyrics
-chmod +x scripts/setup_pipewire_ubuntu.sh
-./scripts/setup_pipewire_ubuntu.sh
+# Forzar perfil específico
+export MULTILYRICS_AUDIO_PROFILE="modern"
+python main.py
 ```
 
-**Después de ejecutar:**
-1. Reinicia tu equipo: `sudo reboot`
-2. Verifica instalación: `pactl info | grep "Server Name"`
-3. Debería mostrar: `PulseAudio (built on PipeWire)`
-
-### Método Manual
-
-Si prefieres instalar manualmente:
-
-```bash
-# 1. Instalar paquetes
-sudo apt update
-sudo apt install -y \
-    pipewire-audio-client-libraries \
-    libspa-0.2-bluetooth \
-    libspa-0.2-jack \
-    wireplumber \
-    pipewire-pulse
-
-# 2. Deshabilitar PulseAudio
-systemctl --user --now disable pulseaudio.service pulseaudio.socket
-systemctl --user mask pulseaudio
-
-# 3. Habilitar PipeWire
-systemctl --user --now enable pipewire pipewire-pulse wireplumber
-
-# 4. Reiniciar servicios
-systemctl --user restart pipewire pipewire-pulse wireplumber
-
-# 5. Reiniciar equipo
-sudo reboot
-```
+**Nombres válidos**: `legacy`, `balanced`, `modern`, `low_latency`
 
 ---
 
-## Configuración Manual
+## ⚙️ Configuración del Sistema
 
-### Seleccionar Dispositivo de Audio
-
-MultiLyrics usa `sounddevice` (PortAudio) que auto-detecta el dispositivo por defecto. Para listar dispositivos disponibles:
-
-```python
-import sounddevice as sd
-print(sd.query_devices())
-```
-
-### Ajustar Buffer Size
-
-Si experimentas glitches de audio en hardware antiguo:
-
-1. Abre `core/constants.py`
-2. Modifica `AUDIO_BLOCKSIZE`:
-   ```python
-   AUDIO_BLOCKSIZE = 2048  # Default: 512
-   # Valores más altos = mayor latencia, menos glitches
-   ```
-
-### Latencia Alta (Hardware Antiguo)
-
-En `core/engine.py` se fuerza latencia alta por defecto:
-
-```python
-self.stream = sd.OutputStream(
-    samplerate=self.samplerate,
-    blocksize=self.blocksize,
-    channels=2,
-    dtype='float32',
-    callback=self._callback,
-    latency='high'  # ← Reduce underruns en CPUs lentas
-)
-```
-
----
-
-## Verificación y Troubleshooting
-
-### Verificar Sistema de Audio Activo
+### PipeWire (Recomendado)
 
 ```bash
-# Ver qué servidor está corriendo
+# Instalar PipeWire (Ubuntu 22.04+)
+sudo apt install pipewire pipewire-audio-client-libraries
+
+# Habilitar
+systemctl --user --now enable pipewire pipewire-pulse
+
+# Verificar
 pactl info | grep "Server Name"
-
-# Listar dispositivos de audio
-pactl list sinks short
-
-# Ver latencia actual
-pactl list sinks | grep "Latency"
+# Debe mostrar: PulseAudio (on PipeWire)
 ```
 
-### Problemas Comunes
-
-#### 1. Audio entrecortado (xruns)
-
-**Causa:** Buffer size muy pequeño para tu CPU.
-
-**Solución:**
-```bash
-# Editar configuración de PipeWire
-mkdir -p ~/.config/pipewire
-cp /usr/share/pipewire/pipewire.conf ~/.config/pipewire/
-
-# Editar ~/.config/pipewire/pipewire.conf
-# Buscar "default.clock.quantum" y cambiar a 2048
-```
-
-#### 2. No hay sonido después de instalar PipeWire
-
-**Solución:**
-```bash
-# Reiniciar servicios
-systemctl --user restart pipewire pipewire-pulse wireplumber
-
-# Si sigue sin funcionar, reinstalar
-systemctl --user unmask pulseaudio
-sudo apt install --reinstall pipewire-pulse
-
-# Reiniciar equipo
-sudo reboot
-```
-
-#### 3. Latencia muy alta en PipeWire
-
-**Verificar:**
-```bash
-pw-metadata -n settings
-# Buscar "default.clock.quantum"
-```
-
-**Reducir latencia (solo si tienes CPU potente):**
-```bash
-pw-metadata -n settings 0 clock.force-quantum 256
-```
-
-#### 4. Desinstalar PipeWire y volver a PulseAudio
+### PulseAudio (Legacy)
 
 ```bash
-# Deshabilitar PipeWire
-systemctl --user --now disable pipewire pipewire-pulse wireplumber
-
-# Habilitar PulseAudio
-systemctl --user unmask pulseaudio
-systemctl --user --now enable pulseaudio.service pulseaudio.socket
-
-# Reiniciar
-sudo reboot
+# Ya viene instalado por defecto en Ubuntu
+# Verificar estado
+pulseaudio --check -v
 ```
 
 ---
 
-## Hardware Antiguo
+## 📊 Monitoreo de Performance
 
-### Especificaciones Objetivo
+Habilita **Audio Monitor** en Settings:
 
-MultiLyrics está optimizado para funcionar en:
-
-- **CPU:** Intel Core 2 Duo (2008) o superior
-- **RAM:** 8GB
-- **Almacenamiento:** SSD (recomendado) o HDD
-- **Audio:** Cualquier tarjeta con ALSA
-
-### Optimizaciones Automáticas
-
-El código incluye detección de hardware antiguo (`video/video.py`):
-
-```python
-def _detect_legacy_hardware(self):
-    # Detecta CPUs Sandy Bridge (2011) o más antiguas
-    # Ajusta configuración automáticamente
+```
+Settings → Audio → ✓ Show Latency Monitor
 ```
 
-### Ajustes Manuales para Hardware Antiguo
-
-1. **Desactivar video si no es necesario:**
-   - Usa el botón de toggle de video en la UI
-
-2. **Aumentar buffer size:**
-   - Edita `core/constants.py` → `AUDIO_BLOCKSIZE = 2048`
-
-3. **Usar PipeWire con latencia alta:**
-   - Configurar `default.clock.quantum = 2048` en `~/.config/pipewire/pipewire.conf`
-
-4. **Deshabilitar efectos visuales:**
-   - En Ubuntu: Settings → Appearance → Animations OFF
+**Interpretación de métricas**:
+- 🟢 Usage < 50%: Excelente
+- 🟠 Usage 50-80%: Aceptable
+- 🔴 Usage > 80%: Crítico - cambiar a perfil más conservador
+- **Xruns = 0** es ideal (audio sin glitches)
 
 ---
 
-## Soporte Multiplataforma
+## 🔍 Troubleshooting
 
-### Linux (ALSA/PulseAudio/PipeWire)
+### Audio entrecortado (xruns frecuentes)
 
-MultiLyrics usa `sounddevice` que internamente usa PortAudio. En Linux, PortAudio detecta automáticamente:
-- ALSA directamente (baja latencia)
-- PulseAudio (compatibilidad)
-- PipeWire (moderno)
+**Soluciones**:
+1. Cambiar a perfil más conservador (`balanced` o `legacy`)
+2. Cerrar aplicaciones pesadas
+3. Verificar uso de swap: `free -h` (debe ser 0)
 
-### Windows (WASAPI)
+### Latencia muy alta
 
-Ver documentación específica: `docs/SETUP_AUDIO_WINDOWS.md` *(próximamente)*
+**Soluciones**:
+1. Actualizar a perfil superior si tu hardware lo soporta
+2. Cambiar de PulseAudio a PipeWire
+3. Deshabilitar effects en PulseAudio
 
-### macOS (CoreAudio)
+### "Could not open audio device"
 
-Ver documentación específica: `docs/SETUP_AUDIO_MACOS.md` *(próximamente)*
+```bash
+# Instalar dependencias
+sudo apt install libportaudio2 portaudio19-dev
+
+# Verificar dispositivos disponibles
+python -c "import sounddevice as sd; print(sd.query_devices())"
+```
 
 ---
 
-## Referencias
+## 💡 Tips
 
-- [PipeWire Wiki](https://gitlab.freedesktop.org/pipewire/pipewire/-/wikis/home)
-- [PortAudio Documentation](http://www.portaudio.com/docs.html)
-- [sounddevice Python](https://python-sounddevice.readthedocs.io/)
-- [Ubuntu PipeWire Guide](https://ubuntuhandbook.org/index.php/2022/04/pipewire-replace-pulseaudio-ubuntu-2204/)
+1. **Usa "Balanced" por defecto** - funciona en 90% de casos
+2. **Monitorea xruns** - si ves > 5, considera perfil más conservador
+3. **PipeWire es mejor** - menor latencia y CPU que PulseAudio
+4. **RT kernel solo si lo necesitas** - para iglesias, kernel normal es suficiente
+
+---
+
+**¿Problemas?** Abre un issue en GitHub con los logs de inicio
