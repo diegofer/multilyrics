@@ -169,7 +169,7 @@
 - **Tiempo Real**: 1h
 - **Objetivo**: Documentar cada perfil y su caso de uso
 - **Dependencias**: Tarea #5 completada ✅
-- **Commit**: (pendiente)
+- **Commit**: `8de93b2`
 
 #### Validación:
 - ✅ Documentación Linux: 4 perfiles (legacy, balanced, modern, low_latency)
