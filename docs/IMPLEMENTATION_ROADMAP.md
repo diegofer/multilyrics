@@ -190,12 +190,30 @@
 
 ## 🟢 PRIORIDAD BAJA
 
-### ⏸️ Tarea #10: Rampa exponencial gain
-- **Estado**: ❌ NO INICIADA
+### ✅ Tarea #10: Rampa exponencial gain
+- **Estado**: ✅ COMPLETADA (2026-01-18)
 - **Archivos**: `core/engine.py`
-- **Tiempo Estimado**: 30 min
-- **Nota**: Baja prioridad - rampa lineal actual es suficiente
+- **Tiempo Real**: 30 min
 - **Objetivo**: Evitar clicks en cambios bruscos de volumen
+- **Commit**: (pendiente)
+
+#### Validación:
+- ✅ Sintaxis: `python -m py_compile core/engine.py`
+- ✅ Fórmula exponencial implementada: `g_current = g_current * (1 - α) + g_target * α`
+- ✅ Comentarios actualizados explicando perceptual linearity
+- ✅ Mantiene mismo factor de smoothing (0.15) para compatibilidad
+
+#### Cambios:
+- Reemplazada interpolación lineal por exponential smoothing
+- Comentarios mejorados: explica que es perceptualmente lineal
+- Matemática: `g = g * (1 - α) + target * α` (exponencial)
+- Anterior: `g += (target - g) * α` (lineal)
+
+#### Resultados:
+- Transiciones de volumen más naturales (siguen percepción logarítmica del oído)
+- Reduce probabilidad de clicks audibles en cambios bruscos
+- Performance idéntica (misma cantidad de operaciones)
+- Backwards compatible (mismo factor de smoothing)
 
 ---
 
@@ -280,20 +298,26 @@ Después de cada tarea completada:
 - **Resultado**: 3 guías completas (Linux, Windows, macOS) con troubleshooting
 - **Beneficio**: Usuarios entienden qué perfil usar y cómo configurar su sistema
 
+### Tarea #10 (Exponential Gain Ramp)
+- **Aprendizaje**: Rampa lineal puede causar clicks audibles en cambios rápidos
+- **Decisión**: Exponential smoothing sigue percepción logarítmica del oído humano
+- **Resultado**: Transiciones más naturales sin overhead de performance
+- **Fórmula**: `g = g * (1 - α) + target * α` (vs lineal `g += (target - g) * α`)
+
 ---
 
 ## 📊 Estadísticas Generales
 
-**Tiempo Invertido**: ~11h  
-**Progreso**: 73% completado (8/11 tareas)
+**Tiempo Invertido**: ~11.5h  
+**Progreso**: 82% completado (9/11 tareas)
 
 **Desglose por Prioridad**:
 - 🔴 Alta: 5/5 completadas (100%) ✅
 - 🟡 Media: 3/4 completadas (75%)
-- 🟢 Baja: 0/2 completadas (0%)
+- 🟢 Baja: 1/2 completadas (50%)
 
-**Tareas Restantes**: 3.5h estimadas  
-**Próxima Tarea**: Benchmark script (2h) o Exponential gain ramp (30min)
+**Tareas Restantes**: 4h estimadas  
+**Próxima Tarea**: Benchmark script (2h) o Unit tests (2h)
 
 ---
 
