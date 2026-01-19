@@ -1,4 +1,6 @@
-from PySide6.QtCore import Qt, Slot
+import os
+
+from PySide6.QtCore import Qt, QTimer, Slot
 from PySide6.QtWidgets import (QDialog, QHBoxLayout, QPushButton,
                                QStackedWidget, QVBoxLayout)
 
@@ -7,14 +9,25 @@ from .search_widget import SearchWidget
 
 
 class AddDialog(QDialog):
-    # TODO: Bug conocido en Intel HD 3000 + Ubuntu 22.04 - múltiples instancias visuales
-    # Ver docs/KNOWN_ISSUES.md para investigación futura
+    """Add Multi dialog.
 
-    def __init__(self):
-        super().__init__()
+    Uses XCB platform (via libxcb-cursor0) for reliable rendering on Linux.
+    Static dialog centered on parent window (non-movable).
+    """
+
+    def __init__(self, parent=None):
+        super().__init__(parent)
         self.setWindowTitle("Agregar Multi")
         self.setModal(True)
         self.setFixedSize(300, 400)
+
+        # Make dialog static (non-movable) - same as SettingsDialog
+        self.setWindowFlags(
+            Qt.Dialog |
+            Qt.CustomizeWindowHint |
+            Qt.WindowTitleHint |
+            Qt.WindowCloseButtonHint
+        )
 
         mainLayout = QVBoxLayout()
 

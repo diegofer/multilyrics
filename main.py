@@ -244,8 +244,8 @@ class MainWindow(QMainWindow):
         Pattern inspirado en commit 314fab0 (VideoLyrics fix): crear ventanas frescas
         en lugar de reutilizar instancias previas evita artifacts visuales en compositores débiles.
         """
-        # Crear diálogo bajo demanda
-        add_dialog = AddDialog()
+        # Crear diálogo bajo demanda con parent para centrarlo automáticamente
+        add_dialog = AddDialog(parent=self)
         add_dialog.search_widget.multi_selected.connect(self.on_multi_selected)
         add_dialog.drop_widget.file_imported.connect(self.extraction_process)
         add_dialog.exec()
@@ -791,6 +791,31 @@ if __name__ == "__main__":
     # sf.write('example.wav', np.random.uniform(-1, 1, 44100 * 5), 44100) # 5 segundos de ruido
     # Decirle al sistema operativo cómo manejar el escalado de la ventana.
     os.environ["QT_ENABLE_HIGHDPI_SCALING"] = "1"
+
+    # Configure Linux display platform BEFORE QApplication
+    # Resolves: docs/KNOWN_ISSUES.md - Modal dialog rendering issues on Wayland
+    if sys.platform.startswith('linux'):
+        from utils.linux_display import LinuxDisplayManager
+
+        if not LinuxDisplayManager.configure_qt_platform():
+            # libxcb-cursor0 is missing - show error and exit
+            from PySide6.QtWidgets import QApplication, QMessageBox
+
+            temp_app = QApplication(sys.argv)
+
+            msg = QMessageBox()
+            msg.setIcon(QMessageBox.Critical)
+            msg.setWindowTitle("Missing Dependency")
+            msg.setText("MultiLyrics requires libxcb-cursor0 to run on Linux.")
+            msg.setInformativeText(
+                "This library is required for proper window rendering.\n\n"
+                f"Install it with:\n{LinuxDisplayManager.get_libxcb_install_command()}\n\n"
+                "Or run: ./scripts/setup_linux_deps.sh"
+            )
+            msg.setStandardButtons(QMessageBox.Ok)
+            msg.exec()
+
+            sys.exit(1)
 
     app = QApplication(sys.argv)
     # Asegura que los iconos y gráficos no se vean pixelados en pantallas 4K/Retina.
