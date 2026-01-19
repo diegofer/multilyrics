@@ -461,9 +461,12 @@ class MultiTrackPlayer:
     def set_gain(self, track_index: int, gain: float):
         """
         Set the target gain for a track (linear, 1.0 = unity).
+        Gain is clamped to [0.0, 1.0] range.
         """
         with self._lock:
-            self.target_gains[track_index] = np.float32(gain)
+            # Clamp gain to valid range
+            g = max(0.0, min(1.0, float(gain)))
+            self.target_gains[track_index] = np.float32(g)
 
     def set_master_gain(self, gain: float):
         """Set the global/master gain (0.0 .. 1.0)."""
