@@ -80,6 +80,21 @@ pip install -r requirements.txt
 python main.py
 ```
 
+### Development Setup
+
+For contributors and developers who want to run tests:
+
+```bash
+# After activating virtual environment
+pip install -r requirements-dev.txt
+
+# Run tests
+pytest tests/
+
+# Run specific test file
+pytest tests/test_engine_mixer.py -v
+```
+
 ### Platform-Specific Setup
 
 Different platforms require additional configuration for optimal performance:
