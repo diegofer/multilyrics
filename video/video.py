@@ -310,8 +310,15 @@ class VideoLyrics(QWidget):
         except Exception as e:
             logger.error(f"❌ Error al adjuntar VLC: {e}", exc_info=True)
 
-    def start_playback(self):
-        """Iniciar reproducción y sincronización (solo si video está habilitado y ventana visible)."""
+    def start_playback(self, audio_time_seconds: float = 0.0, offset_seconds: float = 0.0):
+        """Iniciar reproducción y sincronización con offset inicial.
+
+        Args:
+            audio_time_seconds: Tiempo actual del audio (para seeks/resume)
+            offset_seconds: Offset de metadata (video_offset_seconds)
+                          Positivo = video empieza después del audio
+                          Negativo = video empieza antes del audio
+        """
         if self._video_auto_disabled:
             logger.debug("📹 Video deshabilitado - saltando reproducción")
             return
@@ -320,6 +327,22 @@ class VideoLyrics(QWidget):
         if not self.isVisible():
             logger.debug("📹 Ventana de video oculta - saltando reproducción de video (audio continuará)")
             return
+
+        # Calcular tiempo inicial del video con offset
+        video_start_time = audio_time_seconds + offset_seconds
+
+        # CRÍTICO: Seek ANTES de play() para arranque determinista
+        if abs(video_start_time) > 0.001:  # Solo si es significativo (>1ms)
+            video_ms = max(0, int(video_start_time * 1000))  # Clamp negativo a 0
+            self.player.set_time(video_ms)
+            logger.info(
+                f"[VIDEO_OFFSET] audio={audio_time_seconds:.3f}s "
+                f"offset={offset_seconds:+.3f}s → video_start={video_start_time:.3f}s ({video_ms}ms)"
+            )
+
+        # Log initial state for diagnosis
+        initial_time_ms = self.player.get_time()
+        logger.info(f"[VIDEO_START] t={initial_time_ms}ms state={self.player.get_state()}")
 
         logger.debug("⏯ Reproduciendo video...")
         self.player.play()
@@ -352,33 +375,38 @@ class VideoLyrics(QWidget):
 
         Handles edge cases like seeking after video has ended by ensuring
         the player is in a valid state and forcing a frame update.
+
+        Preserves pause state: if paused before seek, remains paused after.
         """
         if self.player is None:
             return
 
         ms = int(seconds * 1000)
+        current_time_ms = self.player.get_time()
 
         with safe_operation(f"Seeking video to {seconds:.2f}s", silent=True):
-            # Check if video has ended (VLC state 6 = Ended)
+            # Log seek for diagnosis
+            logger.info(f"[VIDEO_SEEK] from={current_time_ms}ms to={ms}ms delta={ms - current_time_ms:+d}ms")
+
+            # CRITICAL: Check playback state BEFORE seek
+            was_playing = self.player.is_playing()  # ← Mover ANTES de state check
             state = self.player.get_state()
-            was_playing = self.player.is_playing()
 
             # If video ended, need to stop() and play() to fully reset
             if state == vlc.State.Ended:
                 logger.debug("Video ended, performing full reset before seek")
-                # Stop completely to reset VLC state
                 self.player.stop()
-                # Wait for stop to complete
                 QTimer.singleShot(50, lambda: self._restart_and_seek(ms, was_playing))
                 return
 
             # Normal seek (not ended)
             self.player.set_time(ms)
 
-            # Force frame update if not playing
+            # CRITICAL: Preserve pause state after seek
             if not was_playing:
-                # Pause to show the frame at seek position
-                self.player.pause()
+                # VLC sometimes auto-resumes after set_time() - force pause
+                QTimer.singleShot(50, self._ensure_paused)  # ← Nuevo método
+                logger.debug("Video was paused - preserving pause state after seek")
 
     def _restart_and_seek(self, ms: int, was_playing: bool):
         """Restart player after stop and seek to position.
@@ -420,11 +448,27 @@ class VideoLyrics(QWidget):
             self.player.pause()
             logger.debug("Video paused to show frame after seek")
 
+    def _ensure_paused(self):
+        """Ensure player remains paused after seek.
+
+        VLC sometimes auto-resumes after set_time() on certain platforms.
+        This method enforces pause state to prevent unwanted playback.
+        """
+        if self.player is not None and self.player.is_playing():
+            self.player.pause()
+            logger.debug("Enforced pause state after seek (VLC auto-resumed)")
+
     def _report_position(self):
         """
         Reportar posición actual al SyncController.
         Se llama periodicamente durante la reproducción.
+
+        FASE 5.1: No reporta si video está deshabilitado.
         """
+        # Skip if video is disabled
+        if self._video_auto_disabled:
+            return
+
         if self.player.is_playing() and self.sync_controller:
             video_ms = self.player.get_time()
             video_seconds = video_ms / 1000.0
@@ -436,24 +480,53 @@ class VideoLyrics(QWidget):
         Ejecutar corrección de sincronización emitida por SyncController.
 
         Args:
-            correction: dict con 'type', 'new_time_ms', y opcionalmente 'adjustment_ms'
+            correction: dict con 'type' y parámetros según tipo:
+                - 'elastic': new_rate (playback rate adjustment)
+                - 'rate_reset': new_rate (reset to 1.0)
+                - 'hard': new_time_ms (seek directo)
+
+        FASE 5.1: No ejecuta si video está deshabilitado.
         """
+        # FASE 5.1: Skip if video is disabled
+        if self._video_auto_disabled:
+            return
+
         if not self.player.is_playing():
             return
 
         corr_type = correction.get('type')
-        new_time_ms = correction.get('new_time_ms')
+        drift_ms = correction.get('drift_ms', 0)
 
-        if corr_type == 'soft':
-            adjustment_ms = correction.get('adjustment_ms', 0)
-            diff_ms = correction.get('diff_ms', 0)
-            self.player.set_time(int(new_time_ms))
-            logger.debug(f"[SOFT] diff={diff_ms}ms adj={adjustment_ms}ms → {new_time_ms}ms")
+        if corr_type == 'elastic':
+            # Elastic correction: Adjust playback rate
+            new_rate = correction.get('new_rate', 1.0)
+            current_rate = correction.get('current_rate', 1.0)
+            self.player.set_rate(new_rate)
+            logger.debug(
+                f"[ELASTIC] drift={drift_ms:+d}ms "
+                f"rate: {current_rate:.3f} → {new_rate:.3f}"
+            )
+
+        elif corr_type == 'rate_reset':
+            # Reset rate to normal
+            self.player.set_rate(1.0)
+            logger.debug(f"[RATE_RESET] drift={drift_ms:+d}ms → rate=1.0")
 
         elif corr_type == 'hard':
-            diff_ms = correction.get('diff_ms', 0)
+            # Hard correction: Seek directo
+            new_time_ms = correction.get('new_time_ms')
             self.player.set_time(int(new_time_ms))
-            logger.debug(f"[HARD] diff={diff_ms}ms salto directo → {new_time_ms}ms")
+            # Reset rate after hard seek
+            if correction.get('reset_rate', False):
+                self.player.set_rate(1.0)
+            logger.debug(f"[HARD] drift={drift_ms:+d}ms → seek to {new_time_ms}ms")
+
+        elif corr_type == 'soft':
+            # Legacy soft correction (deprecated, kept for compatibility)
+            new_time_ms = correction.get('new_time_ms')
+            adjustment_ms = correction.get('adjustment_ms', 0)
+            self.player.set_time(int(new_time_ms))
+            logger.debug(f"[SOFT] diff={drift_ms}ms adj={adjustment_ms}ms → {new_time_ms}ms")
 
     def closeEvent(self, event):
         """Limpiar recursos al cerrar."""

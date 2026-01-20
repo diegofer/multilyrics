@@ -23,10 +23,11 @@ class MetaJson:
             "tempo": 0.0,
             "duration": 0.0,  # Legacy format
             "duration_seconds": 0.0,  # Normalized duration for API
+            "video_offset_seconds": 0.0,  # Video start time offset (positive = video delayed)
             "compass": "?/?",
             "tracks": {},
             "chords": [],
-            "beats": []            
+            "beats": []
         }
         self._write_meta(initial_data)
 

@@ -143,6 +143,15 @@ class MainWindow(QMainWindow):
         # CRITICAL FIX: Use polling pattern instead of callback to prevent Windows deadlock
         # Audio engine updates atomic counter, sync controller polls from Qt thread
         self.sync.audio_engine = self.audio_player
+        self.sync.video_player = self.video_player  # FASE 5.1: Assign video reference for state checks
+
+        # FASE 5.2: Disable dynamic corrections for legacy hardware (avoid frequent seeks)
+        if hasattr(self.video_player, '_is_legacy_hardware') and self.video_player._is_legacy_hardware:
+            self.sync.disable_dynamic_corrections = True
+            logger.info("🔧 Hardware legacy detectado - correcciones dinámicas deshabilitadas")
+
+        # Video offset (loaded from metadata per-song)
+        self.video_offset = 0.0
 
         # Create single canonical TimelineModel instance shared across all components
         self.timeline_model = TimelineModel()
@@ -180,10 +189,13 @@ class MainWindow(QMainWindow):
         self.playback.playingChanged.connect(self.timeline_view.set_playing_state)
         # Auto-switch zoom mode based on playback state
         self.playback.playingChanged.connect(self._on_playback_state_changed)
-        #self.sync.videoCorrectionNeeded.connect(self.video_player.apply_correction)
+        # Enable elastic video sync (Fase 3)
+        self.sync.videoCorrectionNeeded.connect(self.video_player.apply_correction)
 
-        # Waveform user seeks -> central request via PlaybackManager
-        self.timeline_view.position_changed.connect(self.playback.request_seek)
+        # Waveform user seeks -> central request via PlaybackManager (with video offset)
+        self.timeline_view.position_changed.connect(
+            lambda seconds: self.playback.request_seek(seconds, self.video_offset)
+        )
 
         self.controls.play_clicked.connect(self.on_play_clicked)
         self.controls.pause_clicked.connect(self.on_pause_clicked)
@@ -285,9 +297,17 @@ class MainWindow(QMainWindow):
         # This ensures timer is running when audio callback begins (prevents deadlock)
         self.sync.start_sync()
 
-        #considerar correr primero video y luego audio para evitar delay en video
+        # Audio arranca SIEMPRE primero (t=0, master clock)
         self.audio_player.play()
-        self.video_player.start_playback()
+
+        # Video arranca después con offset (video observa audio)
+        # FASE 5.1: Only start video if enabled
+        if self.video_player.is_video_enabled():
+            audio_time = self.audio_player.get_position_seconds()
+            self.video_player.start_playback(audio_time, self.video_offset)
+        else:
+            logger.debug("📹 Video deshabilitado - solo reproducción de audio")
+
         # Update UI toggle
         self.controls.set_playing_state(True)
     def on_pause_clicked(self) -> None:
@@ -714,8 +734,8 @@ class MainWindow(QMainWindow):
             self.audio_player.pause()
             self.controls.set_playing_state(False)
 
-        # Reset playback position to start
-        self.playback.request_seek(0.0)
+        # Reset playback position to start (before loading new metadata)
+        self.playback.request_seek(0.0, video_offset=0.0)
 
         #obtener rutas
         song_path = Path(song_path)
@@ -731,6 +751,11 @@ class MainWindow(QMainWindow):
         self.meta = MetaJson(meta_path)
         meta_data = self.meta.read_meta()
         #print(f"Metadatos cargados: {meta_data}")
+
+        # Cargar video offset para sincronización
+        self.video_offset = meta_data.get('video_offset_seconds', 0.0)
+        if abs(self.video_offset) > 0.001:
+            logger.info(f"📹 Video offset cargado: {self.video_offset:+.3f}s")
 
         # actualizar controlWidgets
         tempo = meta_data.get("tempo", 120.0)

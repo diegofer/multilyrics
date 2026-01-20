@@ -34,10 +34,15 @@ class SyncController(QObject):
         self._smooth_audio_time = 0.0
         self.alpha = 0.1  # coeficiente de suavizado EMA
 
-        # Umbrales de sincronización (ms)
-        self.SOFT_THRESHOLD = 80
-        self.HARD_THRESHOLD = 300
-        self.CORR_MAX_MS = 20
+        # Umbrales de sincronización (ms) - Fase 3: Elastic correction
+        self.DEAD_ZONE = 40          # < 40ms: No correction (imperceptible)
+        self.ELASTIC_THRESHOLD = 150 # 40-150ms: Playback rate adjustment
+        self.HARD_THRESHOLD = 300    # > 150ms: Hard seek
+
+        # Elastic correction parameters
+        self.ELASTIC_RATE_MIN = 0.95  # 5% slower
+        self.ELASTIC_RATE_MAX = 1.05  # 5% faster
+        self.RATE_RESET_DELAY = 2000  # ms to hold rate before resetting to 1.0
 
         # Estado video
         self._video_time = 0.0
@@ -45,6 +50,12 @@ class SyncController(QObject):
 
         # Audio engine reference (set externally after construction)
         self.audio_engine = None
+
+        # Video player reference (set externally, optional)
+        self.video_player = None
+
+        # Flag to disable dynamic corrections (for legacy hardware)
+        self.disable_dynamic_corrections = False
 
         # QTimer for polling audio position (prevents Qt Signal emission from audio thread)
         # Polls at ~60 FPS for smooth playhead updates
@@ -54,6 +65,22 @@ class SyncController(QObject):
 
         # Track last known frames to calculate delta
         self._last_frames_processed = 0
+
+        # Diagnostic logging timer (1 Hz - low overhead)
+        self._diag_timer = QTimer(self)
+        self._diag_timer.setInterval(1000)  # 1 second
+        self._diag_timer.timeout.connect(self._log_sync_stats)
+        self._diag_enabled = False  # Enable manually for debugging
+
+        # Correction timer (1 Hz - elastic sync)
+        self._correction_timer = QTimer(self)
+        self._correction_timer.setInterval(1000)  # 1 second
+        self._correction_timer.timeout.connect(self._apply_elastic_correction)
+
+        # Correction state tracking
+        self._last_correction_time = 0.0
+        self._last_correction_type = None
+        self._current_rate = 1.0
 
     # ----------------------------------------------------------
     #  PROPIEDAD PARA LEER EL TIEMPO ACTUAL DEL AUDIO SUAVIZADO
@@ -99,9 +126,6 @@ class SyncController(QObject):
             logger.debug(f"\u2705 Emitting audioTimeUpdated: {self._smooth_audio_time:.3f}s")
             self.audioTimeUpdated.emit(self._smooth_audio_time)
 
-            # 4) Calculate video corrections if syncing
-            if self.is_syncing:
-                self._calculate_video_correction()
 
             # Update last known position
             self._last_frames_processed = current_frames
@@ -122,53 +146,168 @@ class SyncController(QObject):
     # ----------------------------------------------------------
     def _calculate_video_correction(self):
         """
-        Calcula la diferencia audio-video y emite corrección si es necesaria.
-        Interna, se llama desde audio_callback si is_syncing es True.
+        DEPRECATED: Use _apply_elastic_correction() instead.
+        Kept for backward compatibility.
         """
+        pass
+
+    def _apply_elastic_correction(self):
+        """
+        Aplicar corrección elástica periódica (llamado cada ~1 segundo).
+
+        Estrategia de corrección:
+        - Dead zone (0-40ms): Sin corrección (imperceptible)
+        - Elastic zone (40-150ms): Ajuste de playback rate (95-105%)
+        - Hard zone (>150ms): Seek directo
+        """
+        if not self.is_syncing:
+            return
+
+        # FASE 5.1: Skip if video is not enabled
+        if not self._is_video_enabled():
+            return
+
+        # FASE 5.2: Skip dynamic corrections if disabled (legacy hardware)
+        if self.disable_dynamic_corrections:
+            return
+
         audio_ms = int(self._smooth_audio_time * 1000)
         video_ms = int(self._video_time * 1000)
-        diff = audio_ms - video_ms  # positivo → video atrasado
+        drift_ms = audio_ms - video_ms  # positivo = video atrasado
 
+        abs_drift = abs(drift_ms)
         correction = None
 
-        # Corrección suave (dentro de rangos)
-        if abs(diff) > self.SOFT_THRESHOLD and abs(diff) < self.HARD_THRESHOLD:
-            adjustment = max(-self.CORR_MAX_MS,
-                            min(self.CORR_MAX_MS, diff // 5))
-            new_time = video_ms + adjustment
-            correction = {
-                'type': 'soft',
-                'diff_ms': diff,
-                'adjustment_ms': adjustment,
-                'new_time_ms': new_time
-            }
+        # Zone 1: Dead zone (no correction needed)
+        if abs_drift < self.DEAD_ZONE:
+            # Reset rate to normal if was adjusted
+            if abs(self._current_rate - 1.0) > 0.01:
+                correction = {
+                    'type': 'rate_reset',
+                    'drift_ms': drift_ms,
+                    'new_rate': 1.0
+                }
+                self._current_rate = 1.0
 
-        # Corrección dura (salto directo)
-        elif abs(diff) >= self.HARD_THRESHOLD:
+        # Zone 2: Elastic correction (playback rate adjustment)
+        elif abs_drift < self.ELASTIC_THRESHOLD:
+            # Calculate target rate based on drift
+            # drift > 0: video behind → speed up (rate > 1.0)
+            # drift < 0: video ahead → slow down (rate < 1.0)
+            rate_adjustment = drift_ms / 1000.0  # Convert to rate delta
+            target_rate = 1.0 + (rate_adjustment * 0.05)  # Scale to 5% max
+            target_rate = max(self.ELASTIC_RATE_MIN,
+                            min(self.ELASTIC_RATE_MAX, target_rate))
+
+            # Only adjust if significant change (avoid jitter)
+            if abs(target_rate - self._current_rate) > 0.02:
+                correction = {
+                    'type': 'elastic',
+                    'drift_ms': drift_ms,
+                    'new_rate': target_rate,
+                    'current_rate': self._current_rate
+                }
+                self._current_rate = target_rate
+
+        # Zone 3: Hard correction (seek)
+        elif abs_drift >= self.HARD_THRESHOLD:
             correction = {
                 'type': 'hard',
-                'diff_ms': diff,
-                'new_time_ms': audio_ms
+                'drift_ms': drift_ms,
+                'new_time_ms': audio_ms,
+                'reset_rate': True
             }
+            self._current_rate = 1.0
 
-        # Emitir si hay corrección
+        # Emit correction if needed
         if correction:
+            self._last_correction_time = self._smooth_audio_time
+            self._last_correction_type = correction['type']
             self.videoCorrectionNeeded.emit(correction)
+            logger.debug(
+                f"📐 [ELASTIC_SYNC] drift={drift_ms:+d}ms "
+                f"type={correction['type']} "
+                f"rate={self._current_rate:.3f}"
+            )
 
     # ----------------------------------------------------------
     #  CONTROL DE SINCRONIZACIÓN Y POLLING
     # ----------------------------------------------------------
+    def _log_sync_stats(self):
+        """
+        Log sync statistics at 1 Hz for diagnosis.
+        Called by diagnostic timer (low frequency, non-invasive).
+        """
+        if not self.is_syncing:
+            return
+
+        audio_ms = int(self._smooth_audio_time * 1000)
+        video_ms = int(self._video_time * 1000)
+        drift_ms = audio_ms - video_ms  # positive = video lagging
+
+        # Determine state
+        state = "playing" if self.is_syncing else "paused"
+
+        # Log format: [SYNC] audio=12.345s video=12.265s drift=-80ms state=playing
+        logger.info(
+            f"[SYNC_DIAG] audio={self._smooth_audio_time:.3f}s "
+            f"video={self._video_time:.3f}s drift={drift_ms:+d}ms state={state}"
+        )
+
+    def _is_video_enabled(self) -> bool:
+        """Check if video is enabled and should participate in sync.
+
+        Returns:
+            bool: True if video player exists and is enabled, False otherwise
+        """
+        if self.video_player is None:
+            return False
+
+        # Check if video player has is_video_enabled method
+        if hasattr(self.video_player, 'is_video_enabled'):
+            return self.video_player.is_video_enabled()
+
+        # Fallback: assume enabled if player exists
+        return True
+
+    def enable_diagnostics(self, enable: bool = True):
+        """Enable/disable 1 Hz diagnostic logging."""
+        self._diag_enabled = enable
+        if enable and self.is_syncing and not self._diag_timer.isActive():
+            self._diag_timer.start()
+            logger.info("🔍 Sync diagnostics enabled (1 Hz logging)")
+        elif not enable and self._diag_timer.isActive():
+            self._diag_timer.stop()
+            logger.info("🔍 Sync diagnostics disabled")
+
     def start_sync(self):
         """Habilita la sincronización automática de video."""
         self.is_syncing = True
         if not self._position_timer.isActive():
             self._position_timer.start()
+        if self._diag_enabled and not self._diag_timer.isActive():
+            self._diag_timer.start()
+
+        # FASE 5.1: Start elastic correction timer only if video is enabled
+        if self._is_video_enabled():
+            if not self._correction_timer.isActive():
+                self._correction_timer.start()
+                logger.info("🔄 Elastic sync enabled (1 Hz correction loop)")
+        else:
+            logger.debug("🎬 Sincronización iniciada (sin video - solo audio polling)")
 
     def stop_sync(self):
         """Detiene la sincronización automática de video."""
         self.is_syncing = False
         if self._position_timer.isActive():
             self._position_timer.stop()
+        if self._diag_timer.isActive():
+            self._diag_timer.stop()
+        if self._correction_timer.isActive():
+            self._correction_timer.stop()
+        # Reset correction state
+        self._current_rate = 1.0
+        self._last_correction_type = None
 
     def reset(self):
         """Reinicia el reloj y estado de sincronización."""

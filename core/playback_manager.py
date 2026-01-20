@@ -139,14 +139,20 @@ class PlaybackManager(QObject):
         """Asignar la referencia al `VideoLyrics` para control centralizado."""
         self.video_player = video_player
 
-    def request_seek(self, seconds: float):
+    def request_seek(self, seconds: float, video_offset: float = 0.0):
         """Request a seek to `seconds` and synchronize audio/video/clocks.
+
+        Args:
+            seconds: Target time in seconds (audio time, master clock)
+            video_offset: Video offset from metadata (applied to video seek)
 
         This method centralizes seek behavior so UI components or widgets
         can call `playback.request_seek(t)` instead of calling players directly.
 
         Also updates the TimelineModel playhead (if present) so the timeline
         remains the canonical source of truth for playhead time.
+
+        Blocked during playback to prevent WASAPI priming errors.
         """
         # Clamp within known duration if available
         if self.total_duration and seconds > self.total_duration:
@@ -170,7 +176,10 @@ class PlaybackManager(QObject):
         # Seek video player
         with safe_operation("Seeking video player", silent=True):
             if self.video_player is not None:
-                self.video_player.seek_seconds(seconds)
+                video_time = seconds + video_offset
+                self.video_player.seek_seconds(video_time)
+                if abs(video_offset) > 0.001:
+                    logger.debug(f"🎬 Video seek with offset: {seconds:.3f}s + {video_offset:+.3f}s = {video_time:.3f}s")
 
         # Update sync controller clock/time so smoothing resumes from correct point
         with safe_operation("Updating sync controller time", silent=True):

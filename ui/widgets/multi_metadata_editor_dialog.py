@@ -4,8 +4,8 @@ Original search metadata remains immutable.
 """
 
 from PySide6.QtWidgets import (
-    QDialog, QVBoxLayout, QHBoxLayout, QLabel, 
-    QLineEdit, QPushButton, QFrame
+    QDialog, QVBoxLayout, QHBoxLayout, QLabel,
+    QLineEdit, QPushButton, QFrame, QDoubleSpinBox
 )
 from PySide6.QtCore import Signal, Qt
 from ui.styles import StyleManager
@@ -13,36 +13,36 @@ from ui.styles import StyleManager
 
 class MultiMetadataEditorDialog(QDialog):
     """Dialog for editing clean display metadata
-    
+
     Shows original metadata (read-only) and allows editing display fields only.
     Original track_name and artist_name are preserved for lyrics search accuracy.
     """
-    
+
     metadata_saved = Signal(dict)  # Emits {track_name_display, artist_name_display}
-    
+
     def __init__(self, metadata: dict, parent=None):
         super().__init__(parent)
         self.metadata = metadata
-        
+
         self.setWindowTitle("Editar Metadatos de Visualización")
         self.setModal(True)
         self.setMinimumWidth(500)
-        
+
         self._setup_ui()
         self._apply_styles()
         self._populate_fields()
-    
+
     def _setup_ui(self):
         """Create the dialog UI"""
         layout = QVBoxLayout(self)
         layout.setSpacing(20)
         layout.setContentsMargins(25, 25, 25, 25)
-        
+
         # Title
         title_label = QLabel("Editar Nombres para Visualización")
         title_label.setObjectName("title_label")
         layout.addWidget(title_label)
-        
+
         # Info text
         info_label = QLabel(
             "Edita los nombres que se muestran en la interfaz. "
@@ -51,47 +51,47 @@ class MultiMetadataEditorDialog(QDialog):
         info_label.setObjectName("info_label")
         info_label.setWordWrap(True)
         layout.addWidget(info_label)
-        
+
         # Separator
         separator1 = QFrame()
         separator1.setFrameShape(QFrame.HLine)
         separator1.setObjectName("separator")
         layout.addWidget(separator1)
-        
+
         # Original metadata (read-only reference)
         original_group = QVBoxLayout()
         original_group.setSpacing(10)
-        
+
         original_header = QLabel("Metadatos Originales (para búsqueda de letras):")
         original_header.setObjectName("section_header")
         original_group.addWidget(original_header)
-        
+
         # Original track name
         self.original_track_label = QLabel()
         self.original_track_label.setObjectName("readonly_field")
         original_group.addWidget(self.original_track_label)
-        
+
         # Original artist name
         self.original_artist_label = QLabel()
         self.original_artist_label.setObjectName("readonly_field")
         original_group.addWidget(self.original_artist_label)
-        
+
         layout.addLayout(original_group)
-        
+
         # Separator
         separator2 = QFrame()
         separator2.setFrameShape(QFrame.HLine)
         separator2.setObjectName("separator")
         layout.addWidget(separator2)
-        
+
         # Editable display metadata
         display_group = QVBoxLayout()
         display_group.setSpacing(15)
-        
+
         display_header = QLabel("Nombres para Visualización (mostrados en la interfaz):")
         display_header.setObjectName("section_header")
         display_group.addWidget(display_header)
-        
+
         # Display track name
         track_display_layout = QVBoxLayout()
         track_display_layout.setSpacing(5)
@@ -102,7 +102,7 @@ class MultiMetadataEditorDialog(QDialog):
         track_display_layout.addWidget(track_display_label)
         track_display_layout.addWidget(self.track_display_input)
         display_group.addLayout(track_display_layout)
-        
+
         # Display artist name
         artist_display_layout = QVBoxLayout()
         artist_display_layout.setSpacing(5)
@@ -113,50 +113,74 @@ class MultiMetadataEditorDialog(QDialog):
         artist_display_layout.addWidget(artist_display_label)
         artist_display_layout.addWidget(self.artist_display_input)
         display_group.addLayout(artist_display_layout)
-        
+
+        # Video offset
+        offset_layout = QVBoxLayout()
+        offset_layout.setSpacing(5)
+        offset_label = QLabel("Video Offset:")
+        offset_label.setObjectName("field_label")
+        offset_help = QLabel("Ajusta el tiempo de inicio del video relativo al audio (positivo = video atrasado)")
+        offset_help.setObjectName("help_text")
+        offset_help.setWordWrap(True)
+        self.offset_spinbox = QDoubleSpinBox()
+        self.offset_spinbox.setRange(-5.0, 5.0)  # ±5 seconds
+        self.offset_spinbox.setDecimals(3)       # 1ms precision
+        self.offset_spinbox.setSingleStep(0.010) # 10ms per click
+        self.offset_spinbox.setSuffix(" s")
+        self.offset_spinbox.setToolTip(
+            "Offset del video en segundos:\n"
+            "  0.000 = Sincronizado\n"
+            "  +0.080 = Video empieza 80ms después del audio\n"
+            "  -0.200 = Video empieza 200ms antes del audio"
+        )
+        offset_layout.addWidget(offset_label)
+        offset_layout.addWidget(offset_help)
+        offset_layout.addWidget(self.offset_spinbox)
+        display_group.addLayout(offset_layout)
+
         layout.addLayout(display_group)
-        
+
         # Spacer
         layout.addStretch()
-        
+
         # Buttons
         button_layout = QHBoxLayout()
         button_layout.setSpacing(10)
-        
+
         self.cancel_btn = QPushButton("Cancelar")
         self.save_btn = QPushButton("Guardar")
         self.save_btn.setObjectName("primary_button")
-        
+
         button_layout.addStretch()
         button_layout.addWidget(self.cancel_btn)
         button_layout.addWidget(self.save_btn)
-        
+
         layout.addLayout(button_layout)
-        
+
         # Connect signals
         self.cancel_btn.clicked.connect(self.reject)
         self.save_btn.clicked.connect(self._on_save_clicked)
-    
+
     def _apply_styles(self):
         """Apply StyleManager colors"""
         self.setStyleSheet(f"""
             QDialog {{
                 background-color: {StyleManager.get_color('background')};
             }}
-            
+
             #title_label {{
                 font-size: 18px;
                 font-weight: bold;
                 color: {StyleManager.get_color('accent')};
                 margin-bottom: 5px;
             }}
-            
+
             #info_label {{
                 color: {StyleManager.get_color('text_dim')};
                 font-size: 12px;
                 margin-bottom: 10px;
             }}
-            
+
             #section_header {{
                 font-size: 13px;
                 font-weight: bold;
@@ -164,7 +188,7 @@ class MultiMetadataEditorDialog(QDialog):
                 margin-top: 5px;
                 margin-bottom: 5px;
             }}
-            
+
             #readonly_field {{
                 color: {StyleManager.get_color('text_dim')};
                 font-size: 12px;
@@ -173,13 +197,20 @@ class MultiMetadataEditorDialog(QDialog):
                 border-radius: 4px;
                 margin-bottom: 3px;
             }}
-            
+
             #field_label {{
                 color: {StyleManager.get_color('text')};
                 font-size: 12px;
                 font-weight: bold;
             }}
-            
+
+            #help_text {{
+                color: {StyleManager.get_color('text_dim')};
+                font-size: 11px;
+                font-style: italic;
+                margin-bottom: 5px;
+            }}
+
             QLineEdit {{
                 background-color: {StyleManager.get_color('surface')};
                 border: 1px solid {StyleManager.get_color('border')};
@@ -188,11 +219,24 @@ class MultiMetadataEditorDialog(QDialog):
                 color: {StyleManager.get_color('text')};
                 font-size: 13px;
             }}
-            
+
             QLineEdit:focus {{
                 border: 1px solid {StyleManager.get_color('accent')};
             }}
-            
+
+            QDoubleSpinBox {{
+                background-color: {StyleManager.get_color('surface')};
+                border: 1px solid {StyleManager.get_color('border')};
+                border-radius: 4px;
+                padding: 6px 12px;
+                color: {StyleManager.get_color('text')};
+                font-size: 13px;
+            }}
+
+            QDoubleSpinBox:focus {{
+                border: 1px solid {StyleManager.get_color('accent')};
+            }}
+
             QPushButton {{
                 background-color: {StyleManager.get_color('surface')};
                 border: 1px solid {StyleManager.get_color('border')};
@@ -202,51 +246,55 @@ class MultiMetadataEditorDialog(QDialog):
                 font-size: 13px;
                 min-width: 80px;
             }}
-            
+
             QPushButton:hover {{
                 background-color: {StyleManager.get_color('surface_hover')};
                 border-color: {StyleManager.get_color('accent')};
             }}
-            
+
             QPushButton#primary_button {{
                 background-color: {StyleManager.get_color('accent')};
                 border-color: {StyleManager.get_color('accent')};
                 color: {StyleManager.get_color('background')};
                 font-weight: bold;
             }}
-            
+
             QPushButton#primary_button:hover {{
                 background-color: {StyleManager.get_color('accent_hover')};
             }}
-            
+
             #separator {{
                 color: {StyleManager.get_color('border')};
                 background-color: {StyleManager.get_color('border')};
             }}
         """)
-    
+
     def _populate_fields(self):
         """Populate fields with current metadata"""
         # Original metadata (read-only display)
         track_name = self.metadata.get('track_name', self.metadata.get('title', 'Unknown'))
         artist_name = self.metadata.get('artist_name', self.metadata.get('artist', 'Unknown'))
-        
+
         self.original_track_label.setText(f"🎵 Track: {track_name}")
         self.original_artist_label.setText(f"👤 Artist: {artist_name}")
-        
+
         # Display metadata (editable fields)
         # Use display fields if they exist, otherwise fall back to original
         track_display = self.metadata.get('track_name_display', track_name)
         artist_display = self.metadata.get('artist_name_display', artist_name)
-        
+
         self.track_display_input.setText(track_display)
         self.artist_display_input.setText(artist_display)
-    
+
+        # Video offset (default to 0.0)
+        video_offset = self.metadata.get('video_offset_seconds', 0.0)
+        self.offset_spinbox.setValue(video_offset)
+
     def _on_save_clicked(self):
         """Save button clicked - validate and emit signal"""
         track_display = self.track_display_input.text().strip()
         artist_display = self.artist_display_input.text().strip()
-        
+
         if not track_display or not artist_display:
             # Show validation error
             self.track_display_input.setStyleSheet(
@@ -258,11 +306,12 @@ class MultiMetadataEditorDialog(QDialog):
                 if not artist_display else ""
             )
             return
-        
-        # Emit saved data (only display fields)
+
+        # Emit saved data (display fields + video offset)
         self.metadata_saved.emit({
             'track_name_display': track_display,
-            'artist_name_display': artist_display
+            'artist_name_display': artist_display,
+            'video_offset_seconds': self.offset_spinbox.value()
         })
-        
+
         self.accept()
