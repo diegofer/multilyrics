@@ -15,6 +15,10 @@ Usage:
 import os
 import sys
 from pathlib import Path
+import pytest
+
+# Skip entirely on Windows where Linux display detection is not applicable
+pytestmark = pytest.mark.skipif(sys.platform.startswith("win"), reason="Linux-only display test")
 
 # Add project root to path
 sys.path.insert(0, str(Path(__file__).parent.parent))

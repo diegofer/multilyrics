@@ -136,6 +136,7 @@ class TimelineView(QWidget):
         # --- Interaction ---
         self._dragging = False
         self._last_mouse_x = None
+        self._is_playing: bool = False  # Updated via PlaybackManager.playingChanged
 
         # --- Lyrics Edit Mode ---
         self._lyrics_edit_mode: bool = False
@@ -197,6 +198,10 @@ class TimelineView(QWidget):
         self.setMinimumHeight(100)
         self.update()
         logger.debug("Timeline reset to empty state")
+
+    def set_playing_state(self, playing: bool) -> None:
+        """Update playback state to guard UI seeks during playback."""
+        self._is_playing = bool(playing)
 
     def reset_view_state(self) -> None:
         """Reset view state when loading a new song.
@@ -630,6 +635,11 @@ class TimelineView(QWidget):
     # --------------------------------------------------------------
     def mouseDoubleClickEvent(self, event: QMouseEvent) -> None:
         if self.total_samples == 0:
+            return
+
+        # Block double-click seek while playback is active to avoid stream priming glitches
+        if self._is_playing:
+            logger.warning("⚠️  Double-click seek blocked during playback - pause first")
             return
 
         # TODO (Lyrics Edit Mode): When _lyrics_edit_mode is True and user double-clicks

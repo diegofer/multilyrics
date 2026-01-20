@@ -115,6 +115,14 @@ class PlaybackManager(QObject):
         if seconds < 0:
             seconds = 0.0
 
+        # Block seeks while audio is actively playing to avoid stream priming glitches
+        with safe_operation("Checking audio playback state before seek", silent=True):
+            if self.audio_player is not None:
+                is_playing_fn = getattr(self.audio_player, "is_playing", None)
+                if callable(is_playing_fn) and bool(is_playing_fn()):
+                    logger.warning("⚠️  Seek ignored: playback in progress. Pause first to seek.")
+                    return
+
         # Seek audio player
         with safe_operation("Seeking audio player", silent=True):
             if self.audio_player is not None:

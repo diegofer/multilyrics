@@ -167,6 +167,7 @@ class MainWindow(QMainWindow):
 
         self.playback.durationChanged.connect(self.controls.update_total_duration_label)
         self.playback.playingChanged.connect(self.controls.set_playing_state)
+        self.playback.playingChanged.connect(self.timeline_view.set_playing_state)
         # Auto-switch zoom mode based on playback state
         self.playback.playingChanged.connect(self._on_playback_state_changed)
         #self.sync.videoCorrectionNeeded.connect(self.video_player.apply_correction)

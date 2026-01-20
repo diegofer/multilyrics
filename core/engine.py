@@ -94,9 +94,9 @@ class MultiTrackPlayer:
         self.muted = np.zeros(0, dtype=bool)
         self.solo_mask = np.zeros(0, dtype=bool)
 
-        # Control
+        # Control (lock is only for setup/state changes outside the audio callback)
         self._playing = False
-        self._lock = threading.Lock()
+        self._state_lock = threading.Lock()
 
         # Smoothing factor for gain transitions (0..1). Higher -> faster changes.
         # Using exponential smoothing for more natural-sounding fades (perceptually linear)
@@ -292,36 +292,27 @@ class MultiTrackPlayer:
         # Tarea #4: Latency measurement - Start timing
         callback_start = time.perf_counter()
 
-        if status:
-            # Log status occasionally; not ideal in tight real-time but useful for debugging.
-            logger.warning(f"Stream status: {status}")
+        # Do not log inside callback to avoid allocations
 
-        with self._lock:
-            if not self._playing:
-                # If stopped, output silence
-                outdata.fill(0)
-                return
+        if not self._playing:
+            outdata.fill(0)
+            self._frames_processed = self._pos
+            return
 
-            # Mix block
-            block = self._mix_block(self._pos, frames)  # returns shape (frames, 2)
-            # Write to outdata
-            out_len = min(frames, block.shape[0])
-            outdata[:out_len] = block[:out_len]
-            if out_len < frames:
-                outdata[out_len:] = 0.0
+        # Mix block without locks (reads atomic state)
+        block = self._mix_block(self._pos, frames)  # returns shape (frames, 2)
+        out_len = min(frames, block.shape[0])
+        outdata[:out_len] = block[:out_len]
+        if out_len < frames:
+            outdata[out_len:] = 0.0
 
-            self._pos += out_len
-            if self._pos >= self._n_frames:
-                # Stop at end
-                self._playing = False
-                # Fill remainder with zeros (already)
-                # Close stream from another thread or let main control stop
-                # We'll just stop the stream gracefully here:
-                try:
-                    # Mark stream to stop; calling stop from callback is allowed in sounddevice
-                    self._stream.stop()
-                except Exception:
-                    pass
+        self._pos += out_len
+        if self._pos >= self._n_frames:
+            self._playing = False
+            try:
+                self._stream.stop()
+            except Exception:
+                pass
 
         # Update atomic counter OUTSIDE lock (safe from audio thread, no Qt Signal emission)
         # Qt thread will poll this counter via QTimer to emit signals safely
@@ -341,11 +332,6 @@ class MultiTrackPlayer:
 
         if callback_duration > time_budget * 0.80:
             self._xrun_count += 1
-            if self._xrun_count % 10 == 1:  # Log every 10th xrun to avoid spam
-                logger.warning(
-                    f"⚠️  Audio callback xrun detected: {callback_duration*1000:.2f}ms "
-                    f"(budget: {time_budget*1000:.2f}ms, usage: {(callback_duration/time_budget)*100:.1f}%)"
-                )
 
     def play(self, start_frame: Optional[int] = None):
         """
@@ -358,8 +344,8 @@ class MultiTrackPlayer:
         # Disable GC during playback to prevent audio glitches
         self._disable_gc_if_needed()
 
-        # Prepare state and create stream under lock
-        with self._lock:
+        # Prepare state and create stream under setup lock (not used in callback)
+        with self._state_lock:
             if self._n_tracks == 0:
                 raise RuntimeError("No tracks loaded")
             if start_frame is not None:
@@ -388,8 +374,7 @@ class MultiTrackPlayer:
                 )
                 logger.info(f"🔊 Audio stream initialized: {self.samplerate}Hz, blocksize={self.blocksize}, latency=high")
 
-        # CRITICAL: Start stream OUTSIDE lock to prevent deadlock during priming
-        # The priming callback needs to acquire self._lock, so we must release it first
+        # Start stream after releasing lock to avoid driver priming contention
         if self._stream is not None:
             self._stream.start()
         # Notify play state changed -> playing
@@ -401,7 +386,7 @@ class MultiTrackPlayer:
 
     def _on_stream_finished(self):
         # called when stream finishes
-        with self._lock:
+        with self._state_lock:
             self._playing = False
 
         # Restore GC after playback finishes
@@ -415,7 +400,7 @@ class MultiTrackPlayer:
             pass
 
     def stop(self):
-        with self._lock:
+        with self._state_lock:
             self._playing = False
             if self._stream is not None and self._stream.active:
                 try:
@@ -436,7 +421,7 @@ class MultiTrackPlayer:
             pass
 
     def pause(self):
-        with self._lock:
+        with self._state_lock:
             self._playing = False
             should_stop = self._stream is not None and self._stream.active
 
@@ -461,7 +446,7 @@ class MultiTrackPlayer:
         # Disable GC when resuming playback
         self._disable_gc_if_needed()
 
-        with self._lock:
+        with self._state_lock:
             self._playing = True
             should_start = self._stream is not None and not self._stream.active
 
@@ -480,57 +465,48 @@ class MultiTrackPlayer:
         Set the target gain for a track (linear, 1.0 = unity).
         Gain is clamped to [0.0, 1.0] range.
         """
-        with self._lock:
-            # Clamp gain to valid range
-            g = max(0.0, min(1.0, float(gain)))
-            self.target_gains[track_index] = np.float32(g)
+        # Clamp gain to valid range (atomic write is safe)
+        g = max(0.0, min(1.0, float(gain)))
+        self.target_gains[track_index] = np.float32(g)
 
     def set_master_gain(self, gain: float):
         """Set the global/master gain (0.0 .. 1.0)."""
-        with self._lock:
-            try:
-                g = float(gain)
-            except Exception:
-                return
-            # Clamp
-            g = max(0.0, min(1.0, g))
-            self.master_gain = g
+        try:
+            g = float(gain)
+        except Exception:
+            return
+        # Clamp
+        g = max(0.0, min(1.0, g))
+        self.master_gain = g
 
     def get_master_gain(self) -> float:
-        with self._lock:
-            return float(self.master_gain)
+        return float(self.master_gain)
 
     def get_gain(self, track_index: int) -> float:
         return float(self.target_gains[track_index])
 
     def mute(self, track_index: int, yes: bool = True):
-        with self._lock:
-            self.muted[track_index] = yes
+        self.muted[track_index] = yes
 
     def solo(self, track_index: int, yes: bool = True):
-        with self._lock:
-            self.solo_mask[track_index] = yes
+        self.solo_mask[track_index] = yes
 
     def clear_solo(self):
-        with self._lock:
-            self.solo_mask[:] = False
+        self.solo_mask[:] = False
 
     def is_playing(self) -> bool:
-        with self._lock:
-            return self._playing
+        return self._playing
 
     def get_position_seconds(self) -> float:
-        with self._lock:
-            if self.samplerate is None:
-                return 0.0
-            return float(self._pos) / float(self.samplerate)
+        if self.samplerate is None:
+            return 0.0
+        return float(self._pos) / float(self.samplerate)
 
     def get_duration_seconds(self) -> float:
         """Return total duration of the loaded tracks in seconds."""
-        with self._lock:
-            if self.samplerate is None or self._n_frames == 0:
-                return 0.0
-            return float(self._n_frames) / float(self.samplerate)
+        if self.samplerate is None or self._n_frames == 0:
+            return 0.0
+        return float(self._n_frames) / float(self.samplerate)
 
     def seek_seconds(self, seconds: float):
         """Seek to a specific time position in seconds.
@@ -549,9 +525,15 @@ class MultiTrackPlayer:
             logger.warning("⚠️  Cannot seek: no tracks loaded")
             return
 
+        # Block seeks during playback to avoid race with audio callback
+        if self.is_playing():
+            logger.warning("⚠️  Seek blocked during playback - pause first")
+            return
+
         frame = int(seconds * self.samplerate)
-        with self._lock:
+        with self._state_lock:
             self._pos = min(max(0, frame), self._n_frames)
+            self._frames_processed = self._pos
 
     def get_latency_stats(self) -> Dict[str, float]:
         """Get audio callback latency statistics.
@@ -566,41 +548,40 @@ class MultiTrackPlayer:
             - usage_pct: Average percentage of time budget used
             - total_callbacks: Total number of callbacks processed
         """
-        with self._lock:
-            if not self._callback_durations:
-                return {
-                    'mean_ms': 0.0,
-                    'max_ms': 0.0,
-                    'min_ms': 0.0,
-                    'xruns': 0,
-                    'budget_ms': 0.0,
-                    'usage_pct': 0.0,
-                    'total_callbacks': 0
-                }
-
-            durations = list(self._callback_durations)
-            mean_duration = sum(durations) / len(durations)
-            max_duration = max(durations)
-            min_duration = min(durations)
-
-            # Calculate time budget
-            time_budget = self.blocksize / self.samplerate if self.samplerate else 0.043
-
+        if not self._callback_durations:
             return {
-                'mean_ms': mean_duration * 1000,
-                'max_ms': max_duration * 1000,
-                'min_ms': min_duration * 1000,
-                'xruns': self._xrun_count,
-                'budget_ms': time_budget * 1000,
-                'usage_pct': (mean_duration / time_budget) * 100 if time_budget > 0 else 0.0,
-                'total_callbacks': self._total_callbacks
+                'mean_ms': 0.0,
+                'max_ms': 0.0,
+                'min_ms': 0.0,
+                'xruns': 0,
+                'budget_ms': 0.0,
+                'usage_pct': 0.0,
+                'total_callbacks': 0
             }
+
+        durations = list(self._callback_durations)
+        mean_duration = sum(durations) / len(durations)
+        max_duration = max(durations)
+        min_duration = min(durations)
+
+        # Calculate time budget
+        time_budget = self.blocksize / self.samplerate if self.samplerate else 0.043
+
+        return {
+            'mean_ms': mean_duration * 1000,
+            'max_ms': max_duration * 1000,
+            'min_ms': min_duration * 1000,
+            'xruns': self._xrun_count,
+            'budget_ms': time_budget * 1000,
+            'usage_pct': (mean_duration / time_budget) * 100 if time_budget > 0 else 0.0,
+            'total_callbacks': self._total_callbacks
+        }
 
     def close(self):
         # Restore GC before closing
         self._restore_gc_if_needed()
 
-        with self._lock:
+        with self._state_lock:
             if self._stream is not None:
                 try:
                     self._stream.close()

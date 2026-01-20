@@ -32,6 +32,7 @@ def playback(sync):
 
 def test_request_seek_calls_players_and_sync(playback):
     mock_audio = Mock()
+    mock_audio.is_playing.return_value = False  # allow seek
     mock_video = Mock()
     mock_timeline = Mock()
 
@@ -52,6 +53,7 @@ def test_request_seek_calls_players_and_sync(playback):
 
 def test_request_seek_clamps_to_duration(playback):
     mock_audio = Mock()
+    mock_audio.is_playing.return_value = False  # allow seek
     mock_video = Mock()
     mock_timeline = Mock()
 
@@ -72,6 +74,7 @@ def test_request_seek_clamps_to_duration(playback):
 
 def test_request_seek_handles_negative_values(playback):
     mock_audio = Mock()
+    mock_audio.is_playing.return_value = False  # allow seek
     mock_video = Mock()
     mock_timeline = Mock()
 
@@ -93,9 +96,26 @@ def test_request_seek_tolerates_missing_players(playback):
     # No players set, no timeline set
     # Should not raise even without signal connection
     playback.request_seek(2.0)
-    
+
     # Test passes if no exception raised
     assert True
+
+
+def test_request_seek_blocked_when_playing(playback):
+    mock_audio = Mock()
+    mock_audio.is_playing.return_value = True
+    mock_video = Mock()
+    mock_timeline = Mock()
+
+    playback.set_audio_player(mock_audio)
+    playback.set_video_player(mock_video)
+    playback.set_timeline(mock_timeline)
+
+    playback.request_seek(3.0)
+
+    mock_audio.seek_seconds.assert_not_called()
+    mock_video.seek_seconds.assert_not_called()
+    mock_timeline.set_playhead_time.assert_not_called()
 
 
 def test_playing_changed_emitted_on_audio_state_change(playback):
@@ -135,6 +155,7 @@ def test_play_without_arg_resumes_not_restart(monkeypatch):
     from core.engine import MultiTrackPlayer
 
     player = MultiTrackPlayer()
+    player.samplerate = 44100  # ensure position to seconds works
     # pretend we have one track loaded
     player._n_tracks = 1
     player._n_frames = 44100 * 5

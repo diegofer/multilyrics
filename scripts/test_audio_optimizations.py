@@ -13,6 +13,7 @@ Usage:
 
 import sys
 import time
+import tempfile
 from pathlib import Path
 
 import numpy as np
@@ -27,6 +28,11 @@ from utils.logger import get_logger
 logger = get_logger(__name__)
 
 
+def _default_temp_path(name: str) -> Path:
+    """Return a cross-platform temp path for test audio files."""
+    return Path(tempfile.gettempdir()) / name
+
+
 def create_test_audio(path: str, duration_sec: float = 5.0, samplerate: int = 48000):
     """Create a test audio file with sine wave."""
     t = np.linspace(0, duration_sec, int(samplerate * duration_sec))
@@ -34,8 +40,13 @@ def create_test_audio(path: str, duration_sec: float = 5.0, samplerate: int = 48
     audio = np.sin(2 * np.pi * 440 * t).astype('float32')
     # Make stereo
     audio = np.column_stack([audio, audio])
-    sf.write(path, audio, samplerate)
-    logger.info(f"✅ Created test audio: {path} ({duration_sec}s @ {samplerate}Hz)")
+    path_obj = Path(path)
+    try:
+        path_obj.unlink(missing_ok=True)
+    except Exception:
+        pass
+    sf.write(path_obj, audio, samplerate)
+    logger.info(f"✅ Created test audio: {path_obj} ({duration_sec}s @ {samplerate}Hz)")
 
 
 def test_ram_validation():
@@ -45,7 +56,7 @@ def test_ram_validation():
     logger.info("="*60)
 
     # Create a temporary test file
-    test_file = "/tmp/multilyrics_test_track.wav"
+    test_file = _default_temp_path("multilyrics_test_track.wav")
     create_test_audio(test_file, duration_sec=10.0, samplerate=48000)
 
     player = MultiTrackPlayer(samplerate=48000, blocksize=2048)
@@ -87,7 +98,7 @@ def test_latency_measurement(audio_file: str = None):
         cleanup = False
     else:
         # Create test audio
-        test_file = "/tmp/multilyrics_test_latency.wav"
+        test_file = _default_temp_path("multilyrics_test_latency.wav")
         create_test_audio(test_file, duration_sec=3.0, samplerate=48000)
         cleanup = True
 

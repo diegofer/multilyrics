@@ -29,19 +29,22 @@ def qapp():
 @pytest.fixture
 def temp_audio_file():
     """Create a temporary audio file for testing"""
+    # Generate 1 second of sine wave at 440 Hz
+    sample_rate = 44100
+    duration = 1.0
+    samples = int(sample_rate * duration)
+    t = np.linspace(0, duration, samples)
+    audio_data = np.sin(2 * np.pi * 440 * t).astype(np.float32)
+
     with tempfile.NamedTemporaryFile(suffix='.wav', delete=False) as f:
-        # Generate 1 second of sine wave at 440 Hz
-        sample_rate = 44100
-        duration = 1.0
-        samples = int(sample_rate * duration)
-        t = np.linspace(0, duration, samples)
-        audio_data = np.sin(2 * np.pi * 440 * t).astype(np.float32)
+        temp_path = Path(f.name)
 
-        sf.write(f.name, audio_data, sample_rate)
-        yield Path(f.name)
-
-        # Cleanup
-        Path(f.name).unlink(missing_ok=True)
+    # Write after closing handle to avoid Windows file lock
+    sf.write(temp_path, audio_data, sample_rate)
+    try:
+        yield temp_path
+    finally:
+        temp_path.unlink(missing_ok=True)
 
 
 def test_timeline_starts_empty(qapp):
