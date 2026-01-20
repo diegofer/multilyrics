@@ -32,6 +32,7 @@ logger = get_logger(__name__)
 
 from core import constants
 from core.audio_profiles import get_profile_manager
+from core.config_manager import ConfigManager
 from core.engine import MultiTrackPlayer
 from core.extraction_orchestrator import ExtractionOrchestrator
 from core.playback_manager import PlaybackManager
@@ -87,7 +88,8 @@ class MainWindow(QMainWindow):
         # STEP 2.3: Load latency monitoring flag from settings (default: False)
         # When False (production): Zero overhead in audio callback
         # When True (debugging): Collect latency statistics
-        enable_monitoring = SettingsDialog.get_setting("audio.enable_latency_monitor", False)
+        config = ConfigManager.get_instance()
+        enable_monitoring = config.get("audio.enable_latency_monitor", default=False)
         logger.info(f"🎛️  Latency monitoring: {'ENABLED' if enable_monitoring else 'disabled'} (audio callback)")
 
         # Create player with profile settings + optional monitoring
@@ -113,8 +115,8 @@ class MainWindow(QMainWindow):
         # Add Latency Monitor (initially hidden, shown via Settings)
         self.latency_monitor = LatencyMonitor(self.audio_player)
         self.ui.monitor_layout.addWidget(self.latency_monitor)
-        # Load visibility from settings
-        show_latency = SettingsDialog.get_setting("audio.show_latency_monitor", False)
+        # Load visibility from settings (ConfigManager)
+        show_latency = config.get("audio.show_latency_monitor", default=False)
         self.latency_monitor.setVisible(show_latency)
 
         # Configurar StatusBar

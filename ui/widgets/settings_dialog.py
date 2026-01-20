@@ -19,6 +19,7 @@ from PySide6.QtCore import Qt
 from PySide6.QtWidgets import (QCheckBox, QDialog, QGroupBox, QHBoxLayout,
                                QLabel, QPushButton, QVBoxLayout)
 
+from core.config_manager import ConfigManager
 from ui.styles import StyleManager
 from utils.logger import get_logger
 
@@ -37,8 +38,7 @@ class SettingsDialog(QDialog):
         """
         super().__init__(parent)
         self.parent_window = parent
-        self.settings_path = Path("config/settings.json")
-        self.settings = self._load_settings()
+        self.config = ConfigManager.get_instance()  # Use ConfigManager singleton
 
         self.setWindowTitle("Settings - Multi Lyrics")
         self.setModal(True)
@@ -49,37 +49,14 @@ class SettingsDialog(QDialog):
         self.load_current_settings()
 
     def _load_settings(self) -> dict:
-        """Load settings from JSON file."""
-        if not self.settings_path.exists():
-            # Default settings
-            return {
-                "audio": {
-                    "show_latency_monitor": False
-                },
-                "ui": {
-                    "theme": "deep_tech_blue"
-                }
-            }
-
-        try:
-            with open(self.settings_path, 'r') as f:
-                return json.load(f)
-        except Exception as e:
-            logger.warning(f"⚠️  Failed to load settings: {e}")
-            return {}
+        """Load settings from ConfigManager (deprecated - use ConfigManager directly)."""
+        # For backwards compatibility, but ConfigManager is the source of truth
+        return self.config.get_all()
 
     def _save_settings(self):
-        """Save settings to JSON file."""
-        try:
-            # Ensure config directory exists
-            self.settings_path.parent.mkdir(parents=True, exist_ok=True)
-
-            with open(self.settings_path, 'w') as f:
-                json.dump(self.settings, f, indent=2)
-
-            logger.info(f"✅ Settings saved to {self.settings_path}")
-        except Exception as e:
-            logger.error(f"❌ Failed to save settings: {e}")
+        """Save settings via ConfigManager (deprecated - use ConfigManager directly)."""
+        # For backwards compatibility, but ConfigManager handles persistence
+        self.config.save()
 
     def init_ui(self):
         """Initialize UI layout."""
@@ -178,23 +155,19 @@ class SettingsDialog(QDialog):
         """)
 
     def load_current_settings(self):
-        """Load current settings into UI controls."""
-        audio_settings = self.settings.get("audio", {})
+        """Load current settings into UI controls from ConfigManager."""
         # Load enable_latency_monitor (STEP 2: audio callback data collection)
-        enable_monitoring = audio_settings.get("enable_latency_monitor", False)
+        enable_monitoring = self.config.get("audio.enable_latency_monitor", default=False)
         self.latency_monitor_checkbox.setChecked(enable_monitoring)
 
     def _on_latency_monitor_changed(self, state):
         """Handle latency monitoring checkbox change (STEP 2: enable_latency_monitor)."""
         enable_monitoring = (state == Qt.CheckState.Checked.value)
 
-        # Update settings
-        if "audio" not in self.settings:
-            self.settings["audio"] = {}
-        self.settings["audio"]["enable_latency_monitor"] = enable_monitoring
+        # Update settings via ConfigManager (handles persistence automatically)
+        self.config.set("audio.enable_latency_monitor", enable_monitoring)
         # When enabled, also show the monitor widget automatically
-        self.settings["audio"]["show_latency_monitor"] = enable_monitoring
-        self._save_settings()
+        self.config.set("audio.show_latency_monitor", enable_monitoring)
 
         # Apply to main window
         if self.parent_window:
@@ -205,7 +178,7 @@ class SettingsDialog(QDialog):
     @staticmethod
     def get_setting(key_path: str, default=None):
         """
-        Get a setting value from settings.json.
+        Get a setting value from ConfigManager (static convenience method).
 
         Args:
             key_path: Dot-separated path (e.g., "audio.show_latency_monitor")
@@ -213,25 +186,11 @@ class SettingsDialog(QDialog):
 
         Returns:
             Setting value or default
+
+        Note:
+            This is a convenience method. Preferred approach is:
+            config = ConfigManager.get_instance()
+            value = config.get("audio.show_latency_monitor", default=None)
         """
-        settings_path = Path("config/settings.json")
-
-        if not settings_path.exists():
-            return default
-
-        try:
-            with open(settings_path, 'r') as f:
-                settings = json.load(f)
-
-            # Navigate nested dict
-            keys = key_path.split('.')
-            value = settings
-            for key in keys:
-                if isinstance(value, dict) and key in value:
-                    value = value[key]
-                else:
-                    return default
-
-            return value
-        except Exception:
-            return default
+        config = ConfigManager.get_instance()
+        return config.get(key_path, default=default)
