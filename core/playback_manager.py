@@ -17,7 +17,7 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 """
 
 from typing import Optional
-from PySide6.QtCore import QObject, Signal
+from PySide6.QtCore import QObject, Signal, QTimer
 
 # Import TimelineModel for optional integration. Keep PlaybackManager UI-agnostic;
 # TimelineModel is UI-independent and becomes the single source of truth for
@@ -63,6 +63,13 @@ class PlaybackManager(QObject):
         self.audio_player = None
         self.video_player = None
 
+        # STEP 1.2: Polling timer for end-of-track detection (100ms interval)
+        # Callback in _callback() sets _stop_requested flag instead of calling stream.stop()
+        # This timer polls the flag and handles stream stop outside real-time context
+        self._end_of_track_timer = QTimer(self)
+        self._end_of_track_timer.timeout.connect(self._on_end_of_track_poll)
+        self._end_of_track_timer.setInterval(100)  # Poll every 100ms
+
         # SyncController emite el audio clock suavizado
         self.sync.audioTimeUpdated.connect(self._on_audio_time)
 
@@ -95,6 +102,38 @@ class PlaybackManager(QObject):
         """Called by the audio player's callback to notify state changes."""
         with safe_operation("Emitting playing state change", silent=True):
             self.playingChanged.emit(bool(playing))
+
+        # STEP 1.2: Start/stop end-of-track polling timer based on playback state
+        if playing:
+            if not self._end_of_track_timer.isActive():
+                self._end_of_track_timer.start()
+                logger.debug("🔄 Started end-of-track polling timer (100ms)")
+        else:
+            if self._end_of_track_timer.isActive():
+                self._end_of_track_timer.stop()
+                logger.debug("⏹️  Stopped end-of-track polling timer")
+
+    def _on_end_of_track_poll(self):
+        """Polling handler called every 100ms during playback.
+
+        Checks if audio engine's _stop_requested flag is set (end-of-track detected),
+        and calls stream.stop() safely outside the audio callback context.
+
+        This is the SAFE way to stop the audio stream (fulfills real-time safety
+        requirement that no driver calls happen inside the audio callback).
+        """
+        with safe_operation("Polling for end-of-track", silent=True):
+            if self.audio_player is None:
+                return
+
+            # Call should_stop() which checks and resets the flag
+            if hasattr(self.audio_player, 'should_stop') and self.audio_player.should_stop():
+                logger.info("🎵 End-of-track detected, stopping stream safely")
+                try:
+                    if hasattr(self.audio_player, '_stream') and self.audio_player._stream is not None:
+                        self.audio_player._stream.stop()
+                except Exception as e:
+                    logger.warning(f"⚠️  Error stopping stream: {e}")
 
     def set_video_player(self, video_player):
         """Asignar la referencia al `VideoLyrics` para control centralizado."""

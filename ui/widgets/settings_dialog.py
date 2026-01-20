@@ -101,10 +101,10 @@ class SettingsDialog(QDialog):
             profile_label.setWordWrap(True)
             audio_layout.addWidget(profile_label)
 
-        # Latency Monitor checkbox
-        self.latency_monitor_checkbox = QCheckBox("Show Latency Monitor")
+        # Latency Monitor checkbox (controls enable_latency_monitor: STEP 2 audio callback data collection)
+        self.latency_monitor_checkbox = QCheckBox("Enable Latency Monitoring")
         self.latency_monitor_checkbox.setToolTip(
-            "Display real-time audio callback statistics (debug mode)"
+            "Enable real-time latency stats collection in audio callback (debug mode). When enabled, shows statistics in the monitor widget."
         )
         self.latency_monitor_checkbox.stateChanged.connect(self._on_latency_monitor_changed)
         audio_layout.addWidget(self.latency_monitor_checkbox)
@@ -180,24 +180,27 @@ class SettingsDialog(QDialog):
     def load_current_settings(self):
         """Load current settings into UI controls."""
         audio_settings = self.settings.get("audio", {})
-        show_latency = audio_settings.get("show_latency_monitor", False)
-        self.latency_monitor_checkbox.setChecked(show_latency)
+        # Load enable_latency_monitor (STEP 2: audio callback data collection)
+        enable_monitoring = audio_settings.get("enable_latency_monitor", False)
+        self.latency_monitor_checkbox.setChecked(enable_monitoring)
 
     def _on_latency_monitor_changed(self, state):
-        """Handle latency monitor checkbox change."""
-        show_monitor = (state == Qt.CheckState.Checked.value)
+        """Handle latency monitoring checkbox change (STEP 2: enable_latency_monitor)."""
+        enable_monitoring = (state == Qt.CheckState.Checked.value)
 
         # Update settings
         if "audio" not in self.settings:
             self.settings["audio"] = {}
-        self.settings["audio"]["show_latency_monitor"] = show_monitor
+        self.settings["audio"]["enable_latency_monitor"] = enable_monitoring
+        # When enabled, also show the monitor widget automatically
+        self.settings["audio"]["show_latency_monitor"] = enable_monitoring
         self._save_settings()
 
         # Apply to main window
         if self.parent_window:
-            self.parent_window.set_latency_monitor_visible(show_monitor)
+            self.parent_window.set_latency_monitor_visible(enable_monitoring)
 
-        logger.info(f"🎛️  Latency monitor: {'enabled' if show_monitor else 'disabled'}")
+        logger.info(f"🖥️  Latency monitoring: {'ENABLED (callback collecting data)' if enable_monitoring else 'disabled'}")
 
     @staticmethod
     def get_setting(key_path: str, default=None):

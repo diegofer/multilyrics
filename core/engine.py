@@ -38,7 +38,6 @@ Notes:
 import gc
 import threading
 import time
-from collections import deque
 from typing import Dict, List, Optional, Union
 
 import numpy as np
@@ -58,7 +57,7 @@ from utils.logger import get_logger
 logger = get_logger(__name__)
 
 class MultiTrackPlayer:
-    def __init__(self, samplerate: Optional[int] = None, blocksize: int = 2048, dtype: str = 'float32', gc_policy: str = 'disable_during_playback'):
+    def __init__(self, samplerate: Optional[int] = None, blocksize: int = 2048, dtype: str = 'float32', gc_policy: str = 'disable_during_playback', enable_latency_monitor: bool = False):
         """
         Initialize MultiTrack Audio Player.
 
@@ -73,11 +72,15 @@ class MultiTrackPlayer:
             gc_policy: Garbage collection policy during playback:
                       - 'disable_during_playback': Disable GC during playback to prevent audio glitches (recommended for legacy hardware)
                       - 'normal': Keep GC enabled (for modern systems with sufficient CPU headroom)
+            enable_latency_monitor: Enable latency statistics collection in callback.
+                      - False (default): Zero overhead, no monitoring
+                      - True: Collect perf_counter() timings and xrun stats (for debugging)
         """
         self.samplerate = samplerate  # None until first track loaded
         self.blocksize = blocksize  # Default 2048 for stability on legacy hardware
         self.dtype = dtype
         self.gc_policy = gc_policy
+        self.enable_latency_monitor = bool(enable_latency_monitor)  # STEP 2: Optional monitoring flag
         self._gc_was_enabled = gc.isenabled()  # Store initial GC state
 
         # Data structures
@@ -96,6 +99,7 @@ class MultiTrackPlayer:
 
         # Control (lock is only for setup/state changes outside the audio callback)
         self._playing = False
+        self._stop_requested = False  # Flag set by callback when end-of-track detected, polled externally
         self._state_lock = threading.Lock()
 
         # Smoothing factor for gain transitions (0..1). Higher -> faster changes.
@@ -114,8 +118,10 @@ class MultiTrackPlayer:
         # Should be a callable taking a single bool argument (playing)
         self.playStateCallback = None
 
-        # Latency measurement (Tarea #4)
-        self._callback_durations = deque(maxlen=100)  # Last 100 callback durations in seconds
+        # Latency measurement (Tarea #4 + STEP 3: Optional monitoring with ring buffer)
+        # STEP 3: Pre-allocated ring buffer instead of deque (no allocation in callback)
+        self._callback_durations = np.zeros(100, dtype='float64')  # Ring buffer, pre-allocated
+        self._duration_index = 0  # Wrapping index for ring buffer (0-99)
         self._xrun_count = 0  # Count of callbacks exceeding time budget
         self._total_callbacks = 0  # Total callback invocations
 
@@ -289,8 +295,10 @@ class MultiTrackPlayer:
         sounddevice callback: must be fast and avoid Python allocation when possible.
         outdata is a writable numpy array shape (frames, channels)
         """
-        # Tarea #4: Latency measurement - Start timing
-        callback_start = time.perf_counter()
+        # STEP 2: Optional latency measurement start (only if monitoring enabled)
+        # When disabled: Zero overhead (no syscall to perf_counter)
+        if self.enable_latency_monitor:
+            callback_start = time.perf_counter()
 
         # Do not log inside callback to avoid allocations
 
@@ -309,29 +317,35 @@ class MultiTrackPlayer:
         self._pos += out_len
         if self._pos >= self._n_frames:
             self._playing = False
-            try:
-                self._stream.stop()
-            except Exception:
-                pass
+            # Signal stop to external handler (100ms polling timer in playback_manager)
+            # CRITICAL: Do NOT call stream.stop() here - violates real-time callback rules
+            self._stop_requested = True
 
         # Update atomic counter OUTSIDE lock (safe from audio thread, no Qt Signal emission)
         # Qt thread will poll this counter via QTimer to emit signals safely
         # CRITICAL: Update outside lock to prevent contention with Qt polling thread
         self._frames_processed = self._pos
 
-        # Tarea #4: Latency measurement - End timing and store stats
-        callback_end = time.perf_counter()
-        callback_duration = callback_end - callback_start
+        # STEP 2: Latency measurement - Optional monitoring (guarded by enable_latency_monitor flag)
+        # When disabled: ZERO overhead (no timing, no allocation, no logging)
+        # When enabled: Collect timing stats for debugging/benchmarking
+        if self.enable_latency_monitor:
+            # Tarea #4: Latency measurement - End timing and store stats
+            callback_end = time.perf_counter()
+            callback_duration = callback_end - callback_start
 
-        # Calculate time budget for this blocksize
-        time_budget = self.blocksize / self.samplerate if self.samplerate else 0.043  # ~43ms @ 2048/48000
+            # Calculate time budget for this blocksize
+            time_budget = self.blocksize / self.samplerate if self.samplerate else 0.043  # ~43ms @ 2048/48000
 
-        # Store duration and detect xruns (callback exceeding 80% of budget)
-        self._callback_durations.append(callback_duration)
-        self._total_callbacks += 1
+            # STEP 3: Store in pre-allocated ring buffer (no allocation here!)
+            # Ring buffer write: array[index % 100] = value (atomic, ~1 cycle)
+            self._callback_durations[self._duration_index % 100] = callback_duration
+            self._duration_index = (self._duration_index + 1) % 10000  # Wrap index at 10k
 
-        if callback_duration > time_budget * 0.80:
-            self._xrun_count += 1
+            self._total_callbacks += 1
+
+            if callback_duration > time_budget * 0.80:
+                self._xrun_count += 1
 
     def play(self, start_frame: Optional[int] = None):
         """
@@ -497,6 +511,20 @@ class MultiTrackPlayer:
     def is_playing(self) -> bool:
         return self._playing
 
+    def should_stop(self) -> bool:
+        """Check if end-of-track was detected. Resets flag on read (one-shot).
+
+        Called externally by PlaybackManager polling timer (100ms interval).
+        This pattern eliminates driver calls inside the audio callback.
+
+        Returns:
+            True if callback detected end-of-track and stream should be stopped
+        """
+        if self._stop_requested:
+            self._stop_requested = False  # Reset one-shot flag
+            return True
+        return False
+
     def get_position_seconds(self) -> float:
         if self.samplerate is None:
             return 0.0
@@ -548,7 +576,12 @@ class MultiTrackPlayer:
             - usage_pct: Average percentage of time budget used
             - total_callbacks: Total number of callbacks processed
         """
-        if not self._callback_durations:
+        # STEP 3: Use ring buffer (numpy array) instead of deque
+        # Filter out zeros (empty slots if ring buffer not full yet)
+        durations = self._callback_durations.copy()
+        durations = durations[durations > 0]
+
+        if len(durations) == 0:
             return {
                 'mean_ms': 0.0,
                 'max_ms': 0.0,
@@ -559,10 +592,9 @@ class MultiTrackPlayer:
                 'total_callbacks': 0
             }
 
-        durations = list(self._callback_durations)
-        mean_duration = sum(durations) / len(durations)
-        max_duration = max(durations)
-        min_duration = min(durations)
+        mean_duration = float(np.mean(durations))
+        max_duration = float(np.max(durations))
+        min_duration = float(np.min(durations))
 
         # Calculate time budget
         time_budget = self.blocksize / self.samplerate if self.samplerate else 0.043

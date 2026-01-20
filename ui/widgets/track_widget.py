@@ -117,9 +117,9 @@ class TrackWidget(QWidget):
         if self.is_master:
             # Master track: connect slider to dual control (preview + audio gain)
             self.slider.valueChanged.connect(self._on_master_volume_changed)
-            # Master track also needs mute button
+            # Master track also needs mute button (mute master uses track_index=0)
             if self.engine:
-                self.mute_button.toggled.connect(self._on_mute_toggled)
+                self.mute_button.toggled.connect(lambda checked: self._on_mute_toggled_master(checked))
         else:
             # Individual tracks: connect directly to engine
             if self.engine:
@@ -143,6 +143,11 @@ class TrackWidget(QWidget):
         """Handle mute button toggle."""
         if self.engine:
             self.engine.mute(self.track_index, checked)
+
+    def _on_mute_toggled_master(self, checked: bool):
+        """Handle master track mute button toggle (always uses track_index=0)."""
+        if self.engine:
+            self.engine.mute(0, checked)  # Master track is always at index 0
 
     def _on_solo_toggled(self, checked: bool):
         """Handle solo button toggle."""

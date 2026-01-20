@@ -84,8 +84,16 @@ class MainWindow(QMainWindow):
         logger.info(f"   Description: {audio_profile.description}")
         logger.info(f"   Settings: blocksize={audio_profile.blocksize}, gc_policy={audio_profile.gc_policy}")
 
-        # Create player with profile settings
-        self.audio_player = MultiTrackPlayer(**audio_profile.to_engine_kwargs())
+        # STEP 2.3: Load latency monitoring flag from settings (default: False)
+        # When False (production): Zero overhead in audio callback
+        # When True (debugging): Collect latency statistics
+        enable_monitoring = SettingsDialog.get_setting("audio.enable_latency_monitor", False)
+        logger.info(f"🎛️  Latency monitoring: {'ENABLED' if enable_monitoring else 'disabled'} (audio callback)")
+
+        # Create player with profile settings + optional monitoring
+        engine_kwargs = audio_profile.to_engine_kwargs()
+        engine_kwargs['enable_latency_monitor'] = enable_monitoring  # Add monitoring flag
+        self.audio_player = MultiTrackPlayer(**engine_kwargs)
         self.current_audio_profile = audio_profile  # Store for later reference
 
         #Agregar tracks widgets (master track receives both engine and timeline_view)
