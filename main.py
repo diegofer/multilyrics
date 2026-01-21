@@ -85,10 +85,27 @@ class MainWindow(QMainWindow):
         logger.info(f"   Description: {audio_profile.description}")
         logger.info(f"   Settings: blocksize={audio_profile.blocksize}, gc_policy={audio_profile.gc_policy}")
 
+        # STEP 2: Video Mode Hardware Detection
+        config = ConfigManager.get_instance()
+
+        # Detect and save recommended video mode on first run
+        if config.get("video.recommended_mode") is None:
+            recommended_mode = ConfigManager.detect_recommended_video_mode()
+            config.set("video.recommended_mode", recommended_mode)
+            logger.info(f"🎬 Recommended video mode saved: {recommended_mode}")
+
+        # Load active video mode (fallback to recommended if not set)
+        video_mode = config.get("video.mode")
+        if video_mode is None:
+            video_mode = config.get("video.recommended_mode", "full")
+            config.set("video.mode", video_mode)
+            logger.info(f"🎬 Active video mode initialized: {video_mode}")
+        else:
+            logger.info(f"🎬 Active video mode: {video_mode}")
+
         # STEP 2.3: Load latency monitoring flag from settings (default: False)
         # When False (production): Zero overhead in audio callback
         # When True (debugging): Collect latency statistics
-        config = ConfigManager.get_instance()
         enable_monitoring = config.get("audio.enable_latency_monitor", default=False)
         logger.info(f"🎛️  Latency monitoring: {'ENABLED' if enable_monitoring else 'disabled'} (audio callback)")
 
@@ -97,6 +114,7 @@ class MainWindow(QMainWindow):
         engine_kwargs['enable_latency_monitor'] = enable_monitoring  # Add monitoring flag
         self.audio_player = MultiTrackPlayer(**engine_kwargs)
         self.current_audio_profile = audio_profile  # Store for later reference
+        self.video_mode = video_mode  # Store for video player initialization
 
         #Agregar tracks widgets (master track receives both engine and timeline_view)
         self.master_track = TrackWidget(
@@ -396,9 +414,11 @@ class MainWindow(QMainWindow):
         logger.info(f"Usuario {'habilitó' if enabled else 'deshabilitó'} video manualmente")
         self.video_player.enable_video(enabled)
 
-        # Si se deshabilitó video durante reproducción, detenerlo
+        # STEP 5: Si se deshabilitó video durante reproducción, detenerlo
+        # En modo loop, detener el loop cuando usuario desactiva video
         if not enabled and self.video_player.player.is_playing():
             self.video_player.stop()
+            logger.debug("🔄 Video stopped (user disabled)")
 
     @Slot(bool)
     def _on_playback_state_changed(self, is_playing: bool) -> None:

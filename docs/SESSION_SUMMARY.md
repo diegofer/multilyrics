@@ -13,6 +13,13 @@
 - ✅ STEP 2 (completed now): Make monitoring optional (zero overhead default)
 - ✅ STEP 3 (completed now): Ring buffer (pre-allocated, no allocation)
 
+## 🎬 Video Modes Stability Update (2026-01-20)
+
+- Added mode sync on each song load: `set_media()` now re-reads `video.mode` from `config` so user changes in Settings take effect immediately.
+- Loop mode stability: loop restart runs on the Qt event loop (not VLC callback thread) to avoid UI freezes when moving the main window.
+- VLC EndReached event now triggers safe restart helper; boundary timer also uses the same helper as a backup.
+- Loop mode ignores per-multi video files and always uses the configured loop path (`assets/loops/default.mp4` by default).
+
 ---
 
 ## 📋 Exact Changes Made This Session

@@ -122,8 +122,53 @@ class ConfigManager:
                 "loop_enabled": False,
                 "auto_stop_enabled": True,
                 "gc_policy": "disable_during_playback"  # or "normal"
+            },
+            "video": {
+                "mode": None,  # "full" | "loop" | "static" | "none" (None = use recommended)
+                "loop_video_path": "assets/loops/default.mp4",
+                "recommended_mode": None  # Set at first run based on hardware detection
             }
         }
+
+    @staticmethod
+    def detect_recommended_video_mode() -> str:
+        """
+        Detect recommended video mode based on hardware capabilities.
+
+        Returns:
+            Recommended mode: "full" | "loop" | "static" | "none"
+
+        Detection criteria:
+            - CPU < 2013 or RAM < 6GB → "static" (avoid video decoding)
+            - Otherwise → "full" (full video with sync)
+        """
+        try:
+            from core.audio_profiles import get_profile_manager
+
+            profile_manager = get_profile_manager()
+            hw_specs = profile_manager._detect_hardware_specs()
+
+            cpu_year = hw_specs.get('cpu_year', 2018)
+            ram_gb = hw_specs.get('ram_gb', 8)
+
+            # Legacy hardware detection
+            if cpu_year < 2013 or ram_gb < 6:
+                logger.info(
+                    f"🎬 Recommended video mode: 'static' "
+                    f"(CPU ~{cpu_year}, {ram_gb}GB RAM - legacy hardware)"
+                )
+                return "static"
+            else:
+                logger.info(
+                    f"🎬 Recommended video mode: 'full' "
+                    f"(CPU ~{cpu_year}, {ram_gb}GB RAM - modern hardware)"
+                )
+                return "full"
+
+        except Exception as e:
+            logger.warning(f"⚠️  Failed to detect hardware for video mode: {e}")
+            logger.info("🎬 Defaulting to 'full' video mode")
+            return "full"
 
     def save(self) -> bool:
         """

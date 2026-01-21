@@ -1,9 +1,11 @@
 import platform
+from pathlib import Path
 
 import vlc
 from PySide6.QtCore import Qt, QTimer, Slot
 from PySide6.QtWidgets import QApplication, QVBoxLayout, QWidget
 
+from core.config_manager import ConfigManager
 from core.constants import app_state
 from utils.error_handler import safe_operation
 from utils.logger import get_logger
@@ -33,14 +35,17 @@ class VideoLyrics(QWidget):
         self.system = platform.system()
         logger.debug(f"SO detectado: {self.system}")
 
-        # Detectar hardware antiguo y determinar si video debe estar deshabilitado
-        self._is_legacy_hardware = self._detect_legacy_hardware()
-        self._video_auto_disabled = self._is_legacy_hardware
+        # STEP 3: Initialize with video mode from ConfigManager
+        config = ConfigManager.get_instance()
+        self._video_mode = config.get("video.mode", "full")  # "full" | "loop" | "static" | "none"
+        logger.info(f"🎬 VideoLyrics initialized with mode: {self._video_mode}")
 
-        if self._video_auto_disabled:
+        # Legacy hardware detection (kept for future use)
+        self._is_legacy_hardware = self._detect_legacy_hardware()
+        if self._is_legacy_hardware:
             logger.warning(
-                "⚠️ Hardware antiguo detectado - Video deshabilitado por defecto para prevenir stuttering. "
-                "Puede habilitarlo manualmente si lo desea."
+                "⚠️ Hardware antiguo detectado. "
+                "Modo de video configurado en Settings puede afectar rendimiento."
             )
 
         # VLC con optimizaciones para hardware antiguo si es necesario
@@ -60,6 +65,10 @@ class VideoLyrics(QWidget):
         self.instance = vlc.Instance(vlc_args)
         self.player = self.instance.media_player_new()
         self.player.audio_set_mute(True)
+
+        # STEP 5: Setup event callback for detecting when video ends
+        event_manager = self.player.event_manager()
+        event_manager.event_attach(vlc.EventType.MediaPlayerEndReached, self._on_video_end)
 
         # Layout obligatorio en una QWidget
         layout = QVBoxLayout(self)
@@ -141,48 +150,113 @@ class VideoLyrics(QWidget):
         return False
 
     def is_video_enabled(self) -> bool:
-        """Verificar si video está habilitado (automático o manual).
+        """Verificar si el video está habilitado (backward compatibility).
 
         Returns:
-            bool: True si video puede reproducirse, False si está deshabilitado
+            bool: True si video puede reproducirse (no es mode 'none')
         """
-        return not self._video_auto_disabled
+        return self._video_mode != "none"
+
+    def get_video_mode(self) -> str:
+        """Get current video mode.
+
+        Returns:
+            str: Current mode ("full" | "loop" | "static" | "none")
+        """
+        return self._video_mode
+
+    def set_video_mode(self, mode: str):
+        """Set video playback mode.
+
+        Args:
+            mode: Video mode ("full" | "loop" | "static" | "none")
+        """
+        if mode not in ["full", "loop", "static", "none"]:
+            logger.error(f"❌ Invalid video mode: {mode}. Using 'full' as fallback.")
+            mode = "full"
+
+        old_mode = self._video_mode
+        self._video_mode = mode
+        logger.info(f"🎬 Video mode changed: {old_mode} → {mode}")
+
+        # Stop playback if switching to 'none'
+        if mode == "none" and self.player.is_playing():
+            self.stop()
 
     def enable_video(self, enable: bool = True):
-        """Habilitar o deshabilitar video manualmente (override de detección automática).
+        """Habilitar o deshabilitar video manualmente (backward compatibility).
 
         Args:
             enable: True para habilitar video, False para deshabilitar
         """
-        self._video_auto_disabled = not enable
-
+        # Map to video modes for backward compatibility
         if enable:
-            logger.info("📹 Video habilitado manualmente")
+            # Re-enable: restore to previous mode or use recommended
+            if self._video_mode == "none":
+                config = ConfigManager.get_instance()
+                restored_mode = config.get("video.mode", "full")
+                self.set_video_mode(restored_mode)
         else:
-            logger.info("🚫 Video deshabilitado manualmente")
-            # Si estaba reproduciendo, detener
-            if self.player.is_playing():
-                self.stop()
+            # Disable: switch to 'none' mode
+            self.set_video_mode("none")
 
     def set_media(self, video_path):
-        """Cargar un archivo de video (solo si está habilitado)."""
-        # Si video está deshabilitado, no cargar nada pero no fallar
-        if self._video_auto_disabled:
-            logger.info(f"📹 Video deshabilitado - omitiendo carga de {video_path}")
-            logger.info("💡 Puede habilitar video manualmente con enable_video() si su hardware lo soporta")
+        """Cargar un archivo de video respetando el modo configurado."""
+        # STEP 6: Always sync mode from config before loading media
+        # This ensures changes in Settings are respected when loading new songs
+        current_mode = ConfigManager.get_instance().get("video.mode", "full")
+        if current_mode and current_mode != self._video_mode:
+            logger.info(f"📹 Updating video mode from settings: {self._video_mode} → {current_mode}")
+            self._video_mode = current_mode
+
+        # STEP 4: Si mode es 'none', no cargar nada
+        if self._video_mode == "none":
+            logger.info("📹 Video mode is 'none' - skipping video load")
             return
+
+        # STEP 4: Si mode es 'loop', siempre usar loop (ignorar video del multi)
+        if self._video_mode == "loop":
+            config = ConfigManager.get_instance()
+            loop_path = config.get("video.loop_video_path", "assets/loops/default.mp4")
+            video_path = loop_path
+            logger.info(f"📹 Loop mode active - using loop video: {video_path}")
+
+        # STEP 4: Si mode es 'static', usar video del multi o fallback a loop
+        elif self._video_mode == "static":
+            if video_path is None or not Path(video_path).exists():
+                logger.warning(f"📹 No video file for static mode: {video_path}")
+                config = ConfigManager.get_instance()
+                loop_path = config.get("video.loop_video_path", "assets/loops/default.mp4")
+                video_path = loop_path
+                logger.info(f"📹 Fallback to loop for static frame: {video_path}")
+
+        # STEP 4: Si mode es 'full', usar video del multi o fallback a loop
+        elif self._video_mode == "full":
+            if video_path is None or not Path(video_path).exists():
+                logger.warning(f"📹 Multi has no video file: {video_path}")
+                logger.info("🔄 Switching to 'loop' mode and loading default loop")
+                self._video_mode = "loop"
+                config = ConfigManager.get_instance()
+                loop_path = config.get("video.loop_video_path", "assets/loops/default.mp4")
+                video_path = loop_path
+                logger.info(f"📹 Using loop video: {video_path}")
 
         if self.player.is_playing():
             self.player.stop()
             app_state.video_is_playing = False
             logger.debug("Reproductor detenido")
 
-        media = self.instance.media_new(video_path)
+        media = self.instance.media_new(str(video_path))
         # Deshabilitar audio del video - el audio será controlado por el AudioEngine
         media.add_option("--no-audio")
+
         self.player.set_media(media)
         media.release()
-        logger.debug(f"📹 Video cargado: {video_path}")
+        logger.debug(f"📹 Video cargado: {video_path} (mode: {self._video_mode})")
+
+        # STEP 5: Log loop mode activation for debugging
+        if self._video_mode == "loop":
+            logger.info("🔄 Loop mode: Will use timer-based loop boundary detection")
 
     def show_window(self):
         """Mostrar la ventana de video en la pantalla secundaria.
@@ -319,8 +393,9 @@ class VideoLyrics(QWidget):
                           Positivo = video empieza después del audio
                           Negativo = video empieza antes del audio
         """
-        if self._video_auto_disabled:
-            logger.debug("📹 Video deshabilitado - saltando reproducción")
+        # STEP 3: Handle different video modes
+        if self._video_mode == "none":
+            logger.debug("📹 Video mode is 'none' - skipping playback")
             return
 
         # Solo reproducir si la ventana está visible (usuario activó show_video_btn)
@@ -328,25 +403,43 @@ class VideoLyrics(QWidget):
             logger.debug("📹 Ventana de video oculta - saltando reproducción de video (audio continuará)")
             return
 
-        # Calcular tiempo inicial del video con offset
-        video_start_time = audio_time_seconds + offset_seconds
+        logger.debug(f"⏯ Starting video playback in '{self._video_mode}' mode...")
+        self.player.audio_set_mute(True)  # Asegurar que audio está muteado
 
-        # CRÍTICO: Seek ANTES de play() para arranque determinista
-        if abs(video_start_time) > 0.001:  # Solo si es significativo (>1ms)
-            video_ms = max(0, int(video_start_time * 1000))  # Clamp negativo a 0
-            self.player.set_time(video_ms)
-            logger.info(
-                f"[VIDEO_OFFSET] audio={audio_time_seconds:.3f}s "
-                f"offset={offset_seconds:+.3f}s → video_start={video_start_time:.3f}s ({video_ms}ms)"
-            )
+        if self._video_mode == "full":
+            # Full mode: Sync with audio + elastic corrections
+            video_start_time = audio_time_seconds + offset_seconds
+            if abs(video_start_time) > 0.001:
+                video_ms = max(0, int(video_start_time * 1000))
+                self.player.set_time(video_ms)
+                logger.info(
+                    f"[FULL] audio={audio_time_seconds:.3f}s "
+                    f"offset={offset_seconds:+.3f}s → video_start={video_start_time:.3f}s"
+                )
+            self.player.play()
+            self.position_timer.start()  # Report position for sync
 
-        # Log initial state for diagnosis
-        initial_time_ms = self.player.get_time()
-        logger.info(f"[VIDEO_START] t={initial_time_ms}ms state={self.player.get_state()}")
+        elif self._video_mode == "loop":
+            # Loop mode: Play without sync, loop at boundaries
+            self.player.set_time(0)  # Always start at beginning
+            self.player.play()
+            logger.info("[LOOP] Starting loop playback from 0s (no audio sync)")
+            # Start loop boundary timer (1 Hz check)
+            if not hasattr(self, '_loop_boundary_timer'):
+                self._loop_boundary_timer = QTimer()
+                self._loop_boundary_timer.setInterval(1000)  # 1 Hz
+                self._loop_boundary_timer.timeout.connect(self._check_loop_boundary)
+            self._loop_boundary_timer.start()
 
-        logger.debug("⏯ Reproduciendo video...")
-        self.player.play()
-        self.player.audio_set_mute(True)  # Asegurar que audio está muteado antes de reproducir
+        elif self._video_mode == "static":
+            # Static mode: Seek to frame and pause
+            static_frame = 0  # TODO: Load from meta.json in Phase 2
+            self.player.set_time(int(static_frame * 1000))
+            self.player.play()
+            # Pause after short delay to ensure frame is loaded
+            QTimer.singleShot(100, lambda: self._ensure_static_frame())
+            logger.info(f"[STATIC] Freezing at frame {static_frame}s")
+
         app_state.video_is_playing = True
 
         # Habilitar sincronización
@@ -355,18 +448,35 @@ class VideoLyrics(QWidget):
             self.position_timer.start()
 
     def stop(self):
-        """Detener reproducción y sincronización."""
+        """Detener reproducción y sincronización.
+
+        STEP 5: Stop loop boundary timer if running.
+        """
         app_state.video_is_playing = False
         self.player.stop()
         self.position_timer.stop()
+
+        # STEP 5: Stop loop boundary timer if exists
+        if hasattr(self, '_loop_boundary_timer') and self._loop_boundary_timer.isActive():
+            self._loop_boundary_timer.stop()
+            logger.debug("🔄 Loop boundary timer stopped")
+
         if self.sync_controller:
             self.sync_controller.stop_sync()
 
     def pause(self):
-        """Pausar reproducción."""
+        """Pausar reproducción.
+
+        STEP 5: Pause also stops loop boundary timer.
+        """
         app_state.video_is_playing = False
         self.player.pause()
         self.position_timer.stop()
+
+        # STEP 5: Stop loop boundary timer when paused
+        if hasattr(self, '_loop_boundary_timer') and self._loop_boundary_timer.isActive():
+            self._loop_boundary_timer.stop()
+
         if self.sync_controller:
             self.sync_controller.stop_sync()
 
@@ -458,15 +568,76 @@ class VideoLyrics(QWidget):
             self.player.pause()
             logger.debug("Enforced pause state after seek (VLC auto-resumed)")
 
+    def _check_loop_boundary(self):
+        """Check if video reached end and restart loop (with hysteresis)."""
+        # Always check if we're in loop mode
+        if self._video_mode != "loop":
+            return
+
+        # Check player state
+        if not self.player.is_playing():
+            logger.debug("[LOOP] Player stopped - restarting loop")
+            self.player.set_time(0)
+            self.player.play()
+            return
+
+        video_ms = self.player.get_time()
+        duration_ms = self.player.get_length()
+
+        logger.debug(f"[LOOP_CHECK] video_ms={video_ms}, duration_ms={duration_ms}, mode={self._video_mode}")
+
+        if duration_ms <= 0:
+            logger.debug("[LOOP] Invalid duration, skipping")
+            return  # Invalid duration
+
+        # STEP 5: Restart if video is at or past 95% of duration
+        # This is more reliable than checking exact end
+        boundary_threshold = int(duration_ms * 0.95)
+        if video_ms >= boundary_threshold:
+            logger.info(f"[LOOP] Boundary reached ({video_ms}ms >= {boundary_threshold}ms) - scheduling restart")
+            # Use Qt event loop to restart to avoid blocking
+            QTimer.singleShot(0, self._restart_loop)
+
+
+    def _ensure_static_frame(self):
+        """Ensure video is paused for static mode."""
+        if self._video_mode == "static":
+            self.player.pause()
+            logger.debug("[STATIC] Frame frozen")
+
+    def _on_video_end(self, event):
+        """Callback when VLC player reaches end of media.
+
+        STEP 5: Handle loop mode automatically when video ends.
+        """
+        logger.info(f"[VLC_EVENT] Video ended (mode: {self._video_mode})")
+
+        if self._video_mode == "loop":
+            logger.info("[LOOP] VLC EndReached event - scheduling restart")
+            # Run restart on Qt event loop to avoid VLC thread issues
+            QTimer.singleShot(0, self._restart_loop)
+        # For other modes, let VLC handle it naturally
+
+    def _restart_loop(self):
+        """Restart loop playback safely on the Qt event loop."""
+        if self._video_mode != "loop":
+            return
+        try:
+            self.player.set_time(0)
+            self.player.play()
+            logger.debug("[LOOP] Restarted from 0ms")
+        except Exception as exc:
+            logger.warning(f"[LOOP] Failed to restart loop: {exc}")
+
     def _report_position(self):
         """
         Reportar posición actual al SyncController.
         Se llama periodicamente durante la reproducción.
 
-        FASE 5.1: No reporta si video está deshabilitado.
+        STEP 3: Only report for 'full' mode (loop/static don't need sync).
         """
-        # Skip if video is disabled
-        if self._video_auto_disabled:
+        # Only report position in full mode (needs sync corrections)
+        if self._video_mode != "full":
             return
 
         if self.player.is_playing() and self.sync_controller:
@@ -485,10 +656,10 @@ class VideoLyrics(QWidget):
                 - 'rate_reset': new_rate (reset to 1.0)
                 - 'hard': new_time_ms (seek directo)
 
-        FASE 5.1: No ejecuta si video está deshabilitado.
+        STEP 3: Only applies corrections in 'full' mode.
         """
-        # FASE 5.1: Skip if video is disabled
-        if self._video_auto_disabled:
+        # STEP 3: Only apply corrections in full mode (loop/static don't sync)
+        if self._video_mode != "full":
             return
 
         if not self.player.is_playing():

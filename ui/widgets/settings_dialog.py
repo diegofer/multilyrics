@@ -16,8 +16,8 @@ from pathlib import Path
 from typing import Optional
 
 from PySide6.QtCore import Qt
-from PySide6.QtWidgets import (QCheckBox, QDialog, QGroupBox, QHBoxLayout,
-                               QLabel, QPushButton, QVBoxLayout)
+from PySide6.QtWidgets import (QCheckBox, QComboBox, QDialog, QGroupBox,
+                               QHBoxLayout, QLabel, QPushButton, QVBoxLayout)
 
 from core.config_manager import ConfigManager
 from ui.styles import StyleManager
@@ -88,6 +88,65 @@ class SettingsDialog(QDialog):
 
         audio_group.setLayout(audio_layout)
         main_layout.addWidget(audio_group)
+
+        # ===== Video Settings Group =====
+        video_group = QGroupBox("Video Settings (Global)")
+        video_layout = QVBoxLayout()
+
+        # Display recommended mode with hardware info
+        recommended_mode = self.config.get("video.recommended_mode", "full")
+        mode_display_names = {
+            "full": "Full Video",
+            "loop": "Loop Background",
+            "static": "Static Frame",
+            "none": "None (Audio Only)"
+        }
+        recommended_display = mode_display_names.get(recommended_mode, "Full Video")
+
+        recommended_label = QLabel(
+            f"👍 Recommended for your hardware: <b>{recommended_display}</b>"
+        )
+        recommended_label.setStyleSheet(f"color: {StyleManager.get_color('text_dim').name()}; font-size: 10px;")
+        video_layout.addWidget(recommended_label)
+
+        # Video mode selector
+        mode_label = QLabel("Video Mode:")
+        self.video_mode_combo = QComboBox()
+        self.video_mode_combo.addItems(["Full Video", "Loop Background", "Static Frame", "None (Audio Only)"])
+        self.video_mode_combo.currentIndexChanged.connect(self._on_video_mode_changed)
+        video_layout.addWidget(mode_label)
+        video_layout.addWidget(self.video_mode_combo)
+
+        # Warning label (initially hidden)
+        self.video_warning_label = QLabel(
+            "⚠️ This mode may cause performance issues on your hardware. "
+            "Consider using the recommended mode for best experience."
+        )
+        self.video_warning_label.setWordWrap(True)
+        self.video_warning_label.setStyleSheet(f"""
+            background-color: {StyleManager.get_color('warning_bg').name()};
+            color: {StyleManager.get_color('warning_text').name()};
+            padding: 8px;
+            border-radius: 4px;
+            border: 1px solid {StyleManager.get_color('warning_border').name()};
+        """)
+        self.video_warning_label.hide()  # Hidden by default
+        video_layout.addWidget(self.video_warning_label)
+
+        # Loop video info (read-only for now, preview selector coming later)
+        loop_info_label = QLabel("Current Loop Background:")
+        loop_info_label.setStyleSheet(f"color: {StyleManager.get_color('text_dim').name()}; font-size: 10px; margin-top: 8px;")
+        video_layout.addWidget(loop_info_label)
+
+        # Display current loop path
+        current_loop = self.config.get("video.loop_video_path", "assets/loops/default.mp4")
+        self.loop_path_label = QLabel(f"📹 {current_loop}")
+        self.loop_path_label.setStyleSheet(f"color: {StyleManager.get_color('text_bright').name()}; font-size: 10px; padding: 4px;")
+        self.loop_path_label.setWordWrap(True)
+        video_layout.addWidget(self.loop_path_label)
+
+        video_group.setLayout(video_layout)
+        main_layout.addWidget(video_group)
 
         # ===== Spacer =====
         main_layout.addStretch()
@@ -160,6 +219,14 @@ class SettingsDialog(QDialog):
         enable_monitoring = self.config.get("audio.enable_latency_monitor", default=False)
         self.latency_monitor_checkbox.setChecked(enable_monitoring)
 
+        # STEP 6: Load video mode
+        current_mode = self.config.get("video.mode", "full")
+        mode_index = {"full": 0, "loop": 1, "static": 2, "none": 3}.get(current_mode, 0)
+        self.video_mode_combo.setCurrentIndex(mode_index)
+
+        # Check if current mode matches recommended
+        self._update_video_warning()
+
     def _on_latency_monitor_changed(self, state):
         """Handle latency monitoring checkbox change (STEP 2: enable_latency_monitor)."""
         enable_monitoring = (state == Qt.CheckState.Checked.value)
@@ -174,6 +241,31 @@ class SettingsDialog(QDialog):
             self.parent_window.set_latency_monitor_visible(enable_monitoring)
 
         logger.info(f"🖥️  Latency monitoring: {'ENABLED (callback collecting data)' if enable_monitoring else 'disabled'}")
+
+    def _on_video_mode_changed(self, index):
+        """Handle video mode combo box changes."""
+        mode_names = ["full", "loop", "static", "none"]
+        selected_mode = mode_names[index]
+
+        # Save to config
+        self.config.set("video.mode", selected_mode)
+        logger.info(f"🎬 Video mode changed to: {selected_mode}")
+
+        # Update warning visibility
+        self._update_video_warning()
+
+    def _update_video_warning(self):
+        """Show/hide warning label based on selected vs recommended mode."""
+        current_index = self.video_mode_combo.currentIndex()
+        mode_names = ["full", "loop", "static", "none"]
+        selected_mode = mode_names[current_index]
+
+        recommended_mode = self.config.get("video.recommended_mode", "full")
+
+        if selected_mode != recommended_mode:
+            self.video_warning_label.show()
+        else:
+            self.video_warning_label.hide()
 
     @staticmethod
     def get_setting(key_path: str, default=None):
