@@ -101,6 +101,17 @@ All fonts included in `assets/fonts/` are either:
 - **Copyright**: Iconoir contributors
 - **Note**: Icons are used under the MIT License which permits commercial and non-commercial use
 
+## Media Assets
+
+### Default Loop Video (Smoke/Ink Animation)
+- **Source**: Pixabay
+- **Video URL**: https://pixabay.com/videos/smoke-ink-liquid-fog-87192/
+- **License**: Pixabay Content License
+- **License URL**: https://pixabay.com/service/license-summary/
+- **Usage**: Default background loop video for loop playback mode (`assets/loops/default.mp4`)
+- **Copyright**: Free for commercial and non-commercial use, no attribution required (attribution provided as courtesy)
+- **Note**: Licensed under Pixabay Content License which permits free use without attribution
+
 ## GPL Compliance
 
 Multi Lyrics respects all GPL and LGPL requirements:

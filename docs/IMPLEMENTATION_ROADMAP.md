@@ -639,6 +639,57 @@ Después de cada tarea completada:
 
 ---
 
+## � Video Modes Implementation (2026-01-20)
+
+### ✅ Global Video Modes System
+- **Estado**: ✅ COMPLETADA (2026-01-20)
+- **Archivos**: `video/video.py`, `core/config_manager.py`, `ui/widgets/settings_dialog.py`, `main.py`
+- **Objetivo**: Sistema de modos de video globales con loop estable
+
+#### Features Implementadas:
+
+**1. Sistema de 4 Modos:**
+- **Full Video**: Sincronización completa con audio + correcciones elásticas
+- **Loop Background**: Video loop continuo independiente del audio
+- **Static Frame**: Frame congelado con letras sincronizadas
+- **None**: Sin video (solo audio)
+
+**2. Config Sync:**
+```python
+# En set_media() - sincroniza modo desde config al cargar cada canción
+current_mode = ConfigManager.get_instance().get("video.mode", "full")
+if current_mode != self._video_mode:
+    self._video_mode = current_mode
+```
+
+**3. Loop Estable:**
+- VLC EndReached event callback para reinicio automático
+- Loop boundary timer (95% de duración) como backup
+- Reinicio vía Qt event loop (evita freezes de UI)
+- Helper `_restart_loop()` usado por ambos mecanismos
+
+**4. Settings UI:**
+- Combo box con 4 modos
+- Modo recomendado detectado por hardware
+- Warning visual si modo ≠ recomendado
+- Display de loop actual (read-only por ahora)
+
+#### Validación:
+- ✅ Sintaxis verificada todos los archivos
+- ✅ Loop se repite infinitamente sin freezes
+- ✅ Cambios en Settings respetados al cargar nueva canción
+- ✅ Modo loop ignora video del multi, usa `assets/loops/default.mp4`
+- ✅ No freeze al mover ventana durante reproducción
+
+#### Archivos Modificados:
+- `video/video.py`: Refactor completo con modos, event callback, sync from config
+- `core/config_manager.py`: Video settings section con modo/loop_path/recommended
+- `ui/widgets/settings_dialog.py`: Video Settings UI con combo + warning
+- `main.py`: Hardware detection y modo recommendation al startup
+- `assets/loops/default.mp4`: Loop por defecto (Pixabay - libre uso)
+
+---
+
 ## 🎯 Estado Final
 
 **🎊 ROADMAP COMPLETADO AL 100% 🎊**
@@ -656,10 +707,16 @@ Después de cada tarea completada:
 - ✅ Profile documentation (Tarea #9)
 - ✅ Exponential gain ramping (Tarea #10)
 - ✅ Unit test coverage (Tarea #11)
+- ✅ Global Video Modes System (2026-01-20)
 
-**Próximos Pasos Sugeridos:**
-- Evaluar extender patrón lock-free a otros componentes (video_player, sync_controller)
-- Considerar feedback visual cuando seek es bloqueado (flash rojo en timeline)
-- Documentar arquitectura lock-free en developer guide
-- Monitoreo de largo plazo para validar estabilidad en producción
-**Próxima Sesión**: Comenzar con Tarea #6 o #7
+**Features de Video Completadas:**
+- ✅ 4 modos de video (full/loop/static/none)
+- ✅ Config sync automático al cargar canciones
+- ✅ Loop estable con Qt event loop
+- ✅ Settings UI con modo recomendado
+- ✅ Fallback a loop cuando multi sin video
+
+**Próximos Pasos (Phase 2):**
+- Custom loop picker con thumbnails preview
+- Metadata per-song video mode override
+- Dual display con frameless window para proyector
