@@ -214,6 +214,9 @@ class MainWindow(QMainWindow):
         # Connect show_video_btn to control video window visibility
         self.controls.show_video_btn.toggled.connect(self._on_show_video_toggled)
 
+        # Connect video window closed signal to sync button state
+        self.video_player.window_closed.connect(self._on_video_window_closed)
+
         # Connect settings button to open settings dialog
         self.controls.settings_btn.clicked.connect(self._on_settings_clicked)
 
@@ -387,6 +390,25 @@ class MainWindow(QMainWindow):
         else:
             logger.debug("Ocultando ventana de video")
             self.video_player.hide_window()
+
+    def _on_video_window_closed(self):
+        """Handler cuando la ventana de video se cierra con el botón X.
+
+        Sincroniza el estado del botón show_video_btn para reflejar que
+        la ventana está cerrada.
+        """
+        logger.debug("🔄 Sincronizando botón show_video_btn tras cierre de ventana")
+
+        # Bloquear señales temporalmente para evitar recursión
+        self.controls.show_video_btn.blockSignals(True)
+
+        # Restablecer botón a estado inicial
+        self.controls.show_video_btn.setChecked(False)
+        self.controls.show_video_btn.setIcon(QIcon("assets/img/chromecast.svg"))
+        self.controls.show_video_btn.setToolTip("click para proyectar video")
+
+        # Desbloquear señales
+        self.controls.show_video_btn.blockSignals(False)
 
     @Slot(bool)
     def _on_playback_state_changed(self, is_playing: bool) -> None:

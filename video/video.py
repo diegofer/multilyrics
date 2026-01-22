@@ -2,7 +2,7 @@ import platform
 from pathlib import Path
 
 import vlc
-from PySide6.QtCore import Qt, QTimer, Slot
+from PySide6.QtCore import Qt, QTimer, Signal, Slot
 from PySide6.QtWidgets import QApplication, QVBoxLayout, QWidget
 
 from core.config_manager import ConfigManager
@@ -23,6 +23,9 @@ class VideoLyrics(QWidget):
 
     SyncController es responsable de todo el cálculo de sincronización.
     """
+
+    # Signal emitida cuando la ventana se cierra con el botón X
+    window_closed = Signal()
 
     def __init__(self, screen_index=1):
         super().__init__()
@@ -768,11 +771,23 @@ class VideoLyrics(QWidget):
             logger.debug(f"[SOFT] diff={drift_ms}ms adj={adjustment_ms}ms → {new_time_ms}ms")
 
     def closeEvent(self, event):
-        """Limpiar recursos al cerrar."""
-        with safe_operation("Cleaning up video player resources", silent=True):
-            self.stop()
-            self.position_timer.stop()
-            app_state.video_is_playing = False
-            self.player.release()
-            self.instance.release()
-        super().closeEvent(event)
+        """Interceptar cierre de ventana para prevenir destrucción de recursos.
+
+        En lugar de cerrar, simplemente ocultamos la ventana y notificamos
+        a main.py para sincronizar el estado del botón show_video_btn.
+
+        IMPORTANTE: No pausamos ni detenemos el video porque el audio engine
+        sigue corriendo y la timeline necesita actualizaciones de posición.
+        """
+        logger.debug("🚪 Interceptando cierre de ventana (botón X) - ocultando sin detener")
+
+        # Emitir señal para sincronizar botón
+        self.window_closed.emit()
+
+        # Simplemente ocultar ventana sin tocar el playback
+        # El video sigue reproduciéndose en segundo plano
+        # El position_timer sigue activo para actualizar timeline
+        self.hide()
+
+        # IMPORTANTE: Ignorar el evento de cierre para prevenir destrucción
+        event.ignore()
