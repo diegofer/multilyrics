@@ -41,7 +41,9 @@ import time
 from typing import Dict, List, Optional, Union
 
 import numpy as np
+import numpy.typing as npt
 import sounddevice as sd
+
 import soundfile as sf
 
 try:
@@ -123,7 +125,15 @@ class MultiTrackPlayer:
         self._callback_durations = np.zeros(100, dtype='float64')  # Ring buffer, pre-allocated
         self._duration_index = 0  # Wrapping index for ring buffer (0-99)
         self._xrun_count = 0  # Count of callbacks exceeding time budget
+        self._xrun_count = 0  # Count of callbacks exceeding time budget
         self._total_callbacks = 0  # Total callback invocations
+
+        # Pre-allocated buffers for mixing to avoid allocation in callback
+        # These will be resized if blocksize/channels change (though they shouldn't during playback)
+        # buffer for mono mix accumulation: shape (blocksize,)
+        self._mix_buffer = np.zeros(self.blocksize, dtype='float32')
+        # buffer for stereo output block: shape (blocksize, 2)
+        self._out_buffer = np.zeros((self.blocksize, self._n_output_channels), dtype='float32')
 
     def _disable_gc_if_needed(self):
         """Disable garbage collection during playback to prevent audio glitches on legacy hardware."""
@@ -232,18 +242,25 @@ class MultiTrackPlayer:
         self.solo_mask = np.zeros(self._n_tracks, dtype=bool)
         self._pos = 0
 
-    def _mix_block(self, start: int, frames: int) -> np.ndarray:
+    def _mix_block(self, start: int, frames: int) -> npt.NDArray[np.float32]:
         """
         Mix a block of 'frames' starting at 'start' into stereo output.
-        Returns shape (frames, 2) float32
+        Writes into self._out_buffer and returns a view of it.
+
         """
         # Collect per-track slices (views, no copy until stack)
         # Build an array shape (frames, n_tracks, chan_per_track) but we will handle mono/stereo tracks
         # For performance we do per-track multiplication and accumulate into mono mix
         frames_end = min(start + frames, self._n_frames)
         length = frames_end - start
+
+        # Reset buffers
+        # We use slice assignment to zero out only what we need, which is fast
+        self._mix_buffer[:frames] = 0.0
+        self._out_buffer[:frames] = 0.0
+
         if length <= 0:
-            return np.zeros((frames, self._n_output_channels), dtype='float32')
+            return self._out_buffer[:frames]
 
         # Smooth current gains toward target gains using exponential smoothing
         # Exponential smoothing: g_current = g_current * (1 - α) + g_target * α
@@ -265,7 +282,8 @@ class MultiTrackPlayer:
             active = ~muted
 
         # Start accumulation in mono
-        mix_mono = np.zeros((length,), dtype='float32')
+        # Use pre-allocated buffer view
+        mix_mono = self._mix_buffer[:length]
 
         for i, track in enumerate(self._tracks):
             if not active[i]:
@@ -274,21 +292,25 @@ class MultiTrackPlayer:
             gain = float(self.current_gains[i])
             # If track is stereo (2 channels), we average to mono before summing (or could pan differently)
             if track_slice.shape[1] == 1:
-                mix_mono[:length] += track_slice[:,0] * gain
+                mix_mono += track_slice[:,0] * gain
             else:
                 # average channels to mono (simple stereo->mono mix)
-                mix_mono[:length] += track_slice.mean(axis=1) * gain
+                # Note: creating intermediate array for mean() might still alloc,
+                # but it's per-track per-block. For stricter no-alloc, we'd need more optimal numpy usage
+                # or pre-converted mono tracks.
+                # Optimization: (L+R)*0.5*gain
+                mix_mono += (track_slice[:, 0] + track_slice[:, 1]) * (0.5 * gain)
 
         # Now create stereo output by duplicating mono into both channels
         # Apply master gain to the mixed signal
         mix_mono *= float(self.master_gain)
 
-        out_block = np.zeros((frames, self._n_output_channels), dtype='float32')
-        out_block[:length, 0] = mix_mono
-        out_block[:length, 1] = mix_mono
+        # Write to output buffer
+        self._out_buffer[:length, 0] = mix_mono
+        self._out_buffer[:length, 1] = mix_mono
 
-        # If we had less than 'frames' (end of track), rest is zeros (already zero)
-        return out_block
+        # Return view of valid data
+        return self._out_buffer[:frames]
 
     def _callback(self, outdata: np.ndarray, frames: int, time_info, status):
         """
@@ -419,8 +441,8 @@ class MultiTrackPlayer:
             if self._stream is not None and self._stream.active:
                 try:
                     self._stream.stop()
-                except Exception:
-                    pass
+                except Exception as e:
+                    logger.warning(f"Error stopping stream: {e}", exc_info=True)
             self._pos = 0
             self._frames_processed = 0
 
@@ -432,7 +454,8 @@ class MultiTrackPlayer:
             if self.playStateCallback is not None:
                 self.playStateCallback(False)
         except Exception:
-            pass
+            # External callback error should not crash engine, but we log it
+            logger.warning("Error in playStateCallback during stop()", exc_info=True)
 
     def pause(self):
         with self._state_lock:
@@ -443,8 +466,8 @@ class MultiTrackPlayer:
         if should_stop:
             try:
                 self._stream.stop()
-            except Exception:
-                pass
+            except Exception as e:
+                logger.warning(f"Error stopping stream during pause: {e}", exc_info=True)
 
         # Restore GC when paused (safe to collect during pause)
         self._restore_gc_if_needed()
@@ -454,7 +477,7 @@ class MultiTrackPlayer:
             if self.playStateCallback is not None:
                 self.playStateCallback(False)
         except Exception:
-            pass
+            logger.warning("Error in playStateCallback during pause()", exc_info=True)
 
     def resume(self):
         # Disable GC when resuming playback
@@ -488,6 +511,7 @@ class MultiTrackPlayer:
         try:
             g = float(gain)
         except Exception:
+            logger.warning(f"Invalid master gain value: {gain}")
             return
         # Clamp
         g = max(0.0, min(1.0, g))
@@ -617,8 +641,8 @@ class MultiTrackPlayer:
             if self._stream is not None:
                 try:
                     self._stream.close()
-                except Exception:
-                    pass
+                except Exception as e:
+                    logger.warning(f"Error closing stream: {e}", exc_info=True)
                 self._stream = None
             self._tracks = []
             self._n_tracks = 0

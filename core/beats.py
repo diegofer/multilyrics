@@ -3,8 +3,9 @@ import warnings, json
 import numpy as np
 from pathlib import Path
 
-from madmom.features.downbeats import RNNDownBeatProcessor, DBNDownBeatTrackingProcessor
-from madmom.features.tempo import TempoEstimationProcessor
+# from madmom.features.downbeats import RNNDownBeatProcessor, DBNDownBeatTrackingProcessor
+# from madmom.features.tempo import TempoEstimationProcessor
+
 
 from models.meta import MetaJson
 from core import constants
@@ -36,10 +37,14 @@ class BeatsExtractorWorker(QObject):
         """
         if audio_path is not None:
             self.audio_path = audio_path
-    
+
         try:
-            # Desactivar warnings de madmom
+            # Desactivar warnings de madmom (Importación diferida para lazy loading)
             warnings.filterwarnings("ignore", category=UserWarning, module='madmom')
+
+            # Lazy Import de librerías pesadas
+            from madmom.features.downbeats import RNNDownBeatProcessor, DBNDownBeatTrackingProcessor
+
 
             # 1. Cargamos el procesador de beats y downbeats (basado en Redes Neuronales)
             # Este procesador analiza la fuerza de los pulsos.
@@ -84,7 +89,7 @@ class BeatsExtractorWorker(QObject):
                 "compass": compass,
                 "beats": beats_info.tolist()
             })
-      
+
             # Emitir el resultado
             self.signals.result.emit(self.audio_path)
 
