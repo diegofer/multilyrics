@@ -184,11 +184,22 @@ class VideoLyrics(QWidget):
             self.stop()
 
     def enable_video(self, enable: bool = True):
-        """Habilitar o deshabilitar video manualmente (backward compatibility).
+        """DEPRECATED: Use set_video_mode() or ConfigManager instead.
+
+        This method is kept for backward compatibility but will be removed
+        in a future version. Use ConfigManager.set("video.mode", "none")
+        to disable video, or set_video_mode() for fine-grained control.
 
         Args:
             enable: True para habilitar video, False para deshabilitar
         """
+        import warnings
+        warnings.warn(
+            "enable_video() is deprecated. Use set_video_mode() or ConfigManager instead.",
+            DeprecationWarning,
+            stacklevel=2
+        )
+
         # Map to video modes for backward compatibility
         if enable:
             # Re-enable: restore to previous mode or use recommended

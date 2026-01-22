@@ -14,7 +14,6 @@ class ControlsWidget(QWidget):
     action_1_clicked = Signal()
     edit_mode_toggled = Signal(bool)  # Signal for edit mode state
     zoom_mode_changed = Signal(str)  # Signal for zoom mode change: "GENERAL", "PLAYBACK", "EDIT"
-    video_enabled_changed = Signal(bool)  # Signal for video enable/disable toggle
 
 
     def __init__(self,  control_name="ControlsWidget", parent=None):
@@ -114,23 +113,6 @@ class ControlsWidget(QWidget):
         # Install event filter to capture double clicks
         self.show_video_btn.installEventFilter(self)
 
-        # ===========================================================================
-        # LEGACY HARDWARE OPTIMIZATION: Video Enable/Disable Toggle
-        # ===========================================================================
-        # Botón para habilitar/deshabilitar video manualmente
-        # Útil en hardware antiguo que tiene video deshabilitado por defecto
-        # Permite al usuario activar video si lo desea (con posible stuttering)
-        # ===========================================================================
-        self.video_enable_toggle_btn = QPushButton()
-        self.video_enable_toggle_btn.setIcon(QIcon("assets/img/play.svg"))  # Icono genérico por ahora
-        self.video_enable_toggle_btn.setIconSize(QSize(30, 30))
-        self.video_enable_toggle_btn.setCheckable(True)
-        self.video_enable_toggle_btn.setChecked(True)  # ON por defecto (hardware moderno)
-        self.video_enable_toggle_btn.setSizePolicy(QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Expanding)
-        self.video_enable_toggle_btn.setToolTip("📹 Video habilitado (click para deshabilitar)")
-        self.video_enable_toggle_btn.toggled.connect(self._on_video_enable_toggled)
-        # ===========================================================================
-
         # agregar botones a frames
         self.frame_1.layout().addWidget(self.total_duration_label)
         self.frame_1.layout().addWidget(self.current_time_label)
@@ -138,7 +120,6 @@ class ControlsWidget(QWidget):
         self.frame_4.layout().addWidget(self.play_toggle_btn)
         self.frame_6.layout().addWidget(self.edit_toggle_btn)
         self.frame_7.layout().addWidget(self.settings_btn)
-        self.frame_7.layout().addWidget(self.video_enable_toggle_btn)  # Toggle de video
         self.frame_8.layout().addWidget(self.show_video_btn)
 
 
@@ -207,18 +188,6 @@ class ControlsWidget(QWidget):
         self.show_video_btn.setIcon(QIcon("assets/img/chromecast-active.svg"))
         self.show_video_btn.setToolTip("doble click para cerrar video")
 
-    def _on_video_enable_toggled(self, checked: bool):
-        """Handler for video enable/disable toggle.
-
-        When checked -> video enabled, when unchecked -> video disabled.
-        """
-        if checked:
-            self.video_enable_toggle_btn.setToolTip("📹 Video habilitado (click para deshabilitar)")
-        else:
-            self.video_enable_toggle_btn.setToolTip("🚫 Video deshabilitado (click para habilitar)")
-
-        self.video_enabled_changed.emit(checked)
-
     def set_playing_state(self, playing: bool):
         """Externally set the playing state: update toggle and icon."""
         self.play_toggle_btn.setChecked(bool(playing))
@@ -237,14 +206,6 @@ class ControlsWidget(QWidget):
         if not enabled:
             # Reset to unchecked when disabled
             self.edit_toggle_btn.setChecked(False)
-
-    def set_video_enabled_state(self, enabled: bool):
-        """Externally set the video enabled state (from hardware detection).
-
-        Args:
-            enabled: True if video is enabled, False if disabled
-        """
-        self.video_enable_toggle_btn.setChecked(enabled)
 
     def set_play_mode_enabled(self, enabled: bool):
         """Enable or disable the play mode button.
