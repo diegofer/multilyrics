@@ -43,7 +43,6 @@ from typing import Dict, List, Optional, Union
 import numpy as np
 import numpy.typing as npt
 import sounddevice as sd
-
 import soundfile as sf
 
 try:
@@ -53,6 +52,12 @@ except ImportError:
     PSUTIL_AVAILABLE = False
     import warnings
     warnings.warn("psutil not installed - RAM validation disabled. Install with: pip install psutil")
+
+try:
+    from PySide6.QtCore import QTimer
+    QT_AVAILABLE = True
+except ImportError:
+    QT_AVAILABLE = False
 
 from utils.logger import get_logger
 
@@ -147,6 +152,36 @@ class MultiTrackPlayer:
         if self.gc_policy == 'disable_during_playback' and self._gc_was_enabled:
             gc.enable()
             logger.info("🗑️  GC re-enabled after playback stopped")
+
+    def _invoke_play_state_callback(self, playing: bool):
+        """Invoke playStateCallback in Qt main thread (thread-safe).
+
+        This prevents "QObject::killTimer: Timers cannot be stopped from another thread"
+        warnings by ensuring Qt signals are emitted from the correct thread.
+
+        Args:
+            playing: True if playing, False if stopped/paused
+        """
+        if self.playStateCallback is None:
+            return
+
+        # If Qt is not available, call directly (backwards compatibility)
+        if not QT_AVAILABLE:
+            try:
+                self.playStateCallback(playing)
+            except Exception:
+                pass
+            return
+
+        # Use QTimer.singleShot to invoke callback in main thread
+        # This is simpler and works reliably in PySide6
+        def _invoke():
+            try:
+                self.playStateCallback(playing)
+            except Exception:
+                pass
+
+        QTimer.singleShot(0, _invoke)
 
     def _validate_ram(self, total_bytes_needed: int) -> None:
         """Validate sufficient RAM is available before pre-loading tracks.
@@ -413,12 +448,9 @@ class MultiTrackPlayer:
         # Start stream after releasing lock to avoid driver priming contention
         if self._stream is not None:
             self._stream.start()
-        # Notify play state changed -> playing
-        try:
-            if self.playStateCallback is not None:
-                self.playStateCallback(True)
-        except Exception:
-            pass
+
+        # Notify play state changed -> playing (thread-safe)
+        self._invoke_play_state_callback(True)
 
     def _on_stream_finished(self):
         # called when stream finishes
@@ -428,12 +460,8 @@ class MultiTrackPlayer:
         # Restore GC after playback finishes
         self._restore_gc_if_needed()
 
-        # Notify play state change (stream finished -> not playing)
-        try:
-            if self.playStateCallback is not None:
-                self.playStateCallback(False)
-        except Exception:
-            pass
+        # Notify play state change (stream finished -> not playing) - thread-safe
+        self._invoke_play_state_callback(False)
 
     def stop(self):
         with self._state_lock:
@@ -449,13 +477,8 @@ class MultiTrackPlayer:
         # Restore GC after playback stops
         self._restore_gc_if_needed()
 
-        # Notify play state changed -> not playing
-        try:
-            if self.playStateCallback is not None:
-                self.playStateCallback(False)
-        except Exception:
-            # External callback error should not crash engine, but we log it
-            logger.warning("Error in playStateCallback during stop()", exc_info=True)
+        # Notify play state changed -> not playing (thread-safe)
+        self._invoke_play_state_callback(False)
 
     def pause(self):
         with self._state_lock:
@@ -472,12 +495,8 @@ class MultiTrackPlayer:
         # Restore GC when paused (safe to collect during pause)
         self._restore_gc_if_needed()
 
-        # Notify play state changed -> not playing
-        try:
-            if self.playStateCallback is not None:
-                self.playStateCallback(False)
-        except Exception:
-            logger.warning("Error in playStateCallback during pause()", exc_info=True)
+        # Notify play state changed -> not playing (thread-safe)
+        self._invoke_play_state_callback(False)
 
     def resume(self):
         # Disable GC when resuming playback
@@ -490,12 +509,9 @@ class MultiTrackPlayer:
         # Start stream outside lock to prevent deadlock
         if should_start:
             self._stream.start()
-        # Notify play state changed -> playing
-        try:
-            if self.playStateCallback is not None:
-                self.playStateCallback(True)
-        except Exception:
-            pass
+
+        # Notify play state changed -> playing (thread-safe)
+        self._invoke_play_state_callback(True)
 
     def set_gain(self, track_index: int, gain: float):
         """

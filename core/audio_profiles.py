@@ -158,8 +158,12 @@ class AudioProfileManager:
                 return max(base_year, 2017)
             elif cores >= 4:
                 return max(base_year, 2013)
+            elif cores == 2:
+                # 2 cores = Sandy Bridge era (2011) or older
+                # Don't let Python version override this (Python 3.11 can run on old hardware)
+                return 2011
             else:
-                return base_year  # 2 cores = likely legacy
+                return base_year  # Single core = very legacy
 
         return base_year
 
@@ -249,14 +253,19 @@ class AudioProfileManager:
         available_profiles = self.list_profiles()
 
         # Try to match based on CPU year
+        # Note: Sandy Bridge (2011) CPUs like i5-2410M categorized as Legacy
         if cpu_year <= 2012 and 'legacy' in available_profiles:
             profile_name = 'legacy'
+            logger.info(f"🖥️  Legacy hardware (CPU ≤2012): Using {profile_name}")
         elif cpu_year >= 2020 and cores >= 8 and 'low_latency' in available_profiles:
             profile_name = 'low_latency'
+            logger.info(f"⚡ High-performance hardware: Using {profile_name}")
         elif cpu_year >= 2019 and 'modern' in available_profiles:
             profile_name = 'modern'
+            logger.info(f"💻 Modern hardware: Using {profile_name}")
         else:
             profile_name = 'balanced'  # Default fallback
+            logger.info(f"🎛️  Mid-range hardware: Using {profile_name}")
 
         profile = self.load_profile(profile_name)
         if profile:
