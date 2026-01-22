@@ -82,6 +82,8 @@ class VideoLyrics(QWidget):
         self._window_initialized = False
         # Referencia a pantalla objetivo
         self._target_screen = None
+        # Flag para modo fallback (ventana 16:9 en pantalla primaria)
+        self._is_fallback_mode = False
 
         # Timer para reportar posición periodicamente
         self.position_timer = QTimer()
@@ -284,7 +286,12 @@ class VideoLyrics(QWidget):
         else:
             # Ya inicializada: simplemente mostrar
             logger.debug("Mostrando ventana de video")
-            self.showFullScreen()
+            if self._is_fallback_mode:
+                # Modo ventana: mostrar normal (no fullscreen)
+                self.showNormal()
+            else:
+                # Modo pantalla secundaria: fullscreen
+                self.showFullScreen()
 
     def hide_window(self):
         """Ocultar la ventana de video sin destruir el player VLC.
@@ -305,7 +312,11 @@ class VideoLyrics(QWidget):
         logger.debug("Ventana de video inicializada")
 
     def move_to_screen(self):
-        """Mover ventana a pantalla secundaria y adjuntar VLC."""
+        """Mover ventana a pantalla secundaria y adjuntar VLC.
+
+        Si la pantalla secundaria no existe, hace fallback automático a modo ventana
+        16:9 en la pantalla primaria.
+        """
         screens = QApplication.screens()
         logger.info(f"📺 Pantallas detectadas: {len(screens)}")
         for i, screen in enumerate(screens):
@@ -313,10 +324,49 @@ class VideoLyrics(QWidget):
             size = screen.geometry()
             logger.info(f"  [{i}] {screen.name()} - Resolución: {size.width()}x{size.height()} @ {dpi} DPI")
 
+        # FALLBACK: Si pantalla secundaria no existe, usar primaria en modo ventana
         if self.screen_index >= len(screens):
-            logger.error(f"❌ Pantalla {self.screen_index} no existe (solo hay {len(screens)})")
+            logger.warning(
+                f"⚠️ Pantalla {self.screen_index} no disponible (solo hay {len(screens)}). "
+                f"Usando modo ventana 16:9 en pantalla primaria."
+            )
+            self._is_fallback_mode = True
+            target_screen = screens[0]  # Pantalla primaria
+
+            # Calcular geometría 16:9 centrada (80% del ancho de pantalla)
+            primary_geo = target_screen.geometry()
+            video_width = int(primary_geo.width() * 0.8)
+            video_height = int(video_width * 9 / 16)  # Relación 16:9
+
+            # Centrar en pantalla primaria
+            x = primary_geo.x() + (primary_geo.width() - video_width) // 2
+            y = primary_geo.y() + (primary_geo.height() - video_height) // 2
+
+            logger.info(
+                f"📐 Modo ventana: {video_width}x{video_height} @ ({x},{y}) "
+                f"en {target_screen.name()}"
+            )
+
+            self._target_screen = target_screen
+
+            # Configurar ventana en modo normal (no fullscreen)
+            if self.windowHandle() is None:
+                self.setAttribute(Qt.WA_NativeWindow, True)
+            handle = self.windowHandle()
+            if handle is not None:
+                try:
+                    handle.setScreen(target_screen)
+                    logger.info(f"✓ Screen asignada vía windowHandle: {target_screen.name()}")
+                except Exception as e:
+                    logger.warning(f"⚠ No se pudo asignar pantalla vía windowHandle: {e}")
+
+            self.setGeometry(x, y, video_width, video_height)
+            self.show()
+            QTimer.singleShot(100, self._attach_vlc_to_window)
             return
 
+        # NORMAL: Pantalla secundaria existe, usar fullscreen
+        self._is_fallback_mode = False
         target_screen = screens[self.screen_index]
         self._target_screen = target_screen
         geo = target_screen.geometry()
@@ -382,15 +432,22 @@ class VideoLyrics(QWidget):
             else:
                 logger.warning(f"⚠ SO desconocido: {self.system}, VLC usará configuración por defecto")
 
-            # Finalmente, entrar a fullscreen (en pantalla objetivo)
+            # Finalmente, mostrar ventana (fullscreen solo si NO es modo fallback)
             handle = self.windowHandle()
             if handle is not None and self._target_screen is not None:
                 try:
                     handle.setScreen(self._target_screen)
                 except Exception:
                     pass
-            self.showFullScreen()
-            logger.info("✓ Ventana en fullscreen")
+
+            if self._is_fallback_mode:
+                # Modo ventana: NO entrar en fullscreen
+                self.showNormal()
+                logger.info("✓ Ventana en modo normal 16:9 (fallback)")
+            else:
+                # Pantalla secundaria: fullscreen
+                self.showFullScreen()
+                logger.info("✓ Ventana en fullscreen")
 
         except Exception as e:
             logger.error(f"❌ Error al adjuntar VLC: {e}", exc_info=True)

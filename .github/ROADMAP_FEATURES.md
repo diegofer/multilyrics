@@ -11,7 +11,69 @@ Este documento contiene la arquitectura planificada para features no implementad
 
 ## 🎯 Features Planificadas
 
-### 1. Split Mode Routing (L/R Channel Separation)
+### 1. Multi-Monitor Display Management (Stage Display / Proyector)
+
+**Estado:** ✅ Fallback automático implementado (2026-01-22)  
+**Objetivo:** Gestión robusta de múltiples pantallas para proyección en vivo
+
+#### Implementado:
+- **Fallback Automático (Opción 1):** Si no hay pantalla secundaria, la ventana de video se muestra en modo ventana 16:9 (80% del ancho de pantalla) en la pantalla primaria. Permite preview del video cuando solo hay un monitor disponible.
+- **Logging informativo:** Indica modo fallback con emoji 📐 y geometría calculada
+- **Preserva funcionalidad dual-monitor:** Fullscreen en pantalla secundaria cuando está disponible
+
+#### Pendiente (Opción 2 - Stage Display Avanzado):
+
+**Objetivo:** Permitir selección manual de pantalla objetivo para múltiples proyectores o configuraciones complejas.
+
+**Casos de Uso:**
+- Iglesias con 3+ monitores (FOH, stage monitor, proyector)
+- Configuraciones con laptop + 2 monitores externos
+- Selección explícita cuando auto-detección falla
+
+**Arquitectura Propuesta:**
+```python
+# En ui/widgets/settings_dialog.py
+class SettingsDialog:
+    def _create_video_settings(self):
+        # Combo box con pantallas disponibles
+        self.screen_combo = QComboBox()
+        screens = QApplication.screens()
+        for i, screen in enumerate(screens):
+            label = f"Pantalla {i}: {screen.name()} ({screen.geometry().width()}x{screen.geometry().height()})"
+            self.screen_combo.addItem(label, i)
+        
+        # Cargar selección guardada
+        saved_index = config.get("video.screen_index", 1)
+        self.screen_combo.setCurrentIndex(saved_index)
+```
+
+**ConfigManager:**
+```json
+{
+  "video": {
+    "screen_index": 1,  // Pantalla objetivo (0=primaria, 1=secundaria, etc.)
+    "mode": "full",
+    "fallback_to_window": true  // Si pantalla no existe, usar ventana
+  }
+}
+```
+
+**VideoLyrics Refactor:**
+- Reemplazar `screen_index` hardcoded en constructor
+- Leer `screen_index` desde ConfigManager al inicializar
+- Agregar método `update_screen_index(new_index)` para cambios en vivo
+- Validar índice al cambiar (si no existe, usar fallback)
+
+**UI en Settings:**
+- Dropdown: "Pantalla de Video: [Pantalla 1: DP-1 (1920x1080) ▼]"
+- Checkbox: "Usar modo ventana si pantalla no disponible"
+- Botón "Probar Pantalla" (muestra video 3 segundos en pantalla seleccionada)
+
+**Prioridad:** Media (cuando se reciban reportes de usuarios con múltiples proyectores)
+
+---
+
+### 2. Split Mode Routing (L/R Channel Separation)
 
 **Objetivo:** Permitir monitoreo profesional en vivo para iglesias y equipos de alabanza.
 
@@ -44,7 +106,7 @@ def _mix_block_split_mode(self, start: int, frames: int):
 
 ---
 
-### 2. Sistema de Cues (Guía de Voz Automática)
+### 3. Sistema de Cues (Guía de Voz Automática)
 
 **Objetivo:** Disparar automáticamente guías de voz pregrabadas antes de cambios de sección.
 
@@ -91,7 +153,7 @@ class CuesManager:
 
 ---
 
-### 3. Pitch Shifting (Transposición Offline)
+### 4. Pitch Shifting (Transposición Offline)
 
 **Objetivo:** Cambiar tonalidad de todas las pistas antes de reproducción.
 
@@ -144,7 +206,7 @@ class PitchShifter:
 
 ---
 
-### 4. Control Remoto (FastAPI + WebSockets)
+### 5. Control Remoto (FastAPI + WebSockets)
 
 **Objetivo:** Controlar MultiLyrics desde dispositivos móviles en la misma red.
 
@@ -278,7 +340,7 @@ class RemoteControlServer:
 
 ---
 
-### 5. ConfigManager Singleton
+### 6. ConfigManager Singleton
 
 **Objetivo:** Gestión centralizada de configuración persistente.
 
@@ -383,7 +445,7 @@ config.set("audio.master_volume", 0.8)
 
 ---
 
-### 6. Verificación de Dependencias del Sistema (installer.py)
+### 7. Verificación de Dependencias del Sistema (installer.py)
 
 **Objetivo:** Validar dependencias del sistema al inicio y guiar al usuario.
 
@@ -477,10 +539,11 @@ if __name__ == '__main__':
 
 1. **Alta:** ConfigManager (base para todo)
 2. **Alta:** Verificación de dependencias (UX inicial)
-3. **Media:** Split Mode Routing (feature killer para iglesias)
-4. **Media:** Sistema de Cues (complementa split mode)
-5. **Baja:** Control Remoto (nice-to-have)
-6. **Baja:** Pitch Shifting (procesamiento costoso, casos de uso limitados)
+3. **Media:** Multi-Monitor Display Management - Opción 2 (selección manual de pantalla)
+4. **Media:** Split Mode Routing (feature killer para iglesias)
+5. **Media:** Sistema de Cues (complementa split mode)
+6. **Baja:** Control Remoto (nice-to-have)
+7. **Baja:** Pitch Shifting (procesamiento costoso, casos de uso limitados)
 
 ---
 
@@ -494,7 +557,8 @@ Ver [IMPLEMENTATION_ROADMAP.md](../docs/IMPLEMENTATION_ROADMAP.md) para el estad
 - ✅ Benchmark Script
 - ✅ Multi Validation
 - ✅ Unit Tests (44/44 passed)
+- ✅ Video Fallback Automático (modo ventana 16:9 en single-monitor)
 
 ---
 
-**Última actualización:** 18 de enero de 2026
+**Última actualización:** 22 de enero de 2026
