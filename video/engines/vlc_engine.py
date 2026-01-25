@@ -58,7 +58,7 @@ class VlcEngine(VisualEngine):
         # Initialize VLC instance and player
         self.instance = vlc.Instance(vlc_args)
         self.player = self.instance.media_player_new()
-        self.player.audio_set_mute(True)  # Ensure audio is muted
+        # Audio muted via --no-audio arg (no need for audio_set_mute)
 
         logger.info(f"🎬 VlcEngine initialized (system={self.system}, legacy={is_legacy_hardware})")
 
@@ -114,14 +114,15 @@ class VlcEngine(VisualEngine):
         """Stop playback and reset position."""
         self.player.stop()
 
-    def seek(self, milliseconds: int) -> None:
+    def seek(self, seconds: float) -> None:
         """
-        Seek to specific time position.
+        Seek to absolute time position.
 
         Args:
-            milliseconds: Target position in milliseconds
+            seconds: Target position in seconds (e.g., 45.5)
         """
-        self.player.set_time(int(milliseconds))
+        milliseconds = int(seconds * 1000)
+        self.player.set_time(milliseconds)
 
     def set_rate(self, rate: float) -> None:
         """
@@ -132,23 +133,29 @@ class VlcEngine(VisualEngine):
         """
         self.player.set_rate(float(rate))
 
-    def get_time(self) -> int:
+    def get_time(self) -> float:
         """
         Get current playback position.
 
         Returns:
-            Position in milliseconds (-1 if unavailable)
+            Position in seconds (e.g., 45.5), or -1.0 if unavailable
         """
-        return self.player.get_time()
+        ms = self.player.get_time()
+        if ms < 0:
+            return -1.0
+        return ms / 1000.0
 
-    def get_length(self) -> int:
+    def get_length(self) -> float:
         """
         Get video duration.
 
         Returns:
-            Duration in milliseconds (-1 if unavailable)
+            Duration in seconds (e.g., 180.5), or -1.0 if unavailable
         """
-        return self.player.get_length()
+        ms = self.player.get_length()
+        if ms < 0:
+            return -1.0
+        return ms / 1000.0
 
     def is_playing(self) -> bool:
         """
@@ -159,21 +166,32 @@ class VlcEngine(VisualEngine):
         """
         return self.player.is_playing()
 
-    def attach_to_window(self, win_id: int, screen: Optional[QScreen], system: str) -> None:
+    def attach_window(
+        self,
+        win_id: Optional[int],
+        screen_index: Optional[int] = None,
+        fullscreen: bool = True,
+    ) -> None:
         """
-        Attach VLC output to OS window handle.
+        Attach VLC output to window.
 
         Args:
             win_id: Native window ID (HWND/XID/NSView)
-            screen: Target QScreen (optional, for logging)
-            system: OS identifier ("Windows", "Linux", "Darwin")
+            screen_index: Screen index (unused by VLC, Qt controls positioning)
+            fullscreen: Fullscreen mode (unused by VLC, Qt controls window state)
 
         Raises:
             RuntimeError: If attachment failed
 
         Note:
-            Extracted from VideoLyrics._attach_vlc_to_window() (L396-456)
+            OS auto-detected internally. Screen positioning handled by Qt.
         """
+        if win_id is None:
+            raise ValueError("VLC requires win_id (cannot create own window)")
+
+        # Auto-detect OS
+        system = self.system
+
         try:
             if system == "Windows":
                 hwnd = int(win_id)
@@ -199,23 +217,51 @@ class VlcEngine(VisualEngine):
             else:
                 logger.warning(f"⚠ Unknown OS: {system}, VLC using default config")
 
-            screen_name = screen.name() if screen else "unknown"
-            logger.info(f"✓ VlcEngine: Attached to window (screen={screen_name})")
+            screen_msg = f"screen {screen_index}" if screen_index is not None else "default screen"
+            logger.info(f"✓ VlcEngine: Attached to window ({screen_msg})")
 
         except Exception as e:
             logger.error(f"❌ VlcEngine: Failed to attach to window: {e}", exc_info=True)
             raise RuntimeError(f"VLC attachment failed: {e}")
 
-    def set_mute(self, muted: bool) -> None:
+    # --- Visibility control (no-op for VLC, Qt controls window) ---
+
+    def show(self) -> None:
         """
-        Mute/unmute video audio.
+        Make visual output visible (no-op for VLC).
+
+        Note:
+            VLC renders to Qt window. Qt controls visibility via show()/hide().
+        """
+        pass
+
+    def hide(self) -> None:
+        """
+        Hide visual output (no-op for VLC).
+
+        Note:
+            VLC renders to Qt window. Qt controls visibility via show()/hide().
+        """
+        pass
+
+    # --- Playback parameters --------------------------------------
+
+    def set_loop(self, enabled: bool) -> None:
+        """
+        Enable/disable infinite looping (no-op for VLC).
 
         Args:
-            muted: True to mute, False to unmute
-        """
-        self.player.audio_set_mute(muted)
+            enabled: True to loop, False to play once
 
-    def release(self) -> None:
+        Note:
+            LoopBackground handles restart manually via on_video_end().
+            VLC --repeat flag not used in current architecture.
+        """
+        pass
+
+    # --- Lifecycle ------------------------------------------------
+
+    def shutdown(self) -> None:
         """Release VLC resources."""
         try:
             if self.player:

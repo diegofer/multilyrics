@@ -56,8 +56,8 @@ class VideoLyricsBackground(VisualBackground):
         video_start_time = audio_time + offset
 
         if abs(video_start_time) > 0.001:
-            video_ms = max(0, int(video_start_time * 1000))
-            engine.seek(video_ms)
+            video_seconds = max(0.0, video_start_time)
+            engine.seek(video_seconds)
             logger.info(
                 f"[FULL] audio={audio_time:.3f}s "
                 f"offset={offset:+.3f}s → video_start={video_start_time:.3f}s"
@@ -110,8 +110,7 @@ class VideoLyricsBackground(VisualBackground):
             return
 
         if self.sync_controller:
-            video_ms = engine.get_time()
-            video_seconds = video_ms / 1000.0
+            video_seconds = engine.get_time()
             self.sync_controller.on_video_position_updated(video_seconds)
 
     def on_video_end(self, engine: 'VisualEngine') -> None:
@@ -165,17 +164,19 @@ class VideoLyricsBackground(VisualBackground):
         elif corr_type == 'hard':
             # Hard correction: Seek directly
             new_time_ms = correction.get('new_time_ms')
-            engine.seek(int(new_time_ms))
+            new_time_seconds = new_time_ms / 1000.0
+            engine.seek(new_time_seconds)
 
             # Reset rate after hard seek
             if correction.get('reset_rate', False):
                 engine.set_rate(1.0)
 
-            logger.debug(f"[HARD] drift={drift_ms:+d}ms → seek to {new_time_ms}ms")
+            logger.debug(f"[HARD] drift={drift_ms:+d}ms → seek to {new_time_seconds:.3f}s")
 
         elif corr_type == 'soft':
             # Legacy soft correction (deprecated, kept for compatibility)
             new_time_ms = correction.get('new_time_ms')
             adjustment_ms = correction.get('adjustment_ms', 0)
-            engine.seek(int(new_time_ms))
-            logger.debug(f"[SOFT] diff={drift_ms}ms adj={adjustment_ms}ms → {new_time_ms}ms")
+            new_time_seconds = new_time_ms / 1000.0
+            engine.seek(new_time_seconds)
+            logger.debug(f"[SOFT] diff={drift_ms}ms adj={adjustment_ms}ms → {new_time_seconds:.3f}s")

@@ -143,21 +143,21 @@ class VideoLoopBackground(VisualBackground):
             self._restart_loop()
             return
 
-        video_ms = self._engine.get_time()
-        duration_ms = self._engine.get_length()
+        video_seconds = self._engine.get_time()
+        duration_seconds = self._engine.get_length()
 
-        logger.debug(f"[LOOP_CHECK] video_ms={video_ms}, duration_ms={duration_ms}")
+        logger.debug(f"[LOOP_CHECK] video={video_seconds:.2f}s, duration={duration_seconds:.2f}s")
 
-        if duration_ms <= 0:
+        if duration_seconds <= 0:
             logger.debug("[LOOP] Invalid duration, skipping")
             return
 
         # Restart if video is at or past 95% of duration
         # This is more reliable than checking exact end
-        boundary_threshold = int(duration_ms * 0.95)
-        if video_ms >= boundary_threshold:
+        boundary_threshold = duration_seconds * 0.95
+        if video_seconds >= boundary_threshold:
             logger.info(
-                f"[LOOP] Boundary reached ({video_ms}ms >= {boundary_threshold}ms) "
+                f"[LOOP] Boundary reached ({video_seconds:.2f}s >= {boundary_threshold:.2f}s) "
                 f"- scheduling restart"
             )
             # Use Qt event loop to restart to avoid blocking
@@ -173,8 +173,8 @@ class VideoLoopBackground(VisualBackground):
             return
 
         try:
-            self._engine.seek(0)
+            self._engine.seek(0.0)
             self._engine.play()
-            logger.debug("[LOOP] Restarted from 0ms")
+            logger.debug("[LOOP] Restarted from 0.0s")
         except Exception as exc:
             logger.warning(f"[LOOP] Failed to restart loop: {exc}")

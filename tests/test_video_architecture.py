@@ -32,6 +32,7 @@ class TestVisualEngineInterface:
             engine = VlcEngine(is_legacy_hardware=False)
 
             # Check all required methods exist
+            assert hasattr(engine, 'set_end_callback')
             assert hasattr(engine, 'load')
             assert hasattr(engine, 'play')
             assert hasattr(engine, 'pause')
@@ -41,9 +42,11 @@ class TestVisualEngineInterface:
             assert hasattr(engine, 'get_time')
             assert hasattr(engine, 'get_length')
             assert hasattr(engine, 'is_playing')
-            assert hasattr(engine, 'attach_to_window')
-            assert hasattr(engine, 'set_mute')
-            assert hasattr(engine, 'release')
+            assert hasattr(engine, 'attach_window')
+            assert hasattr(engine, 'show')
+            assert hasattr(engine, 'hide')
+            assert hasattr(engine, 'set_loop')
+            assert hasattr(engine, 'shutdown')
 
     def test_mpv_engine_raises_not_implemented(self):
         """MpvEngine should raise NotImplementedError (stub)."""
@@ -109,8 +112,8 @@ class TestBackgroundBehavior:
         """Create a mock VisualEngine for testing."""
         engine = Mock(spec=VisualEngine)
         engine.is_playing.return_value = True
-        engine.get_time.return_value = 1000  # 1 second
-        engine.get_length.return_value = 10000  # 10 seconds
+        engine.get_time.return_value = 1.0  # 1 second
+        engine.get_length.return_value = 10.0  # 10 seconds
         return engine
 
     def test_video_lyrics_background_start_with_offset(self):
@@ -119,10 +122,10 @@ class TestBackgroundBehavior:
         background = VideoLyricsBackground(sync_controller=None)
 
         # Start with audio at 2s, offset +0.5s
-        # Expected: video seeks to 2.5s = 2500ms
+        # Expected: video seeks to 2.5s
         background.start(engine, audio_time=2.0, offset=0.5)
 
-        engine.seek.assert_called_once_with(2500)
+        engine.seek.assert_called_once_with(2.5)
         engine.play.assert_called_once()
 
     def test_loop_background_always_starts_at_zero(self):
@@ -130,10 +133,10 @@ class TestBackgroundBehavior:
         engine = self.create_mock_engine()
         background = VideoLoopBackground()
 
-        # Start with any audio time/offset - should ignore and seek to 0
+        # Start with any audio time/offset - should ignore and seek to 0.0
         background.start(engine, audio_time=5.0, offset=1.0)
 
-        engine.seek.assert_called_once_with(0)
+        engine.seek.assert_called_once_with(0.0)
         engine.play.assert_called_once()
 
     def test_static_background_seeks_and_pauses(self):
@@ -141,10 +144,10 @@ class TestBackgroundBehavior:
         engine = self.create_mock_engine()
         background = StaticFrameBackground(static_frame_seconds=2.5)
 
-        # Start should seek to 2.5s = 2500ms and play (pause happens async)
+        # Start should seek to 2.5s and play (pause happens async)
         background.start(engine, audio_time=0.0, offset=0.0)
 
-        engine.seek.assert_called_once_with(2500)
+        engine.seek.assert_called_once_with(2.5)
         engine.play.assert_called_once()
 
     def test_blank_background_does_nothing(self):
@@ -188,14 +191,14 @@ class TestBackgroundBehavior:
 
         correction = {
             'type': 'hard',
-            'new_time_ms': 3000,
+            'new_time_ms': 3000,  # 3000ms = 3.0s
             'drift_ms': 100,
             'reset_rate': True
         }
 
         background.apply_correction(engine, correction)
 
-        engine.seek.assert_called_once_with(3000)
+        engine.seek.assert_called_once_with(3.0)  # Converted to seconds
         engine.set_rate.assert_called_once_with(1.0)
 
 

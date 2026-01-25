@@ -52,8 +52,7 @@ class StaticFrameBackground(VisualBackground):
         Extracted from VideoLyrics.start_playback() L505-512
         """
         # Seek to static frame
-        static_ms = int(self.static_frame_seconds * 1000)
-        engine.seek(static_ms)
+        engine.seek(self.static_frame_seconds)
 
         # Play briefly to load frame, then pause
         engine.play()

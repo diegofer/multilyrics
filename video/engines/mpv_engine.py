@@ -52,26 +52,37 @@ class MpvEngine(VisualEngine):
     def stop(self) -> None:
         raise NotImplementedError("MpvEngine not implemented")
 
-    def seek(self, milliseconds: int) -> None:
+    def seek(self, seconds: float) -> None:
         raise NotImplementedError("MpvEngine not implemented")
 
     def set_rate(self, rate: float) -> None:
         raise NotImplementedError("MpvEngine not implemented")
 
-    def get_time(self) -> int:
+    def get_time(self) -> float:
         raise NotImplementedError("MpvEngine not implemented")
 
-    def get_length(self) -> int:
+    def get_length(self) -> float:
         raise NotImplementedError("MpvEngine not implemented")
 
     def is_playing(self) -> bool:
         raise NotImplementedError("MpvEngine not implemented")
 
-    def attach_to_window(self, win_id: int, screen: Optional[QScreen], system: str) -> None:
+    def attach_window(
+        self,
+        win_id: Optional[int],
+        screen_index: Optional[int] = None,
+        fullscreen: bool = True,
+    ) -> None:
         raise NotImplementedError("MpvEngine not implemented")
 
-    def set_mute(self, muted: bool) -> None:
+    def show(self) -> None:
         raise NotImplementedError("MpvEngine not implemented")
 
-    def release(self) -> None:
+    def hide(self) -> None:
+        raise NotImplementedError("MpvEngine not implemented")
+
+    def set_loop(self, enabled: bool) -> None:
+        raise NotImplementedError("MpvEngine not implemented")
+
+    def shutdown(self) -> None:
         raise NotImplementedError("MpvEngine not implemented")

@@ -482,7 +482,9 @@ class VideoLyrics(QWidget):
 
             # REFACTORED: Delegate to engine
             win_id = int(self.winId())
-            self.engine.attach_to_window(win_id, self._target_screen, self.system)
+            screen_index = self.screen_index if self._target_screen else None
+            fullscreen = not self._is_fallback_mode
+            self.engine.attach_window(win_id, screen_index, fullscreen)
 
             # Finally, show window (fullscreen only if NOT fallback mode)
             handle = self.windowHandle()
@@ -527,7 +529,7 @@ class VideoLyrics(QWidget):
             return
 
         logger.debug(f"⏯ Starting video playback in '{self._video_mode}' mode...")
-        self.engine.set_mute(True)  # Ensure audio is muted
+        # Audio muted via engine's --no-audio flag (no need for set_mute)
 
         # REFACTORED: Delegate to background
         if self.background:
@@ -580,17 +582,16 @@ class VideoLyrics(QWidget):
         if not self.engine:
             return
 
-        ms = int(seconds * 1000)
-        current_time_ms = self.engine.get_time()
+        current_time_seconds = self.engine.get_time()
 
         with safe_operation(f"Seeking video to {seconds:.2f}s", silent=True):
-            logger.info(f"[VIDEO_SEEK] from={current_time_ms}ms to={ms}ms delta={ms - current_time_ms:+d}ms")
+            logger.info(f"[VIDEO_SEEK] from={current_time_seconds:.3f}s to={seconds:.3f}s delta={seconds - current_time_seconds:+.3f}s")
 
             # Check playback state BEFORE seek
             was_playing = self.engine.is_playing()
 
             # Simple seek (engine handles state management)
-            self.engine.seek(ms)
+            self.engine.seek(seconds)
 
             # Preserve pause state after seek
             if not was_playing:
