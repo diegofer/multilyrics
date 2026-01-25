@@ -52,10 +52,41 @@ class TestVisualEngineInterface:
             assert hasattr(engine, 'set_loop')
             assert hasattr(engine, 'shutdown')
 
-    def test_mpv_engine_raises_not_implemented(self):
-        """MpvEngine should raise NotImplementedError (stub)."""
-        with pytest.raises(NotImplementedError):
-            MpvEngine(is_legacy_hardware=False)
+    def test_mpv_engine_implements_interface(self):
+        """MpvEngine should implement minimal VisualEngine interface."""
+        # Mock mpv module import to avoid actual mpv dependency
+        mock_mpv_module = MagicMock()
+        mock_player = MagicMock()
+        mock_mpv_module.MPV.return_value = mock_player
+
+        # Inject mock into sys.modules before importing
+        import sys
+        sys.modules['mpv'] = mock_mpv_module
+
+        try:
+            engine = MpvEngine(is_legacy_hardware=False)
+            engine.initialize()  # Should not raise with mocked mpv
+
+            # Check minimal required methods exist
+            assert hasattr(engine, 'initialize')
+            assert hasattr(engine, 'shutdown')
+            assert hasattr(engine, 'attach_window')
+            assert hasattr(engine, 'load')
+            assert hasattr(engine, 'play')
+            assert hasattr(engine, 'pause')
+            assert hasattr(engine, 'stop')
+            assert hasattr(engine, 'seek')
+            assert hasattr(engine, 'set_loop')
+            assert hasattr(engine, 'get_time')
+            assert hasattr(engine, 'is_playing')
+
+            # Verify mpv.MPV was called during initialize
+            mock_mpv_module.MPV.assert_called_once()
+
+        finally:
+            # Cleanup: remove mock from sys.modules
+            if 'mpv' in sys.modules:
+                del sys.modules['mpv']
 
 
 class TestVisualBackgroundInterface:

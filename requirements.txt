@@ -11,6 +11,7 @@ sounddevice==0.5.3
 soundfile==0.13.1
 
 # Video Playback
+python-mpv==1.0.8
 python-vlc==3.0.21203
 
 # Audio Extraction
