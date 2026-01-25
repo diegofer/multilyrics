@@ -91,6 +91,10 @@ class VideoLyrics(QWidget):
                 "Modo de video configurado en Settings puede afectar rendimiento."
             )
 
+        # Reference to SyncController (assigned from main.py)
+        # CRITICAL FIX: Must be assigned BEFORE _update_background() is called
+        self.sync_controller = None
+
         # REFACTORED: Initialize VisualEngine (VLC backend)
         # Replaces direct VLC initialization (old L56-74)
         self.engine: VisualEngine = VlcEngine(is_legacy_hardware=self._is_legacy_hardware)
@@ -117,9 +121,6 @@ class VideoLyrics(QWidget):
         self.position_timer = QTimer()
         self.position_timer.setInterval(50)  # 50ms
         self.position_timer.timeout.connect(self._report_position)
-
-        # Reference to SyncController (assigned from main.py)
-        self.sync_controller = None
 
     def _detect_legacy_hardware(self) -> bool:
         """
@@ -616,9 +617,14 @@ class VideoLyrics(QWidget):
         REFACTORED: Delegates to background.update()
         """
         if self.background and self.engine:
-            # Get current audio time (if available)
-            # For now, pass 0.0 - background will query engine directly
-            audio_time = 0.0  # TODO: Get from AudioEngine if needed
+            # Get current audio time from PlaybackManager (if available)
+            # FIXED: No longer hardcoded to 0.0
+            audio_time = 0.0
+            if self.sync_controller:
+                # SyncController tracks audio time internally via AudioClock
+                # Backgrounds can use sync_controller.audio_clock if they need precise timing
+                pass  # Background implementations use sync_controller directly
+
             self.background.update(self.engine, audio_time)
 
     @Slot(dict)

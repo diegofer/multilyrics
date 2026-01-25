@@ -27,6 +27,20 @@ class VisualEngine(ABC):
     """
 
     @abstractmethod
+    def set_end_callback(self, callback) -> None:
+        """
+        Set callback for video end event.
+
+        Args:
+            callback: Function to call when video reaches end (no arguments)
+
+        Note:
+            Callback will be invoked on Qt event loop (thread-safe for UI updates).
+            Must be called before loading media.
+        """
+        pass
+
+    @abstractmethod
     def load(self, path: str) -> None:
         """
         Load a video file for playback.
