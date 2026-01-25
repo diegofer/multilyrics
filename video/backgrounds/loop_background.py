@@ -18,6 +18,16 @@ if TYPE_CHECKING:
 logger = get_logger(__name__)
 
 
+# ================= CONSTANTS =================
+
+# Loop boundary check interval (milliseconds)
+LOOP_CHECK_INTERVAL_MS = 1000  # 1 Hz (1 second)
+
+# Loop boundary threshold (percentage of duration)
+# When video reaches 95% of duration, restart loop
+LOOP_BOUNDARY_THRESHOLD = 0.95
+
+
 class VideoLoopBackground(VisualBackground):
     """
     Continuous loop playback without sync.
@@ -34,7 +44,7 @@ class VideoLoopBackground(VisualBackground):
         """Initialize loop background."""
         # Timer for checking loop boundaries (1 Hz)
         self._loop_timer = QTimer()
-        self._loop_timer.setInterval(1000)  # 1000ms = 1 Hz
+        self._loop_timer.setInterval(LOOP_CHECK_INTERVAL_MS)
         self._loop_timer.timeout.connect(self._check_boundary)
 
         # Reference to engine (set during start)
@@ -154,7 +164,7 @@ class VideoLoopBackground(VisualBackground):
 
         # Restart if video is at or past 95% of duration
         # This is more reliable than checking exact end
-        boundary_threshold = duration_seconds * 0.95
+        boundary_threshold = duration_seconds * LOOP_BOUNDARY_THRESHOLD
         if video_seconds >= boundary_threshold:
             logger.info(
                 f"[LOOP] Boundary reached ({video_seconds:.2f}s >= {boundary_threshold:.2f}s) "

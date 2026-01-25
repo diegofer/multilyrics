@@ -13,7 +13,7 @@ from PySide6.QtCore import QTimer
 from PySide6.QtGui import QScreen
 
 from utils.logger import get_logger
-from video.engines.base import VisualEngine
+from video.engines.base import VisualEngine, PlaybackState
 
 logger = get_logger(__name__)
 
@@ -165,6 +165,43 @@ class VlcEngine(VisualEngine):
             True if playing, False otherwise
         """
         return self.player.is_playing()
+
+    def is_paused(self) -> bool:
+        """
+        Check if video is currently paused.
+
+        Returns:
+            True if paused, False otherwise
+        """
+        state = self.player.get_state()
+        return state == vlc.State.Paused
+
+    def get_state(self) -> PlaybackState:
+        """
+        Get current playback state.
+
+        Returns:
+            PlaybackState enum value
+
+        Note:
+            Maps VLC's internal state to our PlaybackState enum.
+        """
+        vlc_state = self.player.get_state()
+
+        # Map VLC state to PlaybackState
+        if vlc_state == vlc.State.Playing:
+            return PlaybackState.PLAYING
+        elif vlc_state == vlc.State.Paused:
+            return PlaybackState.PAUSED
+        elif vlc_state == vlc.State.Stopped:
+            return PlaybackState.STOPPED
+        elif vlc_state == vlc.State.Ended:
+            return PlaybackState.ENDED
+        elif vlc_state == vlc.State.Error:
+            return PlaybackState.ERROR
+        else:
+            # NothingSpecial, Opening, Buffering
+            return PlaybackState.STOPPED
 
     def attach_window(
         self,

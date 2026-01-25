@@ -5,7 +5,7 @@ This background implements the "static" video mode where a single frame
 is displayed throughout playback (no video decoding after initial frame).
 """
 
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Optional
 
 from PySide6.QtCore import QTimer
 
@@ -16,6 +16,12 @@ if TYPE_CHECKING:
     from video.engines.base import VisualEngine
 
 logger = get_logger(__name__)
+
+
+# ================= CONSTANTS =================
+
+# Delay before pausing to ensure frame is loaded (milliseconds)
+STATIC_FRAME_LOAD_DELAY_MS = 100
 
 
 class StaticFrameBackground(VisualBackground):
@@ -38,6 +44,7 @@ class StaticFrameBackground(VisualBackground):
                                   TODO: Load from meta.json in future
         """
         self.static_frame_seconds = static_frame_seconds
+        self._pause_timer: Optional[QTimer] = None  # Store reference to prevent leak
         logger.debug(f"🖼️ StaticFrameBackground initialized (frame={static_frame_seconds}s)")
 
     def start(self, engine: 'VisualEngine', audio_time: float, offset: float) -> None:
@@ -58,7 +65,11 @@ class StaticFrameBackground(VisualBackground):
         engine.play()
 
         # Pause after short delay to ensure frame is loaded
-        QTimer.singleShot(100, lambda: self._ensure_static_frame(engine))
+        # Store timer reference to prevent leak
+        self._pause_timer = QTimer()
+        self._pause_timer.setSingleShot(True)
+        self._pause_timer.timeout.connect(lambda: self._ensure_static_frame(engine))
+        self._pause_timer.start(STATIC_FRAME_LOAD_DELAY_MS)
 
         logger.info(f"[STATIC] Freezing at frame {self.static_frame_seconds}s")
 
@@ -69,6 +80,11 @@ class StaticFrameBackground(VisualBackground):
         Args:
             engine: VisualEngine to control
         """
+        # Cleanup timer if active
+        if self._pause_timer and self._pause_timer.isActive():
+            self._pause_timer.stop()
+            self._pause_timer = None
+
         engine.stop()
         logger.debug("[STATIC] Stopped")
 

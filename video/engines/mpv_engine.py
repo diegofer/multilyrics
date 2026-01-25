@@ -10,7 +10,7 @@ from typing import Optional
 from PySide6.QtGui import QScreen
 
 from utils.logger import get_logger
-from video.engines.base import VisualEngine
+from video.engines.base import VisualEngine, PlaybackState
 
 logger = get_logger(__name__)
 
@@ -65,6 +65,12 @@ class MpvEngine(VisualEngine):
         raise NotImplementedError("MpvEngine not implemented")
 
     def is_playing(self) -> bool:
+        raise NotImplementedError("MpvEngine not implemented")
+
+    def is_paused(self) -> bool:
+        raise NotImplementedError("MpvEngine not implemented")
+
+    def get_state(self) -> PlaybackState:
         raise NotImplementedError("MpvEngine not implemented")
 
     def attach_window(

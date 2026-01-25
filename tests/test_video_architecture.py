@@ -7,7 +7,7 @@ Tests the decoupled architecture without requiring actual video files or VLC.
 import pytest
 from unittest.mock import Mock, MagicMock, patch
 
-from video.engines.base import VisualEngine
+from video.engines.base import VisualEngine, PlaybackState
 from video.engines.vlc_engine import VlcEngine
 from video.engines.mpv_engine import MpvEngine
 from video.backgrounds.base import VisualBackground
@@ -42,6 +42,8 @@ class TestVisualEngineInterface:
             assert hasattr(engine, 'get_time')
             assert hasattr(engine, 'get_length')
             assert hasattr(engine, 'is_playing')
+            assert hasattr(engine, 'is_paused')
+            assert hasattr(engine, 'get_state')
             assert hasattr(engine, 'attach_window')
             assert hasattr(engine, 'show')
             assert hasattr(engine, 'hide')

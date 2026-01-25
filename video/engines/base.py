@@ -6,9 +6,21 @@ Engines are responsible for low-level video playback control, independent of pla
 """
 
 from abc import ABC, abstractmethod
+from enum import Enum
 from typing import Optional
 
 from PySide6.QtGui import QScreen
+
+
+# ================= CONSTANTS =================
+
+class PlaybackState(Enum):
+    """Playback state enumeration."""
+    STOPPED = "stopped"
+    PLAYING = "playing"
+    PAUSED = "paused"
+    ENDED = "ended"
+    ERROR = "error"
 
 
 class VisualEngine(ABC):
@@ -146,6 +158,34 @@ class VisualEngine(ABC):
 
         Returns:
             True if playing, False if paused/stopped
+        """
+        pass
+
+    @abstractmethod
+    def is_paused(self) -> bool:
+        """
+        Check if video is currently paused.
+
+        Returns:
+            True if paused, False otherwise
+
+        Note:
+            A paused video can be resumed from its current position.
+            This is different from stopped (which resets position).
+        """
+        pass
+
+    @abstractmethod
+    def get_state(self) -> PlaybackState:
+        """
+        Get current playback state.
+
+        Returns:
+            PlaybackState enum value (STOPPED, PLAYING, PAUSED, ENDED, ERROR)
+
+        Note:
+            Provides more granular state than is_playing()/is_paused() booleans.
+            Useful for debugging and logging.
         """
         pass
 

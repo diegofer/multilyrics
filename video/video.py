@@ -652,6 +652,43 @@ class VideoLyrics(QWidget):
         if self.background and self.engine:
             self.background.on_video_end(self.engine)
 
+    def cleanup(self) -> None:
+        """
+        Explicitly release all video resources.
+
+        Called when:
+        - Application is shutting down (main.py)
+        - Switching to a different song
+        - Video mode changed to "none"
+
+        Responsibilities:
+        - Stop position timer
+        - Stop background (which stops engine)
+        - Release engine resources (VLC player, media)
+
+        Note:
+            This is NOT called on window close (X button).
+            Window close only hides window (video continues in background).
+        """
+        logger.info("🧹 VideoLyrics cleanup - releasing all resources")
+
+        # Stop position reporting timer
+        if self.position_timer and self.position_timer.isActive():
+            self.position_timer.stop()
+            logger.debug("Position timer stopped")
+
+        # Stop background (which stops engine)
+        if self.background and self.engine:
+            self.background.stop(self.engine)
+            logger.debug("Background stopped")
+
+        # Release engine resources
+        if self.engine:
+            self.engine.shutdown()
+            logger.debug("Engine released")
+
+        logger.info("✅ VideoLyrics cleanup complete")
+
     def closeEvent(self, event) -> None:
         """
         Intercept window close to prevent resource destruction.
@@ -661,6 +698,10 @@ class VideoLyrics(QWidget):
 
         IMPORTANT: Don't pause or stop video because audio engine
         continues running and timeline needs position updates.
+
+        Note:
+            cleanup() is NOT called here. Resources released only on
+            app shutdown or song change (via main.py).
         """
         logger.debug("🚪 Intercepting window close (X button) - hiding without stopping")
 
