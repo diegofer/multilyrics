@@ -1,7 +1,21 @@
+"""
+VisualController (VideoLyrics) - Orchestrates video playback with decoupled architecture.
+
+REFACTORED: This file has been refactored to separate concerns:
+- VisualEngine: Low-level video backend (VLC, mpv)
+- VisualBackground: Playback strategy (full sync, loop, static, none)
+- VisualController: Orchestration + UI management
+
+Original responsibilities (794 lines) split into:
+- video/engines/vlc_engine.py (~200 lines) - VLC backend
+- video/backgrounds/*.py (~400 lines) - Playback strategies
+- video/video.py (~300 lines) - UI + orchestration
+"""
+
 import platform
 from pathlib import Path
+from typing import Optional
 
-import vlc
 from PySide6.QtCore import Qt, QTimer, Signal, Slot
 from PySide6.QtWidgets import QApplication, QVBoxLayout, QWidget
 
@@ -10,40 +24,66 @@ from core.constants import app_state
 from utils.error_handler import safe_operation
 from utils.logger import get_logger
 
+# Import new architecture components
+from video.engines.base import VisualEngine
+from video.engines.vlc_engine import VlcEngine
+from video.backgrounds.base import VisualBackground
+from video.backgrounds.video_lyrics_background import VideoLyricsBackground
+from video.backgrounds.loop_background import VideoLoopBackground
+from video.backgrounds.static_background import StaticFrameBackground
+from video.backgrounds.blank_background import BlankBackground
+
 logger = get_logger(__name__)
+
 
 class VideoLyrics(QWidget):
     """
-    Reproductor de video VLC con sincronización pasiva.
+    VisualController - Orchestrates video playback with decoupled architecture.
 
-    Responsabilidades:
-    - Reproducir video en pantalla secundaria
-    - Reportar su posición a SyncController
-    - Ejecutar correcciones de sincronización cuando se lo indica SyncController
+    Responsibilities (REFACTORED):
+    - UI management: window positioning, screens, show/hide
+    - Engine selection and initialization (VLC/mpv)
+    - Background selection based on video mode
+    - Coordination between engine, background, and SyncController
 
-    SyncController es responsable de todo el cálculo de sincronización.
+    Delegated to VisualEngine (VlcEngine):
+    - VLC initialization and configuration
+    - Window attachment (platform-specific)
+    - Low-level playback control (play, pause, stop, seek, rate)
+
+    Delegated to VisualBackground (VideoLyricsBackground, etc.):
+    - Playback strategy (sync, loop, static)
+    - Position reporting for sync
+    - Sync correction application
+    - Loop boundary detection
     """
 
-    # Signal emitida cuando la ventana se cierra con el botón X
+    # Signal emitted when window is closed with X button
     window_closed = Signal()
 
-    def __init__(self, screen_index=1):
+    def __init__(self, screen_index: int = 1):
+        """
+        Initialize VisualController.
+
+        Args:
+            screen_index: Target screen index for video display (default: 1 = secondary)
+        """
         super().__init__()
 
         self.screen_index = screen_index
         self.setWindowTitle("VideoLyrics")
         self.resize(800, 600)
 
-        # Detectar SO
+        # Detect OS
         self.system = platform.system()
         logger.debug(f"SO detectado: {self.system}")
 
-        # STEP 3: Initialize with video mode from ConfigManager
+        # Initialize with video mode from ConfigManager
         config = ConfigManager.get_instance()
         self._video_mode = config.get("video.mode", "full")  # "full" | "loop" | "static" | "none"
-        logger.info(f"🎬 VideoLyrics initialized with mode: {self._video_mode}")
+        logger.info(f"🎬 VisualController initialized with mode: {self._video_mode}")
 
-        # Legacy hardware detection (kept for future use)
+        # Legacy hardware detection
         self._is_legacy_hardware = self._detect_legacy_hardware()
         if self._is_legacy_hardware:
             logger.warning(
@@ -51,72 +91,58 @@ class VideoLyrics(QWidget):
                 "Modo de video configurado en Settings puede afectar rendimiento."
             )
 
-        # VLC con optimizaciones para hardware antiguo si es necesario
-        # Restricción vital: forzar '--no-audio' para que VLC nunca emita sonido; el AudioEngine es el único dueño del audio
-        vlc_args = ['--quiet', '--no-video-title-show', '--log-verbose=2', '--no-audio']
+        # REFACTORED: Initialize VisualEngine (VLC backend)
+        # Replaces direct VLC initialization (old L56-74)
+        self.engine: VisualEngine = VlcEngine(is_legacy_hardware=self._is_legacy_hardware)
+        self.engine.set_end_callback(self._on_video_end)
+        logger.info("✅ VlcEngine initialized and attached")
 
-        if self._is_legacy_hardware:
-            # Optimizaciones para CPUs antiguas
-            vlc_args.extend([
-                '--avcodec-hurry-up',         # Skip frames si CPU lenta
-                '--avcodec-skiploopfilter=4', # Saltear deblocking (menos CPU)
-                '--avcodec-threads=2',        # Limitar threads (dejar para audio)
-                '--file-caching=1000',        # Buffer más grande (menos picos)
-            ])
-            logger.info("🔧 VLC configurado con optimizaciones para hardware antiguo")
+        # REFACTORED: Initialize VisualBackground (will be set based on mode)
+        self.background: Optional[VisualBackground] = None
+        self._update_background()  # Create background for current mode
 
-        self.instance = vlc.Instance(vlc_args)
-        self.player = self.instance.media_player_new()
-        self.player.audio_set_mute(True)
-
-        # STEP 5: Setup event callback for detecting when video ends
-        event_manager = self.player.event_manager()
-        event_manager.event_attach(vlc.EventType.MediaPlayerEndReached, self._on_video_end)
-
-        # Layout obligatorio en una QWidget
+        # Layout required for QWidget
         layout = QVBoxLayout(self)
         self.setLayout(layout)
 
-        # No mostrar por defecto - se mostrará cuando el usuario haga click en el botón
-        # Creamos la ventana pero permanece oculta
+        # Don't show by default - will be shown when user clicks show_video_btn
         self.hide()
 
-        # Flag para saber si ya se inicializó la ventana en la pantalla correcta
+        # Window initialization state
         self._window_initialized = False
-        # Referencia a pantalla objetivo
         self._target_screen = None
-        # Flag para modo fallback (ventana 16:9 en pantalla primaria)
         self._is_fallback_mode = False
 
-        # Timer para reportar posición periodicamente
+        # Timer for reporting position periodically
         self.position_timer = QTimer()
-        self.position_timer.setInterval(50)  # cada 50ms
+        self.position_timer.setInterval(50)  # 50ms
         self.position_timer.timeout.connect(self._report_position)
 
-        # Referencia a SyncController (se asigna desde main.py)
+        # Reference to SyncController (assigned from main.py)
         self.sync_controller = None
 
     def _detect_legacy_hardware(self) -> bool:
-        """Detectar si el sistema es hardware antiguo que puede tener problemas con video 1080p.
+        """
+        Detect if system is legacy hardware with potential video performance issues.
 
-        Criterios conservadores (solo marca como legacy si detecta señales claras):
-        - CPUs Intel Sandy Bridge o anteriores (2011 y más antiguos)
-        - CPUs AMD pre-2013
+        Criteria (conservative):
+        - Intel Sandy Bridge or older CPUs (2011 and earlier)
+        - AMD pre-2013 CPUs
         - RAM < 6GB
 
         Returns:
-            bool: True si es hardware legacy, False si es moderno o no se puede determinar
+            True if legacy hardware detected, False otherwise
         """
         try:
             if self.system == "Linux":
-                # Leer info de CPU desde /proc/cpuinfo
+                # Read CPU info from /proc/cpuinfo
                 try:
                     with open("/proc/cpuinfo", "r") as f:
                         cpuinfo = f.read().lower()
 
-                        # CPUs específicas conocidas por tener problemas
+                        # Known legacy CPU markers
                         legacy_cpu_markers = [
-                            "i5-2410m",  # Sandy Bridge (2011) - el caso del usuario
+                            "i5-2410m",  # Sandy Bridge (2011)
                             "i3-2",      # Sandy Bridge i3
                             "i5-2",      # Sandy Bridge i5
                             "i7-2",      # Sandy Bridge i7
@@ -135,7 +161,7 @@ class VideoLyrics(QWidget):
                 except Exception as e:
                     logger.debug(f"Error leyendo cpuinfo: {e}")
 
-            # Detección de RAM baja (cross-platform con psutil si está disponible)
+            # RAM detection (cross-platform with psutil)
             try:
                 import psutil
                 ram_gb = psutil.virtual_memory().total / (1024**3)
@@ -150,28 +176,69 @@ class VideoLyrics(QWidget):
         except Exception as e:
             logger.warning(f"Error en detección de hardware: {e}")
 
-        # Por defecto, asumir hardware moderno (enfoque conservador)
+        # Default: assume modern hardware (conservative approach)
         logger.info("✅ Hardware moderno detectado o no pudo determinarse - video habilitado")
         return False
 
+    def _update_background(self) -> None:
+        """
+        Update VisualBackground based on current video mode.
+
+        Creates appropriate background instance for current mode:
+        - "full" → VideoLyricsBackground (sync with audio)
+        - "loop" → VideoLoopBackground (continuous loop)
+        - "static" → StaticFrameBackground (frozen frame)
+        - "none" → BlankBackground (no video)
+        """
+        # Stop current background if exists
+        if self.background and self.engine:
+            try:
+                self.background.stop(self.engine)
+            except Exception as e:
+                logger.warning(f"Error stopping old background: {e}")
+
+        # Create new background based on mode
+        if self._video_mode == "full":
+            self.background = VideoLyricsBackground(sync_controller=self.sync_controller)
+            logger.debug("📹 Background: VideoLyricsBackground (full sync)")
+
+        elif self._video_mode == "loop":
+            self.background = VideoLoopBackground()
+            logger.debug("🔄 Background: VideoLoopBackground (continuous loop)")
+
+        elif self._video_mode == "static":
+            self.background = StaticFrameBackground(static_frame_seconds=0.0)
+            logger.debug("🖼️ Background: StaticFrameBackground (frozen frame)")
+
+        elif self._video_mode == "none":
+            self.background = BlankBackground()
+            logger.debug("⬛ Background: BlankBackground (no video)")
+
+        else:
+            logger.error(f"❌ Unknown video mode: {self._video_mode}, using BlankBackground")
+            self.background = BlankBackground()
+
     def is_video_enabled(self) -> bool:
-        """Verificar si el video está habilitado (backward compatibility).
+        """
+        Check if video is enabled (backward compatibility).
 
         Returns:
-            bool: True si video puede reproducirse (no es mode 'none')
+            True if video can be played (mode != 'none')
         """
         return self._video_mode != "none"
 
     def get_video_mode(self) -> str:
-        """Get current video mode.
+        """
+        Get current video mode.
 
         Returns:
-            str: Current mode ("full" | "loop" | "static" | "none")
+            Current mode: "full" | "loop" | "static" | "none"
         """
         return self._video_mode
 
-    def set_video_mode(self, mode: str):
-        """Set video playback mode.
+    def set_video_mode(self, mode: str) -> None:
+        """
+        Set video playback mode.
 
         Args:
             mode: Video mode ("full" | "loop" | "static" | "none")
@@ -184,19 +251,21 @@ class VideoLyrics(QWidget):
         self._video_mode = mode
         logger.info(f"🎬 Video mode changed: {old_mode} → {mode}")
 
+        # Update background to match new mode
+        self._update_background()
+
         # Stop playback if switching to 'none'
-        if mode == "none" and self.player.is_playing():
+        if mode == "none" and self.engine.is_playing():
             self.stop()
 
-    def enable_video(self, enable: bool = True):
-        """DEPRECATED: Use set_video_mode() or ConfigManager instead.
+    def enable_video(self, enable: bool = True) -> None:
+        """
+        DEPRECATED: Use set_video_mode() or ConfigManager instead.
 
-        This method is kept for backward compatibility but will be removed
-        in a future version. Use ConfigManager.set("video.mode", "none")
-        to disable video, or set_video_mode() for fine-grained control.
+        Kept for backward compatibility.
 
         Args:
-            enable: True para habilitar video, False para deshabilitar
+            enable: True to enable video, False to disable
         """
         import warnings
         warnings.warn(
@@ -207,37 +276,39 @@ class VideoLyrics(QWidget):
 
         # Map to video modes for backward compatibility
         if enable:
-            # Re-enable: restore to previous mode or use recommended
             if self._video_mode == "none":
                 config = ConfigManager.get_instance()
                 restored_mode = config.get("video.mode", "full")
                 self.set_video_mode(restored_mode)
         else:
-            # Disable: switch to 'none' mode
             self.set_video_mode("none")
 
-    def set_media(self, video_path):
-        """Cargar un archivo de video respetando el modo configurado."""
-        # STEP 6: Always sync mode from config before loading media
-        # This ensures changes in Settings are respected when loading new songs
+    def set_media(self, video_path: Optional[str]) -> None:
+        """
+        Load video file respecting configured mode.
+
+        Args:
+            video_path: Path to video file (or None)
+        """
+        # Sync mode from config before loading media
         current_mode = ConfigManager.get_instance().get("video.mode", "full")
         if current_mode and current_mode != self._video_mode:
             logger.info(f"📹 Updating video mode from settings: {self._video_mode} → {current_mode}")
-            self._video_mode = current_mode
+            self.set_video_mode(current_mode)
 
-        # STEP 4: Si mode es 'none', no cargar nada
+        # If mode is 'none', skip loading
         if self._video_mode == "none":
             logger.info("📹 Video mode is 'none' - skipping video load")
             return
 
-        # STEP 4: Si mode es 'loop', siempre usar loop (ignorar video del multi)
+        # If mode is 'loop', always use loop video
         if self._video_mode == "loop":
             config = ConfigManager.get_instance()
             loop_path = config.get("video.loop_video_path", "assets/loops/default.mp4")
             video_path = loop_path
             logger.info(f"📹 Loop mode active - using loop video: {video_path}")
 
-        # STEP 4: Si mode es 'static', usar video del multi o fallback a loop
+        # If mode is 'static', use video from multi or fallback to loop
         elif self._video_mode == "static":
             if video_path is None or not Path(video_path).exists():
                 logger.warning(f"📹 No video file for static mode: {video_path}")
@@ -246,79 +317,74 @@ class VideoLyrics(QWidget):
                 video_path = loop_path
                 logger.info(f"📹 Fallback to loop for static frame: {video_path}")
 
-        # STEP 4: Si mode es 'full', usar video del multi o fallback a loop
+        # If mode is 'full', use video from multi or fallback to loop
         elif self._video_mode == "full":
             if video_path is None or not Path(video_path).exists():
                 logger.warning(f"📹 Multi has no video file: {video_path}")
                 logger.info("🔄 Switching to 'loop' mode and loading default loop")
-                self._video_mode = "loop"
+                self.set_video_mode("loop")
                 config = ConfigManager.get_instance()
                 loop_path = config.get("video.loop_video_path", "assets/loops/default.mp4")
                 video_path = loop_path
                 logger.info(f"📹 Using loop video: {video_path}")
 
-        if self.player.is_playing():
-            self.player.stop()
+        # REFACTORED: Delegate to engine
+        if self.engine.is_playing():
+            self.engine.stop()
             app_state.video_is_playing = False
-            logger.debug("Reproductor detenido")
+            logger.debug("Engine stopped before loading new media")
 
-        media = self.instance.media_new(str(video_path))
-        # Deshabilitar audio del video - el audio será controlado por el AudioEngine
-        media.add_option("--no-audio")
+        self.engine.load(str(video_path))
+        logger.debug(f"📹 Video loaded: {video_path} (mode: {self._video_mode})")
 
-        self.player.set_media(media)
-        media.release()
-        logger.debug(f"📹 Video cargado: {video_path} (mode: {self._video_mode})")
+    def show_window(self) -> None:
+        """
+        Show video window on secondary screen.
 
-        # STEP 5: Log loop mode activation for debugging
-        if self._video_mode == "loop":
-            logger.info("🔄 Loop mode: Will use timer-based loop boundary detection")
-
-    def show_window(self):
-        """Mostrar la ventana de video en la pantalla secundaria.
-
-        Inicializa la ventana en la pantalla correcta la primera vez,
-        luego simplemente muestra/oculta según sea necesario.
-        VLC permanece adjunto al window handle durante todo el ciclo de vida.
+        Initializes window on correct screen first time,
+        then simply shows/hides as needed.
         """
         if not self._window_initialized:
-            # Primera vez: inicializar ventana y adjuntar VLC
-            logger.debug("Inicializando ventana de video por primera vez")
-            self.show()  # Crear windowHandle
+            # First time: initialize window and attach engine
+            logger.debug("Initializing video window for first time")
+            self.show()  # Create windowHandle
             QTimer.singleShot(50, self._initialize_window)
         else:
-            # Ya inicializada: simplemente mostrar
-            logger.debug("Mostrando ventana de video")
+            # Already initialized: just show
+            logger.debug("Showing video window")
             if self._is_fallback_mode:
-                # Modo ventana: mostrar normal (no fullscreen)
+                # Windowed mode: show normal (not fullscreen)
                 self.showNormal()
             else:
-                # Modo pantalla secundaria: fullscreen
+                # Secondary screen: fullscreen
                 self.showFullScreen()
 
-    def hide_window(self):
-        """Ocultar la ventana de video sin destruir el player VLC.
-
-        La ventana permanece oculta pero VLC mantiene su adjunto al window handle,
-        evitando bugs de reinicialización.
+    def hide_window(self) -> None:
         """
-        logger.debug("Ocultando ventana de video")
+        Hide video window without destroying engine.
+
+        Window remains hidden but engine maintains attachment,
+        avoiding reinitialization bugs.
+        """
+        logger.debug("Hiding video window")
         self.hide()
 
-    def _initialize_window(self):
-        """Inicializar la ventana en la pantalla correcta y adjuntar VLC.
+    def _initialize_window(self) -> None:
+        """
+        Initialize window on correct screen and attach engine.
 
-        Llamado solo la primera vez que se muestra la ventana.
+        Called only first time window is shown.
         """
         self.move_to_screen()
         self._window_initialized = True
-        logger.debug("Ventana de video inicializada")
+        logger.debug("Video window initialized")
 
-    def move_to_screen(self):
-        """Mover ventana a pantalla secundaria y adjuntar VLC.
+    def move_to_screen(self) -> None:
+        """
+        Move window to secondary screen and attach engine.
 
-        Si la pantalla secundaria no existe, hace fallback automático a modo ventana
-        16:9 en la pantalla primaria.
+        If secondary screen doesn't exist, fallback to 16:9 windowed mode
+        on primary screen.
         """
         screens = QApplication.screens()
         logger.info(f"📺 Pantallas detectadas: {len(screens)}")
@@ -327,21 +393,21 @@ class VideoLyrics(QWidget):
             size = screen.geometry()
             logger.info(f"  [{i}] {screen.name()} - Resolución: {size.width()}x{size.height()} @ {dpi} DPI")
 
-        # FALLBACK: Si pantalla secundaria no existe, usar primaria en modo ventana
+        # FALLBACK: If secondary screen doesn't exist, use primary in windowed mode
         if self.screen_index >= len(screens):
             logger.warning(
                 f"⚠️ Pantalla {self.screen_index} no disponible (solo hay {len(screens)}). "
                 f"Usando modo ventana 16:9 en pantalla primaria."
             )
             self._is_fallback_mode = True
-            target_screen = screens[0]  # Pantalla primaria
+            target_screen = screens[0]  # Primary screen
 
-            # Calcular geometría 16:9 centrada (80% del ancho de pantalla)
+            # Calculate 16:9 geometry centered (80% of screen width)
             primary_geo = target_screen.geometry()
             video_width = int(primary_geo.width() * 0.8)
-            video_height = int(video_width * 9 / 16)  # Relación 16:9
+            video_height = int(video_width * 9 / 16)  # 16:9 ratio
 
-            # Centrar en pantalla primaria
+            # Center on primary screen
             x = primary_geo.x() + (primary_geo.width() - video_width) // 2
             y = primary_geo.y() + (primary_geo.height() - video_height) // 2
 
@@ -352,90 +418,72 @@ class VideoLyrics(QWidget):
 
             self._target_screen = target_screen
 
-            # Configurar ventana en modo normal (no fullscreen)
+            # Configure window in normal mode (not fullscreen)
             if self.windowHandle() is None:
                 self.setAttribute(Qt.WA_NativeWindow, True)
             handle = self.windowHandle()
             if handle is not None:
                 try:
                     handle.setScreen(target_screen)
-                    logger.info(f"✓ Screen asignada vía windowHandle: {target_screen.name()}")
+                    logger.info(f"✓ Screen assigned via windowHandle: {target_screen.name()}")
                 except Exception as e:
-                    logger.warning(f"⚠ No se pudo asignar pantalla vía windowHandle: {e}")
+                    logger.warning(f"⚠ Could not assign screen via windowHandle: {e}")
 
             self.setGeometry(x, y, video_width, video_height)
             self.show()
-            QTimer.singleShot(100, self._attach_vlc_to_window)
+            QTimer.singleShot(100, self._attach_engine_to_window)
             return
 
-        # NORMAL: Pantalla secundaria existe, usar fullscreen
+        # NORMAL: Secondary screen exists, use fullscreen
         self._is_fallback_mode = False
         target_screen = screens[self.screen_index]
         self._target_screen = target_screen
         geo = target_screen.geometry()
-        logger.info(f"✓ Moviendo ventana a pantalla {self.screen_index}: {geo.x()},{geo.y()} {geo.width()}x{geo.height()}")
+        logger.info(f"✓ Moving window to screen {self.screen_index}: {geo.x()},{geo.y()} {geo.width()}x{geo.height()}")
 
-        # Asegurar que la ventana se mueve ANTES de adjuntar VLC
-        # Forzar ventana nativa para obtener handle
+        # Ensure window moves BEFORE attaching engine
         if self.windowHandle() is None:
             self.setAttribute(Qt.WA_NativeWindow, True)
         handle = self.windowHandle()
         if handle is not None:
             try:
                 handle.setScreen(target_screen)
-                logger.info(f"✓ Screen asignada vía windowHandle: {target_screen.name()}")
+                logger.info(f"✓ Screen assigned via windowHandle: {target_screen.name()}")
             except Exception as e:
-                logger.warning(f"⚠ No se pudo asignar pantalla vía windowHandle: {e}")
+                logger.warning(f"⚠ Could not assign screen via windowHandle: {e}")
         else:
-            logger.warning("⚠ windowHandle() no disponible; continuando con setGeometry")
+            logger.warning("⚠ windowHandle() not available; continuing with setGeometry")
 
         self.setGeometry(geo)
-        self.show()  # Llamar show() antes de showFullScreen() para asegurar winId() válido
-        QTimer.singleShot(100, self._attach_vlc_to_window)
+        self.show()  # Call show() before showFullScreen() to ensure valid winId()
+        QTimer.singleShot(100, self._attach_engine_to_window)
 
-    def _attach_vlc_to_window(self):
-        """Adjuntar VLC a la ventana después de que está completamente inicializada."""
+    def _attach_engine_to_window(self) -> None:
+        """
+        Attach engine to window after it's fully initialized.
+
+        REFACTORED: Delegates to engine.attach_to_window()
+        """
         try:
-            # Reafirmar pantalla objetivo antes de adjuntar/entrar a fullscreen
+            # Reaffirm target screen before attaching/entering fullscreen
             handle = self.windowHandle()
             if handle is not None and self._target_screen is not None:
                 try:
                     handle.setScreen(self._target_screen)
-                    logger.info(f"✓ Screen reafirmada: {self._target_screen.name()}")
+                    logger.info(f"✓ Screen reaffirmed: {self._target_screen.name()}")
                 except Exception as e:
-                    logger.warning(f"⚠ No se pudo reafirmar pantalla: {e}")
+                    logger.warning(f"⚠ Could not reaffirm screen: {e}")
 
-            if self.system == "Windows":
-                hwnd = int(self.winId())
-                logger.info(f"✓ HWND obtenido: {hwnd}")
-                self.player.set_hwnd(hwnd)
+            # Ensure window is visible before attachment
+            if not self.isVisible():
+                logger.warning("⚠ Window not visible before engine attachment")
+                self.show()
 
-            elif self.system == "Linux":
-                # En Linux, necesitamos asegurar que la ventana está mapeada
-                if not self.isVisible():
-                    logger.warning("⚠ Ventana no visible antes de set_xwindow()")
-                    self.show()
+            # REFACTORED: Delegate to engine
+            win_id = int(self.winId())
+            self.engine.attach_to_window(win_id, self._target_screen, self.system)
 
-                xid = int(self.winId())
-                if xid == 0:
-                    logger.error("❌ winId() retornó 0 - ventana no inicializada correctamente")
-                    return
-
-                logger.info(f"✓ XWindow ID obtenido: {xid}")
-                self.player.set_xwindow(xid)
-                logger.info("✓ VLC adjuntado correctamente a ventana X11")
-
-            elif self.system == "Darwin":  # macOS
-                logger.info("🍎 macOS detectado - intentando set_nsobject()")
-                try:
-                    self.player.set_nsobject(self.winId())
-                    logger.info("✓ VLC adjuntado a ventana macOS")
-                except Exception as e:
-                    logger.warning(f"⚠ set_nsobject falló: {e}, usando configuración por defecto")
-            else:
-                logger.warning(f"⚠ SO desconocido: {self.system}, VLC usará configuración por defecto")
-
-            # Finalmente, mostrar ventana (fullscreen solo si NO es modo fallback)
+            # Finally, show window (fullscreen only if NOT fallback mode)
             handle = self.windowHandle()
             if handle is not None and self._target_screen is not None:
                 try:
@@ -444,350 +492,178 @@ class VideoLyrics(QWidget):
                     pass
 
             if self._is_fallback_mode:
-                # Modo ventana: NO entrar en fullscreen
+                # Windowed mode: NO fullscreen
                 self.showNormal()
-                logger.info("✓ Ventana en modo normal 16:9 (fallback)")
+                logger.info("✓ Window in normal 16:9 mode (fallback)")
             else:
-                # Pantalla secundaria: fullscreen
+                # Secondary screen: fullscreen
                 self.showFullScreen()
-                logger.info("✓ Ventana en fullscreen")
+                logger.info("✓ Window in fullscreen")
 
         except Exception as e:
-            logger.error(f"❌ Error al adjuntar VLC: {e}", exc_info=True)
+            logger.error(f"❌ Error attaching engine: {e}", exc_info=True)
 
-    def start_playback(self, audio_time_seconds: float = 0.0, offset_seconds: float = 0.0):
-        """Iniciar reproducción y sincronización con offset inicial.
+    def start_playback(self, audio_time_seconds: float = 0.0, offset_seconds: float = 0.0) -> None:
+        """
+        Start playback with initial offset.
 
         Args:
-            audio_time_seconds: Tiempo actual del audio (para seeks/resume)
-            offset_seconds: Offset de metadata (video_offset_seconds)
-                          Positivo = video empieza después del audio
-                          Negativo = video empieza antes del audio
+            audio_time_seconds: Current audio time (for seeks/resume)
+            offset_seconds: Offset from metadata (video_offset_seconds)
+                           Positive = video starts after audio
+                           Negative = video starts before audio
+
+        REFACTORED: Delegates to background.start()
         """
-        # STEP 3: Handle different video modes
+        # Handle 'none' mode
         if self._video_mode == "none":
             logger.debug("📹 Video mode is 'none' - skipping playback")
             return
 
-        # Solo reproducir si la ventana está visible (usuario activó show_video_btn)
+        # Only play if window is visible (user activated show_video_btn)
         if not self.isVisible():
-            logger.debug("📹 Ventana de video oculta - saltando reproducción de video (audio continuará)")
+            logger.debug("📹 Video window hidden - skipping video playback (audio continues)")
             return
 
         logger.debug(f"⏯ Starting video playback in '{self._video_mode}' mode...")
-        self.player.audio_set_mute(True)  # Asegurar que audio está muteado
+        self.engine.set_mute(True)  # Ensure audio is muted
 
-        if self._video_mode == "full":
-            # Full mode: Sync with audio + elastic corrections
-            video_start_time = audio_time_seconds + offset_seconds
-            if abs(video_start_time) > 0.001:
-                video_ms = max(0, int(video_start_time * 1000))
-                self.player.set_time(video_ms)
-                logger.info(
-                    f"[FULL] audio={audio_time_seconds:.3f}s "
-                    f"offset={offset_seconds:+.3f}s → video_start={video_start_time:.3f}s"
-                )
-            self.player.play()
-            self.position_timer.start()  # Report position for sync
+        # REFACTORED: Delegate to background
+        if self.background:
+            self.background.start(self.engine, audio_time_seconds, offset_seconds)
+            app_state.video_is_playing = True
 
-        elif self._video_mode == "loop":
-            # Loop mode: Play without sync, loop at boundaries
-            self.player.set_time(0)  # Always start at beginning
-            self.player.play()
-            logger.info("[LOOP] Starting loop playback from 0s (no audio sync)")
-            # Start loop boundary timer (1 Hz check)
-            if not hasattr(self, '_loop_boundary_timer'):
-                self._loop_boundary_timer = QTimer()
-                self._loop_boundary_timer.setInterval(1000)  # 1 Hz
-                self._loop_boundary_timer.timeout.connect(self._check_loop_boundary)
-            self._loop_boundary_timer.start()
-
-        elif self._video_mode == "static":
-            # Static mode: Seek to frame and pause
-            static_frame = 0  # TODO: Load from meta.json in Phase 2
-            self.player.set_time(int(static_frame * 1000))
-            self.player.play()
-            # Pause after short delay to ensure frame is loaded
-            QTimer.singleShot(100, lambda: self._ensure_static_frame())
-            logger.info(f"[STATIC] Freezing at frame {static_frame}s")
-
-        app_state.video_is_playing = True
-
-        # Habilitar sincronización
-        if self.sync_controller:
-            self.sync_controller.start_sync()
+            # Start position reporting timer
             self.position_timer.start()
+        else:
+            logger.error("❌ No background set - cannot start playback")
 
-    def stop(self):
-        """Detener reproducción y sincronización.
+    def stop(self) -> None:
+        """
+        Stop playback and sync.
 
-        STEP 5: Stop loop boundary timer if running.
+        REFACTORED: Delegates to background.stop()
         """
         app_state.video_is_playing = False
-        self.player.stop()
+
+        # REFACTORED: Delegate to background
+        if self.background:
+            self.background.stop(self.engine)
+
         self.position_timer.stop()
 
-        # STEP 5: Stop loop boundary timer if exists
-        if hasattr(self, '_loop_boundary_timer') and self._loop_boundary_timer.isActive():
-            self._loop_boundary_timer.stop()
-            logger.debug("🔄 Loop boundary timer stopped")
+    def pause(self) -> None:
+        """
+        Pause playback.
 
-        if self.sync_controller:
-            self.sync_controller.stop_sync()
-
-    def pause(self):
-        """Pausar reproducción.
-
-        STEP 5: Pause also stops loop boundary timer.
+        REFACTORED: Delegates to background.pause()
         """
         app_state.video_is_playing = False
-        self.player.pause()
+
+        # REFACTORED: Delegate to background
+        if self.background:
+            self.background.pause(self.engine)
+
         self.position_timer.stop()
 
-        # STEP 5: Stop loop boundary timer when paused
-        if hasattr(self, '_loop_boundary_timer') and self._loop_boundary_timer.isActive():
-            self._loop_boundary_timer.stop()
-
-        if self.sync_controller:
-            self.sync_controller.stop_sync()
-
-    def seek_seconds(self, seconds: float):
-        """Seek the video player to the specified time in seconds.
-
-        Handles edge cases like seeking after video has ended by ensuring
-        the player is in a valid state and forcing a frame update.
-
-        Preserves pause state: if paused before seek, remains paused after.
+    def seek_seconds(self, seconds: float) -> None:
         """
-        if self.player is None:
+        Seek video to specified time in seconds.
+
+        Handles edge cases like seeking after video ended.
+        Preserves pause state.
+
+        Args:
+            seconds: Target position in seconds
+        """
+        if not self.engine:
             return
 
         ms = int(seconds * 1000)
-        current_time_ms = self.player.get_time()
+        current_time_ms = self.engine.get_time()
 
         with safe_operation(f"Seeking video to {seconds:.2f}s", silent=True):
-            # Log seek for diagnosis
             logger.info(f"[VIDEO_SEEK] from={current_time_ms}ms to={ms}ms delta={ms - current_time_ms:+d}ms")
 
-            # CRITICAL: Check playback state BEFORE seek
-            was_playing = self.player.is_playing()  # ← Mover ANTES de state check
-            state = self.player.get_state()
+            # Check playback state BEFORE seek
+            was_playing = self.engine.is_playing()
 
-            # If video ended, need to stop() and play() to fully reset
-            if state == vlc.State.Ended:
-                logger.debug("Video ended, performing full reset before seek")
-                self.player.stop()
-                QTimer.singleShot(50, lambda: self._restart_and_seek(ms, was_playing))
-                return
+            # Simple seek (engine handles state management)
+            self.engine.seek(ms)
 
-            # Normal seek (not ended)
-            self.player.set_time(ms)
-
-            # CRITICAL: Preserve pause state after seek
+            # Preserve pause state after seek
             if not was_playing:
                 # VLC sometimes auto-resumes after set_time() - force pause
-                QTimer.singleShot(50, self._ensure_paused)  # ← Nuevo método
+                QTimer.singleShot(50, lambda: self._ensure_paused())
                 logger.debug("Video was paused - preserving pause state after seek")
 
-    def _restart_and_seek(self, ms: int, was_playing: bool):
-        """Restart player after stop and seek to position.
-
-        Called after stop() completes to fully reset from ended state.
+    def _ensure_paused(self) -> None:
         """
-        if self.player is None:
-            return
-
-        with safe_operation("Restarting player and seeking", silent=True):
-            # Play to restart from beginning
-            self.player.play()
-            # Wait for play to start
-            QTimer.singleShot(150, lambda: self._complete_seek_after_restart(ms, was_playing))
-
-    def _complete_seek_after_restart(self, ms: int, was_playing: bool):
-        """Complete seek operation after restarting.
-
-        Called after play() completes to perform actual seek.
-        """
-        if self.player is None:
-            return
-
-        with safe_operation("Completing seek after restart", silent=True):
-            # Now do the actual seek
-            self.player.set_time(ms)
-
-            # If wasn't playing before, pause to show frame
-            if not was_playing:
-                # Wait for seek to complete, then pause
-                QTimer.singleShot(100, lambda: self._pause_and_show_frame())
-
-    def _pause_and_show_frame(self):
-        """Pause player to display current frame.
-
-        Called after seek completes to ensure frame is visible.
-        """
-        if self.player is not None:
-            self.player.pause()
-            logger.debug("Video paused to show frame after seek")
-
-    def _ensure_paused(self):
-        """Ensure player remains paused after seek.
+        Ensure engine remains paused after seek.
 
         VLC sometimes auto-resumes after set_time() on certain platforms.
-        This method enforces pause state to prevent unwanted playback.
         """
-        if self.player is not None and self.player.is_playing():
-            self.player.pause()
-            logger.debug("Enforced pause state after seek (VLC auto-resumed)")
+        if self.engine and self.engine.is_playing():
+            self.engine.pause()
+            logger.debug("Enforced pause state after seek (engine auto-resumed)")
 
-    def _check_loop_boundary(self):
-        """Check if video reached end and restart loop (with hysteresis)."""
-        # Always check if we're in loop mode
-        if self._video_mode != "loop":
-            return
+    def _report_position(self) -> None:
+        """
+        Report position to background for updates.
 
-        # Check player state
-        if not self.player.is_playing():
-            logger.debug("[LOOP] Player stopped - restarting loop")
-            self.player.set_time(0)
-            self.player.play()
-            return
+        Called periodically by position_timer (50ms).
 
-        video_ms = self.player.get_time()
-        duration_ms = self.player.get_length()
+        REFACTORED: Delegates to background.update()
+        """
+        if self.background and self.engine:
+            # Get current audio time (if available)
+            # For now, pass 0.0 - background will query engine directly
+            audio_time = 0.0  # TODO: Get from AudioEngine if needed
+            self.background.update(self.engine, audio_time)
 
-        logger.debug(f"[LOOP_CHECK] video_ms={video_ms}, duration_ms={duration_ms}, mode={self._video_mode}")
+    @Slot(dict)
+    def apply_correction(self, correction: dict) -> None:
+        """
+        Apply sync correction from SyncController.
 
-        if duration_ms <= 0:
-            logger.debug("[LOOP] Invalid duration, skipping")
-            return  # Invalid duration
+        Args:
+            correction: Correction dict with type and parameters
 
-        # STEP 5: Restart if video is at or past 95% of duration
-        # This is more reliable than checking exact end
-        boundary_threshold = int(duration_ms * 0.95)
-        if video_ms >= boundary_threshold:
-            logger.info(f"[LOOP] Boundary reached ({video_ms}ms >= {boundary_threshold}ms) - scheduling restart")
-            # Use Qt event loop to restart to avoid blocking
-            QTimer.singleShot(0, self._restart_loop)
+        REFACTORED: Delegates to background.apply_correction()
+        """
+        if self.background and self.engine:
+            self.background.apply_correction(self.engine, correction)
 
+    def _on_video_end(self) -> None:
+        """
+        Handle video end event from engine.
 
-    def _ensure_static_frame(self):
-        """Ensure video is paused for static mode."""
-        if self._video_mode == "static":
-            self.player.pause()
-            logger.debug("[STATIC] Frame frozen")
-
-    def _on_video_end(self, event):
-        """Callback when VLC player reaches end of media.
-
-        STEP 5: Handle loop mode automatically when video ends.
+        REFACTORED: Delegates to background.on_video_end()
         """
         logger.info(f"[VLC_EVENT] Video ended (mode: {self._video_mode})")
 
-        if self._video_mode == "loop":
-            logger.info("[LOOP] VLC EndReached event - scheduling restart")
-            # Run restart on Qt event loop to avoid VLC thread issues
-            QTimer.singleShot(0, self._restart_loop)
-        # For other modes, let VLC handle it naturally
+        if self.background and self.engine:
+            self.background.on_video_end(self.engine)
 
-    def _restart_loop(self):
-        """Restart loop playback safely on the Qt event loop."""
-        if self._video_mode != "loop":
-            return
-        try:
-            self.player.set_time(0)
-            self.player.play()
-            logger.debug("[LOOP] Restarted from 0ms")
-        except Exception as exc:
-            logger.warning(f"[LOOP] Failed to restart loop: {exc}")
-
-    def _report_position(self):
+    def closeEvent(self, event) -> None:
         """
-        Reportar posición actual al SyncController.
-        Se llama periodicamente durante la reproducción.
+        Intercept window close to prevent resource destruction.
 
-        STEP 3: Only report for 'full' mode (loop/static don't need sync).
+        Instead of closing, hide window and notify main.py to sync
+        show_video_btn state.
+
+        IMPORTANT: Don't pause or stop video because audio engine
+        continues running and timeline needs position updates.
         """
-        # Only report position in full mode (needs sync corrections)
-        if self._video_mode != "full":
-            return
+        logger.debug("🚪 Intercepting window close (X button) - hiding without stopping")
 
-        if self.player.is_playing() and self.sync_controller:
-            video_ms = self.player.get_time()
-            video_seconds = video_ms / 1000.0
-            self.sync_controller.on_video_position_updated(video_seconds)
-
-    @Slot(dict)
-    def apply_correction(self, correction: dict):
-        """
-        Ejecutar corrección de sincronización emitida por SyncController.
-
-        Args:
-            correction: dict con 'type' y parámetros según tipo:
-                - 'elastic': new_rate (playback rate adjustment)
-                - 'rate_reset': new_rate (reset to 1.0)
-                - 'hard': new_time_ms (seek directo)
-
-        STEP 3: Only applies corrections in 'full' mode.
-        """
-        # STEP 3: Only apply corrections in full mode (loop/static don't sync)
-        if self._video_mode != "full":
-            return
-
-        if not self.player.is_playing():
-            return
-
-        corr_type = correction.get('type')
-        drift_ms = correction.get('drift_ms', 0)
-
-        if corr_type == 'elastic':
-            # Elastic correction: Adjust playback rate
-            new_rate = correction.get('new_rate', 1.0)
-            current_rate = correction.get('current_rate', 1.0)
-            self.player.set_rate(new_rate)
-            logger.debug(
-                f"[ELASTIC] drift={drift_ms:+d}ms "
-                f"rate: {current_rate:.3f} → {new_rate:.3f}"
-            )
-
-        elif corr_type == 'rate_reset':
-            # Reset rate to normal
-            self.player.set_rate(1.0)
-            logger.debug(f"[RATE_RESET] drift={drift_ms:+d}ms → rate=1.0")
-
-        elif corr_type == 'hard':
-            # Hard correction: Seek directo
-            new_time_ms = correction.get('new_time_ms')
-            self.player.set_time(int(new_time_ms))
-            # Reset rate after hard seek
-            if correction.get('reset_rate', False):
-                self.player.set_rate(1.0)
-            logger.debug(f"[HARD] drift={drift_ms:+d}ms → seek to {new_time_ms}ms")
-
-        elif corr_type == 'soft':
-            # Legacy soft correction (deprecated, kept for compatibility)
-            new_time_ms = correction.get('new_time_ms')
-            adjustment_ms = correction.get('adjustment_ms', 0)
-            self.player.set_time(int(new_time_ms))
-            logger.debug(f"[SOFT] diff={drift_ms}ms adj={adjustment_ms}ms → {new_time_ms}ms")
-
-    def closeEvent(self, event):
-        """Interceptar cierre de ventana para prevenir destrucción de recursos.
-
-        En lugar de cerrar, simplemente ocultamos la ventana y notificamos
-        a main.py para sincronizar el estado del botón show_video_btn.
-
-        IMPORTANTE: No pausamos ni detenemos el video porque el audio engine
-        sigue corriendo y la timeline necesita actualizaciones de posición.
-        """
-        logger.debug("🚪 Interceptando cierre de ventana (botón X) - ocultando sin detener")
-
-        # Emitir señal para sincronizar botón
+        # Emit signal to sync button
         self.window_closed.emit()
 
-        # Simplemente ocultar ventana sin tocar el playback
-        # El video sigue reproduciéndose en segundo plano
-        # El position_timer sigue activo para actualizar timeline
+        # Simply hide window without touching playback
+        # Video continues playing in background
+        # position_timer remains active to update timeline
         self.hide()
 
-        # IMPORTANTE: Ignorar el evento de cierre para prevenir destrucción
+        # IMPORTANT: Ignore close event to prevent destruction
         event.ignore()
