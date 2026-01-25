@@ -30,8 +30,10 @@ class TestVisualEngineInterface:
         # Mock VLC to avoid actual VLC dependency
         with patch('video.engines.vlc_engine.vlc'):
             engine = VlcEngine(is_legacy_hardware=False)
+            engine.initialize()  # Initialize resources
 
             # Check all required methods exist
+            assert hasattr(engine, 'initialize')
             assert hasattr(engine, 'set_end_callback')
             assert hasattr(engine, 'load')
             assert hasattr(engine, 'play')
@@ -216,6 +218,7 @@ class TestVlcEngineInitialization:
         mock_instance.media_player_new.return_value = mock_player
 
         engine = VlcEngine(is_legacy_hardware=False)
+        engine.initialize()  # Initialize VLC resources
 
         # Check VLC instance was created
         mock_vlc.Instance.assert_called_once()
@@ -235,6 +238,7 @@ class TestVlcEngineInitialization:
         mock_instance.media_player_new.return_value = mock_player
 
         engine = VlcEngine(is_legacy_hardware=True)
+        engine.initialize()  # Initialize VLC resources
 
         # Check VLC instance was created with legacy args
         args = mock_vlc.Instance.call_args[0][0]

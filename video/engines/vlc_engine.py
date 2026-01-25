@@ -33,19 +33,36 @@ class VlcEngine(VisualEngine):
 
     def __init__(self, is_legacy_hardware: bool = False):
         """
-        Initialize VLC engine with hardware-specific optimizations.
+        Construct VLC engine (lightweight).
 
         Args:
             is_legacy_hardware: Enable optimizations for old CPUs (pre-2013)
+
+        Note:
+            Does NOT initialize VLC resources. Call initialize() after construction.
         """
         self.is_legacy_hardware = is_legacy_hardware
         self.system = platform.system()
+        self.instance = None
+        self.player = None
+        self._end_callback = None
 
+        logger.debug(f"🎬 VlcEngine constructed (system={self.system}, legacy={is_legacy_hardware})")
+
+    def initialize(self) -> None:
+        """
+        Initialize VLC backend resources.
+
+        Creates VLC instance and media player with hardware-specific optimizations.
+
+        Raises:
+            RuntimeError: If VLC initialization failed
+        """
         # VLC args - CRITICAL: '--no-audio' to prevent VLC from emitting sound
         # AudioEngine is the sole owner of audio output
         vlc_args = ['--quiet', '--no-video-title-show', '--log-verbose=2', '--no-audio']
 
-        if is_legacy_hardware:
+        if self.is_legacy_hardware:
             # Optimizations for legacy CPUs (Sandy Bridge, Core 2 Duo, etc.)
             vlc_args.extend([
                 '--avcodec-hurry-up',         # Skip frames if CPU slow
@@ -56,14 +73,14 @@ class VlcEngine(VisualEngine):
             logger.info("🔧 VlcEngine: Legacy hardware optimizations enabled")
 
         # Initialize VLC instance and player
-        self.instance = vlc.Instance(vlc_args)
-        self.player = self.instance.media_player_new()
-        # Audio muted via --no-audio arg (no need for audio_set_mute)
+        try:
+            self.instance = vlc.Instance(vlc_args)
+            self.player = self.instance.media_player_new()
+            # Audio muted via --no-audio arg (no need for audio_set_mute)
 
-        logger.info(f"🎬 VlcEngine initialized (system={self.system}, legacy={is_legacy_hardware})")
-
-        # Event callback for video end (set by VisualController)
-        self._end_callback = None
+            logger.info(f"🎬 VlcEngine initialized (system={self.system}, legacy={self.is_legacy_hardware})")
+        except Exception as e:
+            raise RuntimeError(f"VLC initialization failed: {e}")
 
     def set_end_callback(self, callback) -> None:
         """

@@ -36,6 +36,10 @@ class MpvEngine(VisualEngine):
             "Use VlcEngine for video playback."
         )
 
+    def initialize(self) -> None:
+        """Initialize mpv backend (NOT IMPLEMENTED)."""
+        raise NotImplementedError("MpvEngine not implemented")
+
     def set_end_callback(self, callback) -> None:
         """Set callback for video end event (NOT IMPLEMENTED)."""
         raise NotImplementedError("MpvEngine not implemented")

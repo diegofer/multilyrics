@@ -98,6 +98,7 @@ class VideoLyrics(QWidget):
         # REFACTORED: Initialize VisualEngine (VLC backend)
         # Replaces direct VLC initialization (old L56-74)
         self.engine: VisualEngine = VlcEngine(is_legacy_hardware=self._is_legacy_hardware)
+        self.engine.initialize()  # Initialize VLC resources
         self.engine.set_end_callback(self._on_video_end)
         logger.info("✅ VlcEngine initialized and attached")
 
