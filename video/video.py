@@ -117,12 +117,7 @@ class VisualController(QWidget):
         from core.config_manager import ConfigManager
 
         config = ConfigManager.get_instance()
-        engine_pref = config.get("video.engine", "mpv")  # Default to MPV
-
-        logger.info(f"🎬 Engine preference: {engine_pref}")
-
-        if engine_pref == "vlc":
-            # Force VLC
+        engine_pref = config.get("video.engine", "auto")  # Default to auto (MPV→VLC fallback)
             return self._init_vlc_engine()
         elif engine_pref == "mpv":
             # Try MPV (raise if unavailable)

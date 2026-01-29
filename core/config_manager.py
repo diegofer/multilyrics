@@ -124,7 +124,7 @@ class ConfigManager:
                 "gc_policy": "disable_during_playback"  # or "normal"
             },
             "video": {
-                "engine": "mpv",  # "mpv" | "vlc" | "auto" - Engine preference (default: MPV)
+                "engine": "auto",  # "mpv" | "vlc" | "auto" - Auto: MPV-first, fallback to VLC
                 "mode": None,  # "full" | "loop" | "static" | "none" (None = use recommended)
                 "loop_video_path": "assets/loops/default.mp4",
                 "recommended_mode": None,  # Set at first run based on hardware detection
