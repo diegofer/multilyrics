@@ -72,6 +72,31 @@ class VisualController(QWidget):
         self.engine.set_end_callback(self._on_video_end)
         logger.info("✅ VisualEngine initialized")
 
+        # Engine badge for visual identification
+        from PySide6.QtWidgets import QLabel
+        from core.config_manager import ConfigManager
+        from video.engines.mpv_engine import MpvEngine
+
+        self.engine_badge = QLabel(self)
+        self.engine_badge.setStyleSheet(
+            "background-color: rgba(0, 0, 0, 0.7); "
+            "color: #888888; "
+            "padding: 4px 8px; "
+            "border-radius: 4px; "
+            "font-family: monospace; "
+            "font-size: 11px;"
+        )
+
+        # Set engine name
+        engine_name = "MPV" if isinstance(self.engine, MpvEngine) else "VLC"
+        self.engine_badge.setText(engine_name)
+        logger.debug(f"🏷️ Engine badge: {engine_name}")
+
+        # Check if badge should be shown (configurable)
+        config = ConfigManager.get_instance()
+        show_badge = config.get("video.show_engine_badge", True)
+        self.engine_badge.setVisible(show_badge)
+
         # Active background (set externally via set_background())
         self.background: Optional[VisualBackground] = None
 
@@ -88,15 +113,26 @@ class VisualController(QWidget):
         self._is_fallback_mode = False
 
     def _initialize_engine(self) -> VisualEngine:
-        """
-        Initialize video engine with MPV-first strategy.
+        """Initialize video engine based on config preference."""
+        from core.config_manager import ConfigManager
 
-        Tries MpvEngine first, falls back to VlcEngine if MPV unavailable.
+        config = ConfigManager.get_instance()
+        engine_pref = config.get("video.engine", "mpv")  # Default to MPV
 
-        Returns:
-            Initialized VisualEngine instance
-        """
-        # Try MPV first
+        logger.info(f"🎬 Engine preference: {engine_pref}")
+
+        if engine_pref == "vlc":
+            # Force VLC
+            return self._init_vlc_engine()
+        elif engine_pref == "mpv":
+            # Try MPV (raise if unavailable)
+            return self._init_mpv_engine(force=True)
+        else:  # "auto"
+            # Auto: Try MPV first, fallback to VLC
+            return self._init_mpv_engine(force=False)
+
+    def _init_mpv_engine(self, force: bool = False) -> VisualEngine:
+        """Initialize MPV engine with optional fallback."""
         try:
             logger.info("Attempting to initialize MpvEngine...")
             engine = MpvEngine(is_legacy_hardware=False)
@@ -104,10 +140,16 @@ class VisualController(QWidget):
             logger.info("✅ MpvEngine initialized successfully")
             return engine
         except (RuntimeError, OSError, ImportError) as e:
-            logger.warning(f"⚠️ MpvEngine unavailable: {e}")
-            logger.info("Falling back to VlcEngine...")
+            if force:
+                logger.error(f"❌ MpvEngine required but unavailable: {e}")
+                raise RuntimeError("MPV engine not available") from e
+            else:
+                logger.warning(f"⚠️ MpvEngine unavailable: {e}")
+                logger.info("Falling back to VlcEngine...")
+                return self._init_vlc_engine()
 
-        # Fallback to VLC
+    def _init_vlc_engine(self) -> VisualEngine:
+        """Initialize VLC engine."""
         try:
             engine = VlcEngine(is_legacy_hardware=False)
             engine.initialize()
@@ -115,7 +157,7 @@ class VisualController(QWidget):
             return engine
         except Exception as e:
             logger.error(f"❌ Failed to initialize VlcEngine: {e}")
-            raise RuntimeError("No video engine available (MPV and VLC both failed)") from e
+            raise RuntimeError("No video engine available") from e
 
     def set_background(self, background: VisualBackground) -> None:
         """
@@ -363,3 +405,9 @@ class VisualController(QWidget):
 
         # Ignore close event to prevent destruction
         event.ignore()
+    def resizeEvent(self, event) -> None:
+        """Reposition badge in top-right corner on window resize."""
+        super().resizeEvent(event)
+        # Position badge 10px from top-right
+        badge_width = self.engine_badge.sizeHint().width()
+        self.engine_badge.move(self.width() - badge_width - 10, 10)

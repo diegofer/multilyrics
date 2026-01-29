@@ -124,9 +124,11 @@ class ConfigManager:
                 "gc_policy": "disable_during_playback"  # or "normal"
             },
             "video": {
+                "engine": "mpv",  # "mpv" | "vlc" | "auto" - Engine preference (default: MPV)
                 "mode": None,  # "full" | "loop" | "static" | "none" (None = use recommended)
                 "loop_video_path": "assets/loops/default.mp4",
-                "recommended_mode": None  # Set at first run based on hardware detection
+                "recommended_mode": None,  # Set at first run based on hardware detection
+                "show_engine_badge": True  # Show engine name badge in video window
             }
         }
 

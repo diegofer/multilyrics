@@ -44,6 +44,7 @@ class MpvEngine(VisualEngine):
         self.system = platform.system()
         self.player = None
         self._loop_enabled = False
+        self._end_callback = None  # Callback for media end event
 
         logger.debug(f"🎬 MpvEngine constructed (system={self.system}, legacy={is_legacy_hardware})")
 
@@ -283,16 +284,25 @@ class MpvEngine(VisualEngine):
 
     def set_rate(self, rate: float) -> None:
         """
-        Set playback rate (NOT IMPLEMENTED - out of scope).
+        Set playback rate using mpv's speed property.
 
         Args:
-            rate: Playback speed multiplier
+            rate: Playback speed multiplier (0.95-1.05 for elastic sync)
 
         Note:
-            Rate control not required for basic visual playback.
-            Background sync handles corrections via seek, not rate.
+            Uses mpv's 'speed' property (equivalent to VLC's rate).
+            Critical for elastic sync corrections from SyncController.
         """
-        logger.warning("⚠️ MpvEngine: set_rate() not implemented (out of scope)")
+        if not self.player:
+            raise RuntimeError("Player not initialized. Call initialize() first.")
+
+        try:
+            # mpv uses 'speed' property (1.0 = normal speed)
+            self.player['speed'] = float(rate)
+            logger.debug(f"🎛️ [MPV] Speed set to {rate:.3f}")
+        except Exception as e:
+            logger.error(f"❌ [MPV] Speed change failed: {e}")
+            raise
 
     def set_loop(self, enabled: bool) -> None:
         """
@@ -330,16 +340,22 @@ class MpvEngine(VisualEngine):
 
     def get_length(self) -> float:
         """
-        Get total media duration (NOT IMPLEMENTED - out of scope).
+        Get total media duration.
 
         Returns:
-            -1.0 (not implemented)
+            Duration in seconds (e.g., 180.5), or -1.0 if unavailable
 
         Note:
-            Duration not required for basic loop playback.
-            LoopBackground uses boundary timer instead.
+            Required for LoopBackground boundary detection (95% restart threshold).
         """
-        return -1.0
+        if not self.player:
+            return -1.0
+
+        try:
+            duration = self.player['duration']
+            return float(duration) if duration is not None else -1.0
+        except Exception:
+            return -1.0
 
     def is_playing(self) -> bool:
         """
@@ -384,13 +400,25 @@ class MpvEngine(VisualEngine):
 
     def set_end_callback(self, callback) -> None:
         """
-        Set callback for media end event (NOT IMPLEMENTED - out of scope).
+        Set callback for media end event.
 
         Args:
             callback: Function to call when media ends
 
         Note:
-            EOF callbacks not required for minimal implementation.
-            Backgrounds use polling via is_playing() instead.
+            Uses mpv's event system to detect 'end-file' event.
+            Callback dispatched via QTimer to Qt event loop (thread-safe).
         """
-        logger.warning("⚠️ MpvEngine: set_end_callback() not implemented (out of scope)")
+        if not self.player:
+            raise RuntimeError("Player not initialized. Call initialize() first.")
+
+        self._end_callback = callback
+
+        # Register mpv event observer for 'end-file'
+        @self.player.event_callback('end-file')
+        def on_mpv_end(event):
+            if self._end_callback:
+                # Dispatch callback on Qt event loop (thread-safe)
+                from PySide6.QtCore import QTimer
+                QTimer.singleShot(0, self._end_callback)
+                logger.debug("🎬 [MPV] End-file event - callback scheduled")
