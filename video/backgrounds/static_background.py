@@ -125,6 +125,18 @@ class StaticFrameBackground(VisualBackground):
         """
         logger.debug("[STATIC] Video end event (unexpected, ignoring)")
 
+    def seek(self, engine: 'VisualEngine', seconds: float) -> None:
+        """
+        Seek in static mode (no-op).
+
+        Static frame remains at configured position regardless of seeks.
+
+        Args:
+            engine: VisualEngine instance
+            seconds: Target time (ignored)
+        """
+        logger.debug(f"[STATIC] Seek ignored (frame fixed at {self.static_frame_seconds:.2f}s)")
+
     def _ensure_static_frame(self, engine: 'VisualEngine') -> None:
         """
         Ensure video is paused to display static frame.

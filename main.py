@@ -52,7 +52,8 @@ from ui.widgets.track_widget import TrackWidget
 from utils.helpers import (clear_layout, get_logarithmic_volume, get_mp4,
                            get_tracks)
 from utils.lyrics_loader import LyricsLoader
-from video.video import VideoLyrics
+from video.video import VisualController
+from video.background_manager import BackgroundManager
 
 
 class MainWindow(QMainWindow):
@@ -153,8 +154,8 @@ class MainWindow(QMainWindow):
         self.loader = SpinnerDialog(self)
         # add_dialog se crea bajo demanda en open_add_dialog()
 
-        #Agregar video player
-        self.video_player = VideoLyrics()
+        #Agregar visual controller
+        self.video_player = VisualController()
 
         #Instanciar Player y enlazar con SyncController
         self.sync = SyncController(44100)
@@ -163,21 +164,22 @@ class MainWindow(QMainWindow):
         self.sync.audio_engine = self.audio_player
         self.sync.video_player = self.video_player  # FASE 5.1: Assign video reference for state checks
 
-        # FASE 5.2: Disable dynamic corrections for legacy hardware (avoid frequent seeks)
-        if hasattr(self.video_player, '_is_legacy_hardware') and self.video_player._is_legacy_hardware:
-            self.sync.disable_dynamic_corrections = True
-            logger.info("🔧 Hardware legacy detectado - correcciones dinámicas deshabilitadas")
-
         # Video offset (loaded from metadata per-song)
         self.video_offset = 0.0
+
+        # Background manager for video mode selection
+        self.background_manager = BackgroundManager()
 
         # Create single canonical TimelineModel instance shared across all components
         self.timeline_model = TimelineModel()
         self.playback = PlaybackManager(self.sync, timeline=self.timeline_model)
         self.lyrics_loader = LyricsLoader()
 
-        # Asignar SyncController a VideoLyrics para que reporte posición
-        self.video_player.sync_controller = self.sync
+        # Connect video sync correction signal to background delegation
+        self.sync.videoCorrectionNeeded.connect(self._apply_video_correction)
+
+        # Note: VisualController no longer has sync_controller attribute
+        # Sync logic is handled by VisualBackground instances
 
         # Asignar players al PlaybackManager para control centralizado
         self.playback.set_audio_player(self.audio_player)
@@ -199,8 +201,9 @@ class MainWindow(QMainWindow):
         self.playback.playingChanged.connect(self.timeline_view.set_playing_state)
         # Auto-switch zoom mode based on playback state
         self.playback.playingChanged.connect(self._on_playback_state_changed)
-        # Enable elastic video sync (Fase 3)
-        self.sync.videoCorrectionNeeded.connect(self.video_player.apply_correction)
+
+        # Note: Video sync corrections now handled by VisualBackground instances
+        # No direct connection to VisualController needed
 
         # Waveform user seeks -> central request via PlaybackManager (with video offset)
         self.timeline_view.position_changed.connect(
@@ -271,8 +274,8 @@ class MainWindow(QMainWindow):
     def open_add_dialog(self) -> None:
         """Crear diálogo bajo demanda para evitar problemas de compositor en hardware legacy.
 
-        Pattern inspirado en commit 314fab0 (VideoLyrics fix): crear ventanas frescas
-        en lugar de reutilizar instancias previas evita artifacts visuales en compositores débiles.
+        Pattern: crear ventanas frescas en lugar de reutilizar instancias previas
+        evita artifacts visuales en compositores débiles.
         """
         # Crear diálogo bajo demanda con parent para centrarlo automáticamente
         add_dialog = AddDialog(parent=self)
@@ -306,19 +309,27 @@ class MainWindow(QMainWindow):
         self.audio_player.play()
 
         # Video arranca después con offset (video observa audio)
-        # FASE 5.1: Only start video if enabled
-        if self.video_player.is_video_enabled():
+        if self.video_player.background:
             audio_time = self.audio_player.get_position_seconds()
-            self.video_player.start_playback(audio_time, self.video_offset)
+            self.video_player.background.start(
+                self.video_player.engine,
+                audio_time,
+                self.video_offset
+            )
+            logger.debug(f"📹 Video started with offset {self.video_offset:.2f}s")
         else:
-            logger.debug("📹 Video deshabilitado - solo reproducción de audio")
+            logger.debug("📹 No background set - video playback skipped")
 
         # Update UI toggle
         self.controls.set_playing_state(True)
+
     def on_pause_clicked(self) -> None:
         self.audio_player.pause()
-        #self.waveform.pause_play()
-        self.video_player.pause()
+
+        # Pause video via background
+        if self.video_player.background:
+            self.video_player.background.pause(self.video_player.engine)
+
         # Stop position polling timer after pause
         self.sync.stop_sync()
         # Update UI toggle
@@ -435,6 +446,24 @@ class MainWindow(QMainWindow):
             # Playing → switch to PLAYBACK mode for optimal reading
             self.timeline_view.set_zoom_mode(ZoomMode.PLAYBACK, auto=True)
         # Note: When paused, we keep the current zoom mode (don't auto-switch to GENERAL)
+
+    @Slot(dict)
+    def _apply_video_correction(self, correction: dict) -> None:
+        """
+        Apply video sync correction via active background.
+
+        Delegates correction to background instance, which handles
+        mode-specific logic (elastic sync for full, no-op for others).
+
+        Args:
+            correction: Correction dict from SyncController
+        """
+        if self.video_player and self.video_player.background:
+            self.video_player.background.apply_correction(
+                self.video_player.engine,
+                correction
+            )
+
         # This allows users to pause and remain in PLAYBACK or EDIT mode for better context
 
     @Slot()
@@ -811,8 +840,26 @@ class MainWindow(QMainWindow):
             # Notify timeline_view to initialize lyrics track
             self.timeline_view.reload_lyrics_track()
 
-        # Actualizar Video Player
-        self.video_player.set_media(video_path)
+        # Configure video background based on mode
+        config = ConfigManager.get_instance()
+        video_mode = config.get("video.mode", "full")
+
+        # Create and set background
+        background = self.background_manager.create_background(
+            mode=video_mode,
+            sync_controller=self.sync if video_mode == "full" else None
+        )
+        self.video_player.set_background(background)
+
+        # Load media if background requires it
+        if self.background_manager.is_video_required(video_mode):
+            if video_path and video_path.exists():
+                self.video_player.engine.load(str(video_path))
+                logger.info(f"🎬 Video loaded: {video_path.name} (mode: {video_mode})")
+            else:
+                logger.warning(f"⚠️ Video mode '{video_mode}' requires video but none found")
+        else:
+            logger.debug(f"📹 Video mode '{video_mode}' does not require media")
 
         # Reset edit mode state when changing songs
         self.controls.set_edit_mode_enabled(True)  # Enable edit button for new song

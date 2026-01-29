@@ -116,6 +116,25 @@ class VisualBackground(ABC):
         """
         pass
 
+    @abstractmethod
+    def seek(self, engine: 'VisualEngine', seconds: float) -> None:
+        """
+        Seek to specific time position.
+
+        Args:
+            engine: VisualEngine instance
+            seconds: Target time in seconds
+
+        Note:
+            Called when user seeks timeline or audio playback changes position.
+            Implementations should:
+            - Full mode: Seek engine + report to sync
+            - Loop mode: Seek engine
+            - Static mode: No-op (frame fixed)
+            - Blank mode: No-op (no video)
+        """
+        pass
+
     def apply_correction(self, engine: 'VisualEngine', correction: dict) -> None:
         """
         Apply sync correction (optional, only for sync modes).

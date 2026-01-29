@@ -78,3 +78,13 @@ class BlankBackground(VisualBackground):
             engine: VisualEngine (unused)
         """
         pass
+
+    def seek(self, engine: 'VisualEngine', seconds: float) -> None:
+        """
+        Seek video (no-op for blank background).
+
+        Args:
+            engine: VisualEngine (unused)
+            seconds: Target time (ignored)
+        """
+        pass  # No video to seek

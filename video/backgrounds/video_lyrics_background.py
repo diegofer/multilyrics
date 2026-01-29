@@ -126,6 +126,24 @@ class VideoLyricsBackground(VisualBackground):
         logger.info("[FULL] Video ended naturally")
         self.stop(engine)
 
+    def seek(self, engine: 'VisualEngine', seconds: float) -> None:
+        """
+        Seek video to specific time.
+
+        Reports new position to SyncController for accurate drift tracking.
+
+        Args:
+            engine: VisualEngine instance
+            seconds: Target time in seconds
+        """
+        engine.seek(seconds)
+
+        # Report new position to sync controller
+        if self.sync_controller:
+            self.sync_controller.video_position = seconds
+
+        logger.debug(f"[FULL] Video seeked to {seconds:.2f}s")
+
     def apply_correction(self, engine: 'VisualEngine', correction: dict) -> None:
         """
         Apply sync correction from SyncController.

@@ -136,6 +136,17 @@ class VideoLoopBackground(VisualBackground):
         # Restart on Qt event loop to avoid VLC thread issues
         QTimer.singleShot(0, self._restart_loop)
 
+    def seek(self, engine: 'VisualEngine', seconds: float) -> None:
+        """
+        Seek loop video to specific time.
+
+        Args:
+            engine: VisualEngine instance
+            seconds: Target time in seconds
+        """
+        engine.seek(seconds)
+        logger.debug(f"[LOOP] Video seeked to {seconds:.2f}s")
+
     def _check_boundary(self) -> None:
         """
         Check if video reached loop boundary and restart.

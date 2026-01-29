@@ -173,11 +173,11 @@ class PlaybackManager(QObject):
             if self.audio_player is not None:
                 self.audio_player.seek_seconds(seconds)
 
-        # Seek video player
+        # Seek video via background
         with safe_operation("Seeking video player", silent=True):
-            if self.video_player is not None:
+            if self.video_player and self.video_player.background:
                 video_time = seconds + video_offset
-                self.video_player.seek_seconds(video_time)
+                self.video_player.background.seek(self.video_player.engine, video_time)
                 if abs(video_offset) > 0.001:
                     logger.debug(f"🎬 Video seek with offset: {seconds:.3f}s + {video_offset:+.3f}s = {video_time:.3f}s")
 
