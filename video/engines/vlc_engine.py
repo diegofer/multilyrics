@@ -117,7 +117,12 @@ class VlcEngine(VisualEngine):
         self.player.set_media(media)
         media.release()
 
-        logger.debug(f"📹 VlcEngine: Loaded video: {path}")
+        # CRITICAL: Parse media to enable pause, but don't start playback
+        # This prevents auto-play when showing video window
+        self.player.play()
+        self.player.pause()
+
+        logger.debug(f"📹 VlcEngine: Loaded video: {path} (paused)")
 
     def play(self) -> None:
         """Start or resume playback."""

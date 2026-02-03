@@ -5,7 +5,9 @@ Minimal functional implementation using python-mpv library.
 Supports MP4 and images, loop playback, and multi-monitor output.
 """
 
+import os
 import platform
+import sys
 from pathlib import Path
 from typing import Optional
 
@@ -13,6 +15,13 @@ from utils.logger import get_logger
 from video.engines.base import VisualEngine, PlaybackState
 
 logger = get_logger(__name__)
+
+# Add Python Scripts directory to PATH for libmpv-2.dll discovery (Windows)
+if platform.system() == "Windows":
+    scripts_dir = Path(sys.executable).parent
+    if scripts_dir not in os.environ.get("PATH", "").split(os.pathsep):
+        os.environ["PATH"] = str(scripts_dir) + os.pathsep + os.environ["PATH"]
+        logger.debug(f"Added to PATH for MPV: {scripts_dir}")
 
 
 class MpvEngine(VisualEngine):
@@ -70,10 +79,10 @@ class MpvEngine(VisualEngine):
 
         try:
             # Basic mpv configuration
-            # CRITICAL: no-audio to prevent mpv from emitting sound
+            # CRITICAL: audio=no to prevent mpv from emitting sound
             self.player = mpv.MPV(
                 # Audio
-                no_audio=True,  # AudioEngine owns audio output
+                audio='no',  # AudioEngine owns audio output (use 'no' not True)
 
                 # Video output
                 vo='gpu',  # Hardware-accelerated rendering
@@ -86,8 +95,7 @@ class MpvEngine(VisualEngine):
                 # Performance
                 video_sync='display-resample',  # Smooth playback
 
-                # Logging
-                log_level='info',
+                # Logging (suppress output)
                 terminal='no',  # Suppress terminal output
                 msg_level='all=error',  # Only errors in console
             )
@@ -224,7 +232,11 @@ class MpvEngine(VisualEngine):
             if self._loop_enabled:
                 self.player['loop-file'] = 'inf'
 
-            logger.debug(f"📹 MpvEngine: Loaded media: {file_path.name}")
+            # CRITICAL: Pause after load to prevent auto-play
+            # This allows showing video window without starting playback
+            self.player.pause = True
+
+            logger.debug(f"📹 MpvEngine: Loaded media: {file_path.name} (paused)")
 
         except Exception as e:
             raise RuntimeError(f"Failed to load media: {e}") from e

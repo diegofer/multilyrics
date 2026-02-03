@@ -1,0 +1,973 @@
+﻿.\env\Scripts\python.exe : C:\Users\dieguito\Documents\dev\multi_lyrics\main.py:950: DeprecationWarning: 
+Enum value 'Qt::ApplicationAttribute.AA_UseHighDpiPixmaps' is marked as deprecated, please check the 
+documentation for more information.
+En línea: 1 Carácter: 1
++ .\env\Scripts\python.exe main.py 2>&1 | Out-File -Encoding UTF8 logs_ ...
++ ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: (C:\Users\diegui...re information.:String) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+ 
+  app.setAttribute(Qt.AA_UseHighDpiPixmaps)
+qt.core.qmetaobject.connectslotsbyname: QMetaObject::connectSlotsByName: No matching signal for 
+on_multi_selected()
+qt.core.qmetaobject.connectslotsbyname: QMetaObject::connectSlotsByName: No matching signal for 
+on_play_clicked()
+qt.core.qmetaobject.connectslotsbyname: QMetaObject::connectSlotsByName: No matching signal for 
+on_edit_mode_toggled()
+qt.core.qmetaobject.connectslotsbyname: QMetaObject::connectSlotsByName: No matching signal for 
+on_zoom_mode_changed(QString)
+qt.core.qmetaobject.connectslotsbyname: QMetaObject::connectSlotsByName: No matching signal for 
+on_timeline_zoom_mode_changed(PyObject)
+qt.core.qmetaobject.connectslotsbyname: QMetaObject::connectSlotsByName: No matching signal for 
+on_extraction_process()
+[32mINFO[0m [ui.widgets.timeline_view] TimelineView initialized - waiting for multi selection
+--- Logging error ---
+Traceback (most recent call last):
+  File "C:\Users\dieguito\AppData\Local\Programs\Python\Python311\Lib\logging\__init__.py", line 1113, in 
+emit
+    stream.write(msg + self.terminator)
+  File "C:\Users\dieguito\AppData\Local\Programs\Python\Python311\Lib\encodings\cp1252.py", line 19, in 
+encode
+    return codecs.charmap_encode(input,self.errors,encoding_table)[0]
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+UnicodeEncodeError: 'charmap' codec can't encode characters in position 36-37: character maps to 
+<undefined>
+Call stack:
+  File "C:\Users\dieguito\Documents\dev\multi_lyrics\main.py", line 953, in <module>
+    window = MainWindow()
+  File "C:\Users\dieguito\Documents\dev\multi_lyrics\main.py", line 83, in __init__
+    profile_manager = get_profile_manager()
+  File "C:\Users\dieguito\Documents\dev\multi_lyrics\core\audio_profiles.py", line 303, in 
+get_profile_manager
+    _profile_manager = AudioProfileManager()
+  File "C:\Users\dieguito\Documents\dev\multi_lyrics\core\audio_profiles.py", line 118, in __init__
+    logger.info(f"\U0001f5a5\ufe0f  Detected OS: {self._detected_os}")
+Message: '\U0001f5a5\ufe0f  Detected OS: windows'
+Arguments: ()
+--- Logging error ---
+Traceback (most recent call last):
+  File "C:\Users\dieguito\AppData\Local\Programs\Python\Python311\Lib\logging\__init__.py", line 1113, in 
+emit
+    stream.write(msg + self.terminator)
+  File "C:\Users\dieguito\AppData\Local\Programs\Python\Python311\Lib\encodings\cp1252.py", line 19, in 
+encode
+    return codecs.charmap_encode(input,self.errors,encoding_table)[0]
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+UnicodeEncodeError: 'charmap' codec can't encode character '\U0001f4bb' in position 36: character maps to 
+<undefined>
+Call stack:
+  File "C:\Users\dieguito\Documents\dev\multi_lyrics\main.py", line 953, in <module>
+    window = MainWindow()
+  File "C:\Users\dieguito\Documents\dev\multi_lyrics\main.py", line 84, in __init__
+    audio_profile = profile_manager.auto_select_profile()
+  File "C:\Users\dieguito\Documents\dev\multi_lyrics\core\audio_profiles.py", line 247, in 
+auto_select_profile
+    specs = self._detect_hardware_specs()
+  File "C:\Users\dieguito\Documents\dev\multi_lyrics\core\audio_profiles.py", line 183, in 
+_detect_hardware_specs
+    logger.info(f"\U0001f4bb Detected hardware: ~{specs['cpu_year']} CPU, "
+Message: '\U0001f4bb Detected hardware: ~2018 CPU, 32 GB RAM, 6 cores'
+Arguments: ()
+--- Logging error ---
+Traceback (most recent call last):
+  File "C:\Users\dieguito\AppData\Local\Programs\Python\Python311\Lib\logging\__init__.py", line 1113, in 
+emit
+    stream.write(msg + self.terminator)
+  File "C:\Users\dieguito\AppData\Local\Programs\Python\Python311\Lib\encodings\cp1252.py", line 19, in 
+encode
+    return codecs.charmap_encode(input,self.errors,encoding_table)[0]
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+UnicodeEncodeError: 'charmap' codec can't encode characters in position 36-37: character maps to 
+<undefined>
+Call stack:
+  File "C:\Users\dieguito\Documents\dev\multi_lyrics\main.py", line 953, in <module>
+    window = MainWindow()
+  File "C:\Users\dieguito\Documents\dev\multi_lyrics\main.py", line 84, in __init__
+    audio_profile = profile_manager.auto_select_profile()
+  File "C:\Users\dieguito\Documents\dev\multi_lyrics\core\audio_profiles.py", line 268, in 
+auto_select_profile
+    logger.info(f"\U0001f39b\ufe0f  Mid-range hardware: Using {profile_name}")
+Message: '\U0001f39b\ufe0f  Mid-range hardware: Using balanced'
+Arguments: ()
+--- Logging error ---
+Traceback (most recent call last):
+  File "C:\Users\dieguito\AppData\Local\Programs\Python\Python311\Lib\logging\__init__.py", line 1113, in 
+emit
+    stream.write(msg + self.terminator)
+  File "C:\Users\dieguito\AppData\Local\Programs\Python\Python311\Lib\encodings\cp1252.py", line 19, in 
+encode
+    return codecs.charmap_encode(input,self.errors,encoding_table)[0]
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+UnicodeEncodeError: 'charmap' codec can't encode character '\u2705' in position 36: character maps to 
+<undefined>
+Call stack:
+  File "C:\Users\dieguito\Documents\dev\multi_lyrics\main.py", line 953, in <module>
+    window = MainWindow()
+  File "C:\Users\dieguito\Documents\dev\multi_lyrics\main.py", line 84, in __init__
+    audio_profile = profile_manager.auto_select_profile()
+  File "C:\Users\dieguito\Documents\dev\multi_lyrics\core\audio_profiles.py", line 270, in 
+auto_select_profile
+    profile = self.load_profile(profile_name)
+  File "C:\Users\dieguito\Documents\dev\multi_lyrics\core\audio_profiles.py", line 221, in load_profile
+    logger.info(f"\u2705 Loaded profile: {profile.name}")
+Message: '\u2705 Loaded profile: Balanced Performance (Windows)'
+Arguments: ()
+--- Logging error ---
+Traceback (most recent call last):
+  File "C:\Users\dieguito\AppData\Local\Programs\Python\Python311\Lib\logging\__init__.py", line 1113, in 
+emit
+    stream.write(msg + self.terminator)
+  File "C:\Users\dieguito\AppData\Local\Programs\Python\Python311\Lib\encodings\cp1252.py", line 19, in 
+encode
+    return codecs.charmap_encode(input,self.errors,encoding_table)[0]
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+UnicodeEncodeError: 'charmap' codec can't encode character '\U0001f3af' in position 36: character maps to 
+<undefined>
+Call stack:
+  File "C:\Users\dieguito\Documents\dev\multi_lyrics\main.py", line 953, in <module>
+    window = MainWindow()
+  File "C:\Users\dieguito\Documents\dev\multi_lyrics\main.py", line 84, in __init__
+    audio_profile = profile_manager.auto_select_profile()
+  File "C:\Users\dieguito\Documents\dev\multi_lyrics\core\audio_profiles.py", line 272, in 
+auto_select_profile
+    logger.info(f"\U0001f3af Auto-selected profile: {profile.name} (CPU ~{cpu_year}, {ram_gb}GB RAM, 
+{cores} cores)")
+Message: '\U0001f3af Auto-selected profile: Balanced Performance (Windows) (CPU ~2018, 32GB RAM, 6 cores)'
+Arguments: ()
+--- Logging error ---
+Traceback (most recent call last):
+  File "C:\Users\dieguito\AppData\Local\Programs\Python\Python311\Lib\logging\__init__.py", line 1113, in 
+emit
+    stream.write(msg + self.terminator)
+  File "C:\Users\dieguito\AppData\Local\Programs\Python\Python311\Lib\encodings\cp1252.py", line 19, in 
+encode
+    return codecs.charmap_encode(input,self.errors,encoding_table)[0]
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+UnicodeEncodeError: 'charmap' codec can't encode characters in position 25-26: character maps to 
+<undefined>
+Call stack:
+  File "C:\Users\dieguito\Documents\dev\multi_lyrics\main.py", line 953, in <module>
+    window = MainWindow()
+  File "C:\Users\dieguito\Documents\dev\multi_lyrics\main.py", line 85, in __init__
+    logger.info(f"\U0001f39b\ufe0f  Using audio profile: {audio_profile.name}")
+Message: '\U0001f39b\ufe0f  Using audio profile: Balanced Performance (Windows)'
+Arguments: ()
+[32mINFO[0m [__main__]    Description: Configuraci¾n equilibrada con WASAPI shared mode
+[32mINFO[0m [__main__]    Settings: blocksize=2048, gc_policy=disable_during_playback
+--- Logging error ---
+Traceback (most recent call last):
+  File "C:\Users\dieguito\AppData\Local\Programs\Python\Python311\Lib\logging\__init__.py", line 1113, in 
+emit
+    stream.write(msg + self.terminator)
+  File "C:\Users\dieguito\AppData\Local\Programs\Python\Python311\Lib\encodings\cp1252.py", line 19, in 
+encode
+    return codecs.charmap_encode(input,self.errors,encoding_table)[0]
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+UnicodeEncodeError: 'charmap' codec can't encode character '\U0001f4cb' in position 36: character maps to 
+<undefined>
+Call stack:
+  File "C:\Users\dieguito\Documents\dev\multi_lyrics\main.py", line 953, in <module>
+    window = MainWindow()
+  File "C:\Users\dieguito\Documents\dev\multi_lyrics\main.py", line 90, in __init__
+    config = ConfigManager.get_instance()
+  File "C:\Users\dieguito\Documents\dev\multi_lyrics\core\config_manager.py", line 57, in get_instance
+    cls._instance = cls(config_path)
+  File "C:\Users\dieguito\Documents\dev\multi_lyrics\core\config_manager.py", line 43, in __init__
+    logger.info(f"\U0001f4cb ConfigManager initialized: {self.config_path}")
+Message: '\U0001f4cb ConfigManager initialized: config\\settings.json'
+Arguments: ()
+--- Logging error ---
+Traceback (most recent call last):
+  File "C:\Users\dieguito\AppData\Local\Programs\Python\Python311\Lib\logging\__init__.py", line 1113, in 
+emit
+    stream.write(msg + self.terminator)
+  File "C:\Users\dieguito\AppData\Local\Programs\Python\Python311\Lib\encodings\cp1252.py", line 19, in 
+encode
+    return codecs.charmap_encode(input,self.errors,encoding_table)[0]
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+UnicodeEncodeError: 'charmap' codec can't encode character '\U0001f3ac' in position 25: character maps to 
+<undefined>
+Call stack:
+  File "C:\Users\dieguito\Documents\dev\multi_lyrics\main.py", line 953, in <module>
+    window = MainWindow()
+  File "C:\Users\dieguito\Documents\dev\multi_lyrics\main.py", line 105, in __init__
+    logger.info(f"\U0001f3ac Active video mode: {video_mode}")
+Message: '\U0001f3ac Active video mode: full'
+Arguments: ()
+--- Logging error ---
+Traceback (most recent call last):
+  File "C:\Users\dieguito\AppData\Local\Programs\Python\Python311\Lib\logging\__init__.py", line 1113, in 
+emit
+    stream.write(msg + self.terminator)
+  File "C:\Users\dieguito\AppData\Local\Programs\Python\Python311\Lib\encodings\cp1252.py", line 19, in 
+encode
+    return codecs.charmap_encode(input,self.errors,encoding_table)[0]
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+UnicodeEncodeError: 'charmap' codec can't encode characters in position 25-26: character maps to 
+<undefined>
+Call stack:
+  File "C:\Users\dieguito\Documents\dev\multi_lyrics\main.py", line 953, in <module>
+    window = MainWindow()
+  File "C:\Users\dieguito\Documents\dev\multi_lyrics\main.py", line 111, in __init__
+    logger.info(f"\U0001f39b\ufe0f  Latency monitoring: {'ENABLED' if enable_monitoring else 'disabled'} 
+(audio callback)")
+Message: '\U0001f39b\ufe0f  Latency monitoring: ENABLED (audio callback)'
+Arguments: ()
+--- Logging error ---
+Traceback (most recent call last):
+  File "C:\Users\dieguito\AppData\Local\Programs\Python\Python311\Lib\logging\__init__.py", line 1113, in 
+emit
+    stream.write(msg + self.terminator)
+  File "C:\Users\dieguito\AppData\Local\Programs\Python\Python311\Lib\encodings\cp1252.py", line 19, in 
+encode
+    return codecs.charmap_encode(input,self.errors,encoding_table)[0]
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+UnicodeEncodeError: 'charmap' codec can't encode character '\U0001fa9f' in position 28: character maps to 
+<undefined>
+Call stack:
+  File "C:\Users\dieguito\Documents\dev\multi_lyrics\main.py", line 953, in <module>
+    window = MainWindow()
+  File "C:\Users\dieguito\Documents\dev\multi_lyrics\main.py", line 158, in __init__
+    self.video_player = VisualController()
+  File "C:\Users\dieguito\Documents\dev\multi_lyrics\video\video.py", line 71, in __init__
+    logger.info(f"\U0001fa9f VisualController created - Flags set to prevent auto-show")
+Message: '\U0001fa9f VisualController created - Flags set to prevent auto-show'
+Arguments: ()
+--- Logging error ---
+Traceback (most recent call last):
+  File "C:\Users\dieguito\AppData\Local\Programs\Python\Python311\Lib\logging\__init__.py", line 1113, in 
+emit
+    stream.write(msg + self.terminator)
+  File "C:\Users\dieguito\AppData\Local\Programs\Python\Python311\Lib\encodings\cp1252.py", line 19, in 
+encode
+    return codecs.charmap_encode(input,self.errors,encoding_table)[0]
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+UnicodeEncodeError: 'charmap' codec can't encode character '\U0001fa9f' in position 28: character maps to 
+<undefined>
+Call stack:
+  File "C:\Users\dieguito\Documents\dev\multi_lyrics\main.py", line 953, in <module>
+    window = MainWindow()
+  File "C:\Users\dieguito\Documents\dev\multi_lyrics\main.py", line 158, in __init__
+    self.video_player = VisualController()
+  File "C:\Users\dieguito\Documents\dev\multi_lyrics\video\video.py", line 82, in __init__
+    logger.info(f"\U0001fa9f Engine will be initialized lazily (on first show_window() call)")
+Message: '\U0001fa9f Engine will be initialized lazily (on first show_window() call)'
+Arguments: ()
+--- Logging error ---
+Traceback (most recent call last):
+  File "C:\Users\dieguito\AppData\Local\Programs\Python\Python311\Lib\logging\__init__.py", line 1113, in 
+emit
+    stream.write(msg + self.terminator)
+  File "C:\Users\dieguito\AppData\Local\Programs\Python\Python311\Lib\encodings\cp1252.py", line 19, in 
+encode
+    return codecs.charmap_encode(input,self.errors,encoding_table)[0]
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+UnicodeEncodeError: 'charmap' codec can't encode character '\U0001fa9f' in position 28: character maps to 
+<undefined>
+Call stack:
+  File "C:\Users\dieguito\Documents\dev\multi_lyrics\main.py", line 953, in <module>
+    window = MainWindow()
+  File "C:\Users\dieguito\Documents\dev\multi_lyrics\main.py", line 158, in __init__
+    self.video_player = VisualController()
+  File "C:\Users\dieguito\Documents\dev\multi_lyrics\video\video.py", line 115, in __init__
+    logger.info(f"\U0001fa9f Layout set - Window visible: {self.isVisible()}")
+Message: '\U0001fa9f Layout set - Window visible: False'
+Arguments: ()
+--- Logging error ---
+Traceback (most recent call last):
+  File "C:\Users\dieguito\AppData\Local\Programs\Python\Python311\Lib\logging\__init__.py", line 1113, in 
+emit
+    stream.write(msg + self.terminator)
+  File "C:\Users\dieguito\AppData\Local\Programs\Python\Python311\Lib\encodings\cp1252.py", line 19, in 
+encode
+    return codecs.charmap_encode(input,self.errors,encoding_table)[0]
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+UnicodeEncodeError: 'charmap' codec can't encode characters in position 31-32: character maps to 
+<undefined>
+Call stack:
+  File "C:\Users\dieguito\Documents\dev\multi_lyrics\main.py", line 955, in <module>
+    sys.exit(app.exec())
+  File "C:\Users\dieguito\Documents\dev\multi_lyrics\main.py", line 284, in open_add_dialog
+    add_dialog.exec()
+  File "C:\Users\dieguito\Documents\dev\multi_lyrics\ui\widgets\search_widget.py", line 70, in 
+procesar_seleccion
+    self.multi_selected.emit(ruta)
+  File "C:\Users\dieguito\Documents\dev\multi_lyrics\main.py", line 289, in on_multi_selected
+    self.set_active_song(path)
+  File "C:\Users\dieguito\Documents\dev\multi_lyrics\main.py", line 798, in set_active_song
+    self.playback.request_seek(0.0, video_offset=0.0)
+  File "C:\Users\dieguito\Documents\dev\multi_lyrics\core\playback_manager.py", line 174, in request_seek
+    self.audio_player.seek_seconds(seconds)
+  File "C:\Users\dieguito\Documents\dev\multi_lyrics\core\engine.py", line 589, in seek_seconds
+    logger.warning("\u26a0\ufe0f  Cannot seek: no tracks loaded (samplerate not detected)")
+Message: '\u26a0\ufe0f  Cannot seek: no tracks loaded (samplerate not detected)'
+Arguments: ()
+--- Logging error ---
+Traceback (most recent call last):
+  File "C:\Users\dieguito\AppData\Local\Programs\Python\Python311\Lib\logging\__init__.py", line 1113, in 
+emit
+    stream.write(msg + self.terminator)
+  File "C:\Users\dieguito\AppData\Local\Programs\Python\Python311\Lib\encodings\cp1252.py", line 19, in 
+encode
+    return codecs.charmap_encode(input,self.errors,encoding_table)[0]
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+UnicodeEncodeError: 'charmap' codec can't encode character '\U0001f3b5' in position 28: character maps to 
+<undefined>
+Call stack:
+  File "C:\Users\dieguito\Documents\dev\multi_lyrics\main.py", line 955, in <module>
+    sys.exit(app.exec())
+  File "C:\Users\dieguito\Documents\dev\multi_lyrics\main.py", line 284, in open_add_dialog
+    add_dialog.exec()
+  File "C:\Users\dieguito\Documents\dev\multi_lyrics\ui\widgets\search_widget.py", line 70, in 
+procesar_seleccion
+    self.multi_selected.emit(ruta)
+  File "C:\Users\dieguito\Documents\dev\multi_lyrics\main.py", line 289, in on_multi_selected
+    self.set_active_song(path)
+  File "C:\Users\dieguito\Documents\dev\multi_lyrics\main.py", line 833, in set_active_song
+    self.audio_player.load_tracks(tracks_paths_final)  # Cargar tracks o master
+  File "C:\Users\dieguito\Documents\dev\multi_lyrics\core\engine.py", line 234, in load_tracks
+    logger.info(f"\U0001f3b5 Auto-detected sample rate: {self.samplerate} Hz from first track")
+Message: '\U0001f3b5 Auto-detected sample rate: 44100 Hz from first track'
+Arguments: ()
+--- Logging error ---
+Traceback (most recent call last):
+  File "C:\Users\dieguito\AppData\Local\Programs\Python\Python311\Lib\logging\__init__.py", line 1113, in 
+emit
+    stream.write(msg + self.terminator)
+  File "C:\Users\dieguito\AppData\Local\Programs\Python\Python311\Lib\encodings\cp1252.py", line 19, in 
+encode
+    return codecs.charmap_encode(input,self.errors,encoding_table)[0]
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+UnicodeEncodeError: 'charmap' codec can't encode character '\U0001f4be' in position 28: character maps to 
+<undefined>
+Call stack:
+  File "C:\Users\dieguito\Documents\dev\multi_lyrics\main.py", line 955, in <module>
+    sys.exit(app.exec())
+  File "C:\Users\dieguito\Documents\dev\multi_lyrics\main.py", line 284, in open_add_dialog
+    add_dialog.exec()
+  File "C:\Users\dieguito\Documents\dev\multi_lyrics\ui\widgets\search_widget.py", line 70, in 
+procesar_seleccion
+    self.multi_selected.emit(ruta)
+  File "C:\Users\dieguito\Documents\dev\multi_lyrics\main.py", line 289, in on_multi_selected
+    self.set_active_song(path)
+  File "C:\Users\dieguito\Documents\dev\multi_lyrics\main.py", line 833, in set_active_song
+    self.audio_player.load_tracks(tracks_paths_final)  # Cargar tracks o master
+  File "C:\Users\dieguito\Documents\dev\multi_lyrics\core\engine.py", line 268, in load_tracks
+    self._validate_ram(total_bytes)
+  File "C:\Users\dieguito\Documents\dev\multi_lyrics\core\engine.py", line 207, in _validate_ram
+    logger.info(f"\U0001f4be Pre-load size: {total_gb:.2f} GB | Available RAM: {available_gb:.2f} GB")
+Message: '\U0001f4be Pre-load size: 0.39 GB | Available RAM: 16.36 GB'
+Arguments: ()
+[32mINFO[0m [ui.widgets.timeline_view] Audio loaded: 13,201,408 samples @ 44100Hz (299.35s)
+--- Logging error ---
+Traceback (most recent call last):
+  File "C:\Users\dieguito\AppData\Local\Programs\Python\Python311\Lib\logging\__init__.py", line 1113, in 
+emit
+    stream.write(msg + self.terminator)
+  File "C:\Users\dieguito\AppData\Local\Programs\Python\Python311\Lib\encodings\cp1252.py", line 19, in 
+encode
+    return codecs.charmap_encode(input,self.errors,encoding_table)[0]
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+UnicodeEncodeError: 'charmap' codec can't encode character '\u2705' in position 28: character maps to 
+<undefined>
+Call stack:
+  File "C:\Users\dieguito\Documents\dev\multi_lyrics\main.py", line 955, in <module>
+    sys.exit(app.exec())
+  File "C:\Users\dieguito\Documents\dev\multi_lyrics\main.py", line 284, in open_add_dialog
+    add_dialog.exec()
+  File "C:\Users\dieguito\Documents\dev\multi_lyrics\ui\widgets\search_widget.py", line 70, in 
+procesar_seleccion
+    self.multi_selected.emit(ruta)
+  File "C:\Users\dieguito\Documents\dev\multi_lyrics\main.py", line 289, in on_multi_selected
+    self.set_active_song(path)
+  File "C:\Users\dieguito\Documents\dev\multi_lyrics\main.py", line 873, in set_active_song
+    self.video_player.set_background(background)
+  File "C:\Users\dieguito\Documents\dev\multi_lyrics\video\video.py", line 189, in set_background
+    logger.info(f"\u2705 Background set: {type(background).__name__}")
+Message: '\u2705 Background set: VideoLyricsBackground'
+Arguments: ()
+[32mINFO[0m [video.video] 
+==================================================
+--- Logging error ---
+Traceback (most recent call last):
+  File "C:\Users\dieguito\AppData\Local\Programs\Python\Python311\Lib\logging\__init__.py", line 1113, in 
+emit
+    stream.write(msg + self.terminator)
+  File "C:\Users\dieguito\AppData\Local\Programs\Python\Python311\Lib\encodings\cp1252.py", line 19, in 
+encode
+    return codecs.charmap_encode(input,self.errors,encoding_table)[0]
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+UnicodeEncodeError: 'charmap' codec can't encode character '\U0001fa9f' in position 28: character maps to 
+<undefined>
+Call stack:
+  File "C:\Users\dieguito\Documents\dev\multi_lyrics\main.py", line 955, in <module>
+    sys.exit(app.exec())
+  File "C:\Users\dieguito\Documents\dev\multi_lyrics\main.py", line 402, in _on_show_video_toggled
+    self.video_player.show_window()
+  File "C:\Users\dieguito\Documents\dev\multi_lyrics\video\video.py", line 200, in show_window
+    logger.info("\U0001fa9f show_window() CALLED")
+Message: '\U0001fa9f show_window() CALLED'
+Arguments: ()
+[32mINFO[0m [video.video] Call stack:
+[32mINFO[0m [video.video] File "C:\Users\dieguito\Documents\dev\multi_lyrics\main.py", line 955, in <module>
+    sys.exit(app.exec())
+[32mINFO[0m [video.video] File "C:\Users\dieguito\Documents\dev\multi_lyrics\main.py", line 402, in _on_show_video_toggled
+    self.video_player.show_window()
+[32mINFO[0m [video.video] ==================================================
+
+--- Logging error ---
+Traceback (most recent call last):
+  File "C:\Users\dieguito\AppData\Local\Programs\Python\Python311\Lib\logging\__init__.py", line 1113, in 
+emit
+    stream.write(msg + self.terminator)
+  File "C:\Users\dieguito\AppData\Local\Programs\Python\Python311\Lib\encodings\cp1252.py", line 19, in 
+encode
+    return codecs.charmap_encode(input,self.errors,encoding_table)[0]
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+UnicodeEncodeError: 'charmap' codec can't encode character '\U0001f527' in position 28: character maps to 
+<undefined>
+Call stack:
+  File "C:\Users\dieguito\Documents\dev\multi_lyrics\main.py", line 955, in <module>
+    sys.exit(app.exec())
+  File "C:\Users\dieguito\Documents\dev\multi_lyrics\main.py", line 402, in _on_show_video_toggled
+    self.video_player.show_window()
+  File "C:\Users\dieguito\Documents\dev\multi_lyrics\video\video.py", line 208, in show_window
+    logger.info("\U0001f527 Initializing engine lazily (first time)")
+Message: '\U0001f527 Initializing engine lazily (first time)'
+Arguments: ()
+--- Logging error ---
+Traceback (most recent call last):
+  File "C:\Users\dieguito\AppData\Local\Programs\Python\Python311\Lib\logging\__init__.py", line 1113, in 
+emit
+    stream.write(msg + self.terminator)
+  File "C:\Users\dieguito\AppData\Local\Programs\Python\Python311\Lib\encodings\cp1252.py", line 19, in 
+encode
+    return codecs.charmap_encode(input,self.errors,encoding_table)[0]
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+UnicodeEncodeError: 'charmap' codec can't encode character '\U0001f3ac' in position 28: character maps to 
+<undefined>
+Call stack:
+  File "C:\Users\dieguito\Documents\dev\multi_lyrics\main.py", line 955, in <module>
+    sys.exit(app.exec())
+  File "C:\Users\dieguito\Documents\dev\multi_lyrics\main.py", line 402, in _on_show_video_toggled
+    self.video_player.show_window()
+  File "C:\Users\dieguito\Documents\dev\multi_lyrics\video\video.py", line 209, in show_window
+    self.engine = self._initialize_engine()
+  File "C:\Users\dieguito\Documents\dev\multi_lyrics\video\video.py", line 130, in _initialize_engine
+    logger.info(f"\U0001f3ac Engine preference: {engine_pref}")
+Message: '\U0001f3ac Engine preference: auto'
+Arguments: ()
+[32mINFO[0m [video.video] Attempting to initialize MpvEngine...
+--- Logging error ---
+Traceback (most recent call last):
+  File "C:\Users\dieguito\AppData\Local\Programs\Python\Python311\Lib\logging\__init__.py", line 1113, in 
+emit
+    stream.write(msg + self.terminator)
+  File "C:\Users\dieguito\AppData\Local\Programs\Python\Python311\Lib\encodings\cp1252.py", line 19, in 
+encode
+    return codecs.charmap_encode(input,self.errors,encoding_table)[0]
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+UnicodeEncodeError: 'charmap' codec can't encode character '\U0001f3ac' in position 41: character maps to 
+<undefined>
+Call stack:
+  File "C:\Users\dieguito\Documents\dev\multi_lyrics\main.py", line 955, in <module>
+    sys.exit(app.exec())
+  File "C:\Users\dieguito\Documents\dev\multi_lyrics\main.py", line 402, in _on_show_video_toggled
+    self.video_player.show_window()
+  File "C:\Users\dieguito\Documents\dev\multi_lyrics\video\video.py", line 209, in show_window
+    self.engine = self._initialize_engine()
+  File "C:\Users\dieguito\Documents\dev\multi_lyrics\video\video.py", line 140, in _initialize_engine
+    return self._init_mpv_engine(force=False)
+  File "C:\Users\dieguito\Documents\dev\multi_lyrics\video\video.py", line 147, in _init_mpv_engine
+    engine.initialize()
+  File "C:\Users\dieguito\Documents\dev\multi_lyrics\video\engines\mpv_engine.py", line 109, in initialize
+    logger.info(f"\U0001f3ac MpvEngine initialized (system={self.system}, 
+legacy={self.is_legacy_hardware})")
+Message: '\U0001f3ac MpvEngine initialized (system=Windows, legacy=False)'
+Arguments: ()
+--- Logging error ---
+Traceback (most recent call last):
+  File "C:\Users\dieguito\AppData\Local\Programs\Python\Python311\Lib\logging\__init__.py", line 1113, in 
+emit
+    stream.write(msg + self.terminator)
+  File "C:\Users\dieguito\AppData\Local\Programs\Python\Python311\Lib\encodings\cp1252.py", line 19, in 
+encode
+    return codecs.charmap_encode(input,self.errors,encoding_table)[0]
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+UnicodeEncodeError: 'charmap' codec can't encode character '\u2705' in position 28: character maps to 
+<undefined>
+Call stack:
+  File "C:\Users\dieguito\Documents\dev\multi_lyrics\main.py", line 955, in <module>
+    sys.exit(app.exec())
+  File "C:\Users\dieguito\Documents\dev\multi_lyrics\main.py", line 402, in _on_show_video_toggled
+    self.video_player.show_window()
+  File "C:\Users\dieguito\Documents\dev\multi_lyrics\video\video.py", line 209, in show_window
+    self.engine = self._initialize_engine()
+  File "C:\Users\dieguito\Documents\dev\multi_lyrics\video\video.py", line 140, in _initialize_engine
+    return self._init_mpv_engine(force=False)
+  File "C:\Users\dieguito\Documents\dev\multi_lyrics\video\video.py", line 148, in _init_mpv_engine
+    logger.info("\u2705 MpvEngine initialized successfully")
+Message: '\u2705 MpvEngine initialized successfully'
+Arguments: ()
+--- Logging error ---
+Traceback (most recent call last):
+  File "C:\Users\dieguito\AppData\Local\Programs\Python\Python311\Lib\logging\__init__.py", line 1113, in 
+emit
+    stream.write(msg + self.terminator)
+  File "C:\Users\dieguito\AppData\Local\Programs\Python\Python311\Lib\encodings\cp1252.py", line 19, in 
+encode
+    return codecs.charmap_encode(input,self.errors,encoding_table)[0]
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+UnicodeEncodeError: 'charmap' codec can't encode character '\u2705' in position 28: character maps to 
+<undefined>
+Call stack:
+  File "C:\Users\dieguito\Documents\dev\multi_lyrics\main.py", line 955, in <module>
+    sys.exit(app.exec())
+  File "C:\Users\dieguito\Documents\dev\multi_lyrics\main.py", line 402, in _on_show_video_toggled
+    self.video_player.show_window()
+  File "C:\Users\dieguito\Documents\dev\multi_lyrics\video\video.py", line 212, in show_window
+    logger.info("\u2705 Engine initialized")
+Message: '\u2705 Engine initialized'
+Arguments: ()
+--- Logging error ---
+Traceback (most recent call last):
+  File "C:\Users\dieguito\AppData\Local\Programs\Python\Python311\Lib\logging\__init__.py", line 1113, in 
+emit
+    stream.write(msg + self.terminator)
+  File "C:\Users\dieguito\AppData\Local\Programs\Python\Python311\Lib\encodings\cp1252.py", line 19, in 
+encode
+    return codecs.charmap_encode(input,self.errors,encoding_table)[0]
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+UnicodeEncodeError: 'charmap' codec can't encode character '\U0001f4f9' in position 28: character maps to 
+<undefined>
+Call stack:
+  File "C:\Users\dieguito\Documents\dev\multi_lyrics\main.py", line 955, in <module>
+    sys.exit(app.exec())
+  File "C:\Users\dieguito\Documents\dev\multi_lyrics\main.py", line 402, in _on_show_video_toggled
+    self.video_player.show_window()
+  File "C:\Users\dieguito\Documents\dev\multi_lyrics\video\video.py", line 216, in show_window
+    logger.info(f"\U0001f4f9 Loading pending video: {self._pending_video_path}")
+Message: '\U0001f4f9 Loading pending video: library\\multis\\La Bondad de Dios\\video.mp4'
+Arguments: ()
+--- Logging error ---
+Traceback (most recent call last):
+  File "C:\Users\dieguito\AppData\Local\Programs\Python\Python311\Lib\logging\__init__.py", line 1113, in 
+emit
+    stream.write(msg + self.terminator)
+  File "C:\Users\dieguito\AppData\Local\Programs\Python\Python311\Lib\encodings\cp1252.py", line 19, in 
+encode
+    return codecs.charmap_encode(input,self.errors,encoding_table)[0]
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+UnicodeEncodeError: 'charmap' codec can't encode character '\u2705' in position 28: character maps to 
+<undefined>
+Call stack:
+  File "C:\Users\dieguito\Documents\dev\multi_lyrics\main.py", line 955, in <module>
+    sys.exit(app.exec())
+  File "C:\Users\dieguito\Documents\dev\multi_lyrics\main.py", line 402, in _on_show_video_toggled
+    self.video_player.show_window()
+  File "C:\Users\dieguito\Documents\dev\multi_lyrics\video\video.py", line 218, in show_window
+    logger.info("\u2705 Video loaded (lazy)")
+Message: '\u2705 Video loaded (lazy)'
+Arguments: ()
+--- Logging error ---
+Traceback (most recent call last):
+  File "C:\Users\dieguito\AppData\Local\Programs\Python\Python311\Lib\logging\__init__.py", line 1113, in 
+emit
+    stream.write(msg + self.terminator)
+  File "C:\Users\dieguito\AppData\Local\Programs\Python\Python311\Lib\encodings\cp1252.py", line 19, in 
+encode
+    return codecs.charmap_encode(input,self.errors,encoding_table)[0]
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+UnicodeEncodeError: 'charmap' codec can't encode character '\U0001f527' in position 28: character maps to 
+<undefined>
+Call stack:
+  File "C:\Users\dieguito\Documents\dev\multi_lyrics\main.py", line 955, in <module>
+    sys.exit(app.exec())
+  File "C:\Users\dieguito\Documents\dev\multi_lyrics\main.py", line 402, in _on_show_video_toggled
+    self.video_player.show_window()
+  File "C:\Users\dieguito\Documents\dev\multi_lyrics\video\video.py", line 223, in show_window
+    logger.info("\U0001f527 First time initialization - setting _pending_show=True")
+Message: '\U0001f527 First time initialization - setting _pending_show=True'
+Arguments: ()
+--- Logging error ---
+Traceback (most recent call last):
+  File "C:\Users\dieguito\AppData\Local\Programs\Python\Python311\Lib\logging\__init__.py", line 1113, in 
+emit
+    stream.write(msg + self.terminator)
+  File "C:\Users\dieguito\AppData\Local\Programs\Python\Python311\Lib\encodings\cp1252.py", line 19, in 
+encode
+    return codecs.charmap_encode(input,self.errors,encoding_table)[0]
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+UnicodeEncodeError: 'charmap' codec can't encode character '\U0001f527' in position 28: character maps to 
+<undefined>
+Call stack:
+  File "C:\Users\dieguito\Documents\dev\multi_lyrics\main.py", line 955, in <module>
+    sys.exit(app.exec())
+  File "C:\Users\dieguito\Documents\dev\multi_lyrics\video\video.py", line 259, in _initialize_window
+    logger.info("\U0001f527 _initialize_window() called")
+Message: '\U0001f527 _initialize_window() called'
+Arguments: ()
+[32mINFO[0m [video.video]    - _pending_show: True
+[32mINFO[0m [video.video]    - Current visibility: False
+--- Logging error ---
+Traceback (most recent call last):
+  File "C:\Users\dieguito\AppData\Local\Programs\Python\Python311\Lib\logging\__init__.py", line 1113, in 
+emit
+    stream.write(msg + self.terminator)
+  File "C:\Users\dieguito\AppData\Local\Programs\Python\Python311\Lib\encodings\cp1252.py", line 19, in 
+encode
+    return codecs.charmap_encode(input,self.errors,encoding_table)[0]
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+UnicodeEncodeError: 'charmap' codec can't encode character '\U0001f527' in position 28: character maps to 
+<undefined>
+Call stack:
+  File "C:\Users\dieguito\Documents\dev\multi_lyrics\main.py", line 955, in <module>
+    sys.exit(app.exec())
+  File "C:\Users\dieguito\Documents\dev\multi_lyrics\video\video.py", line 263, in _initialize_window
+    self.move_to_screen()
+  File "C:\Users\dieguito\Documents\dev\multi_lyrics\video\video.py", line 289, in move_to_screen
+    logger.info("\U0001f527 move_to_screen() starting...")
+Message: '\U0001f527 move_to_screen() starting...'
+Arguments: ()
+--- Logging error ---
+Traceback (most recent call last):
+  File "C:\Users\dieguito\AppData\Local\Programs\Python\Python311\Lib\logging\__init__.py", line 1113, in 
+emit
+    stream.write(msg + self.terminator)
+  File "C:\Users\dieguito\AppData\Local\Programs\Python\Python311\Lib\encodings\cp1252.py", line 19, in 
+encode
+    return codecs.charmap_encode(input,self.errors,encoding_table)[0]
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+UnicodeEncodeError: 'charmap' codec can't encode character '\U0001f4fa' in position 28: character maps to 
+<undefined>
+Call stack:
+  File "C:\Users\dieguito\Documents\dev\multi_lyrics\main.py", line 955, in <module>
+    sys.exit(app.exec())
+  File "C:\Users\dieguito\Documents\dev\multi_lyrics\video\video.py", line 263, in _initialize_window
+    self.move_to_screen()
+  File "C:\Users\dieguito\Documents\dev\multi_lyrics\video\video.py", line 291, in move_to_screen
+    logger.info(f"\U0001f4fa Pantallas detectadas: {len(screens)}")
+Message: '\U0001f4fa Pantallas detectadas: 2'
+Arguments: ()
+[32mINFO[0m [video.video]   [0] ASUS VP249 - Resoluci¾n: 1920x1080 @ 96.0 DPI
+[32mINFO[0m [video.video]   [1] BenQ GW2480 - Resoluci¾n: 1920x1080 @ 96.0 DPI
+--- Logging error ---
+Traceback (most recent call last):
+  File "C:\Users\dieguito\AppData\Local\Programs\Python\Python311\Lib\logging\__init__.py", line 1113, in 
+emit
+    stream.write(msg + self.terminator)
+  File "C:\Users\dieguito\AppData\Local\Programs\Python\Python311\Lib\encodings\cp1252.py", line 19, in 
+encode
+    return codecs.charmap_encode(input,self.errors,encoding_table)[0]
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+UnicodeEncodeError: 'charmap' codec can't encode character '\U0001f3af' in position 28: character maps to 
+<undefined>
+Call stack:
+  File "C:\Users\dieguito\Documents\dev\multi_lyrics\main.py", line 955, in <module>
+    sys.exit(app.exec())
+  File "C:\Users\dieguito\Documents\dev\multi_lyrics\video\video.py", line 263, in _initialize_window
+    self.move_to_screen()
+  File "C:\Users\dieguito\Documents\dev\multi_lyrics\video\video.py", line 296, in move_to_screen
+    logger.info(f"\U0001f3af Requested screen_index: {self.screen_index}")
+Message: '\U0001f3af Requested screen_index: 1'
+Arguments: ()
+--- Logging error ---
+Traceback (most recent call last):
+  File "C:\Users\dieguito\AppData\Local\Programs\Python\Python311\Lib\logging\__init__.py", line 1113, in 
+emit
+    stream.write(msg + self.terminator)
+  File "C:\Users\dieguito\AppData\Local\Programs\Python\Python311\Lib\encodings\cp1252.py", line 19, in 
+encode
+    return codecs.charmap_encode(input,self.errors,encoding_table)[0]
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+UnicodeEncodeError: 'charmap' codec can't encode character '\u2713' in position 28: character maps to 
+<undefined>
+Call stack:
+  File "C:\Users\dieguito\Documents\dev\multi_lyrics\main.py", line 955, in <module>
+    sys.exit(app.exec())
+  File "C:\Users\dieguito\Documents\dev\multi_lyrics\video\video.py", line 263, in _initialize_window
+    self.move_to_screen()
+  File "C:\Users\dieguito\Documents\dev\multi_lyrics\video\video.py", line 344, in move_to_screen
+    logger.info(f"\u2713 Moving window to screen {self.screen_index}: {geo.x()},{geo.y()} 
+{geo.width()}x{geo.height()}")
+Message: '\u2713 Moving window to screen 1: 1920,0 1920x1080'
+Arguments: ()
+--- Logging error ---
+Traceback (most recent call last):
+  File "C:\Users\dieguito\AppData\Local\Programs\Python\Python311\Lib\logging\__init__.py", line 1113, in 
+emit
+    stream.write(msg + self.terminator)
+  File "C:\Users\dieguito\AppData\Local\Programs\Python\Python311\Lib\encodings\cp1252.py", line 19, in 
+encode
+    return codecs.charmap_encode(input,self.errors,encoding_table)[0]
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+UnicodeEncodeError: 'charmap' codec can't encode character '\u2713' in position 28: character maps to 
+<undefined>
+Call stack:
+  File "C:\Users\dieguito\Documents\dev\multi_lyrics\main.py", line 955, in <module>
+    sys.exit(app.exec())
+  File "C:\Users\dieguito\Documents\dev\multi_lyrics\video\video.py", line 263, in _initialize_window
+    self.move_to_screen()
+  File "C:\Users\dieguito\Documents\dev\multi_lyrics\video\video.py", line 353, in move_to_screen
+    logger.info(f"\u2713 Screen assigned via windowHandle: {target_screen.name()}")
+Message: '\u2713 Screen assigned via windowHandle: BenQ GW2480'
+Arguments: ()
+--- Logging error ---
+Traceback (most recent call last):
+  File "C:\Users\dieguito\AppData\Local\Programs\Python\Python311\Lib\logging\__init__.py", line 1113, in 
+emit
+    stream.write(msg + self.terminator)
+  File "C:\Users\dieguito\AppData\Local\Programs\Python\Python311\Lib\encodings\cp1252.py", line 19, in 
+encode
+    return codecs.charmap_encode(input,self.errors,encoding_table)[0]
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+UnicodeEncodeError: 'charmap' codec can't encode character '\u2705' in position 28: character maps to 
+<undefined>
+Call stack:
+  File "C:\Users\dieguito\Documents\dev\multi_lyrics\main.py", line 955, in <module>
+    sys.exit(app.exec())
+  File "C:\Users\dieguito\Documents\dev\multi_lyrics\video\video.py", line 265, in _initialize_window
+    logger.info("\u2705 Window initialized (geometry set, engine attached)")
+Message: '\u2705 Window initialized (geometry set, engine attached)'
+Arguments: ()
+--- Logging error ---
+Traceback (most recent call last):
+  File "C:\Users\dieguito\AppData\Local\Programs\Python\Python311\Lib\logging\__init__.py", line 1113, in 
+emit
+    stream.write(msg + self.terminator)
+  File "C:\Users\dieguito\AppData\Local\Programs\Python\Python311\Lib\encodings\cp1252.py", line 19, in 
+encode
+    return codecs.charmap_encode(input,self.errors,encoding_table)[0]
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+UnicodeEncodeError: 'charmap' codec can't encode character '\U0001fa9f' in position 28: character maps to 
+<undefined>
+Call stack:
+  File "C:\Users\dieguito\Documents\dev\multi_lyrics\main.py", line 955, in <module>
+    sys.exit(app.exec())
+  File "C:\Users\dieguito\Documents\dev\multi_lyrics\video\video.py", line 270, in _initialize_window
+    logger.info(f"\U0001fa9f SHOWING window (_pending_show was True) - fallback: {self._is_fallback_mode}")
+Message: '\U0001fa9f SHOWING window (_pending_show was True) - fallback: False'
+Arguments: ()
+--- Logging error ---
+Traceback (most recent call last):
+  File "C:\Users\dieguito\AppData\Local\Programs\Python\Python311\Lib\logging\__init__.py", line 1113, in 
+emit
+    stream.write(msg + self.terminator)
+  File "C:\Users\dieguito\AppData\Local\Programs\Python\Python311\Lib\encodings\cp1252.py", line 19, in 
+encode
+    return codecs.charmap_encode(input,self.errors,encoding_table)[0]
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+UnicodeEncodeError: 'charmap' codec can't encode character '\u2192' in position 31: character maps to 
+<undefined>
+Call stack:
+  File "C:\Users\dieguito\Documents\dev\multi_lyrics\main.py", line 955, in <module>
+    sys.exit(app.exec())
+  File "C:\Users\dieguito\Documents\dev\multi_lyrics\video\video.py", line 275, in _initialize_window
+    logger.info("   \u2192 Calling showFullScreen()")
+Message: '   \u2192 Calling showFullScreen()'
+Arguments: ()
+--- Logging error ---
+Traceback (most recent call last):
+  File "C:\Users\dieguito\AppData\Local\Programs\Python\Python311\Lib\logging\__init__.py", line 1113, in 
+emit
+    stream.write(msg + self.terminator)
+  File "C:\Users\dieguito\AppData\Local\Programs\Python\Python311\Lib\encodings\cp1252.py", line 19, in 
+encode
+    return codecs.charmap_encode(input,self.errors,encoding_table)[0]
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+UnicodeEncodeError: 'charmap' codec can't encode character '\u2192' in position 31: character maps to 
+<undefined>
+Call stack:
+  File "C:\Users\dieguito\Documents\dev\multi_lyrics\main.py", line 955, in <module>
+    sys.exit(app.exec())
+  File "C:\Users\dieguito\Documents\dev\multi_lyrics\video\video.py", line 277, in _initialize_window
+    logger.info(f"   \u2192 Window now visible: {self.isVisible()}")
+Message: '   \u2192 Window now visible: True'
+Arguments: ()
+--- Logging error ---
+Traceback (most recent call last):
+  File "C:\Users\dieguito\AppData\Local\Programs\Python\Python311\Lib\logging\__init__.py", line 1113, in 
+emit
+    stream.write(msg + self.terminator)
+  File "C:\Users\dieguito\AppData\Local\Programs\Python\Python311\Lib\encodings\cp1252.py", line 19, in 
+encode
+    return codecs.charmap_encode(input,self.errors,encoding_table)[0]
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+UnicodeEncodeError: 'charmap' codec can't encode character '\u2713' in position 28: character maps to 
+<undefined>
+Call stack:
+  File "C:\Users\dieguito\Documents\dev\multi_lyrics\main.py", line 955, in <module>
+    sys.exit(app.exec())
+  File "C:\Users\dieguito\Documents\dev\multi_lyrics\video\video.py", line 376, in _attach_engine_to_window
+    logger.info(f"\u2713 Screen reaffirmed: {self._target_screen.name()}")
+Message: '\u2713 Screen reaffirmed: BenQ GW2480'
+Arguments: ()
+--- Logging error ---
+Traceback (most recent call last):
+  File "C:\Users\dieguito\AppData\Local\Programs\Python\Python311\Lib\logging\__init__.py", line 1113, in 
+emit
+    stream.write(msg + self.terminator)
+  File "C:\Users\dieguito\AppData\Local\Programs\Python\Python311\Lib\encodings\cp1252.py", line 19, in 
+encode
+    return codecs.charmap_encode(input,self.errors,encoding_table)[0]
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+UnicodeEncodeError: 'charmap' codec can't encode character '\u2713' in position 41: character maps to 
+<undefined>
+Call stack:
+  File "C:\Users\dieguito\Documents\dev\multi_lyrics\main.py", line 955, in <module>
+    sys.exit(app.exec())
+  File "C:\Users\dieguito\Documents\dev\multi_lyrics\video\video.py", line 389, in _attach_engine_to_window
+    self.engine.attach_window(win_id, screen_index, fullscreen)
+  File "C:\Users\dieguito\Documents\dev\multi_lyrics\video\engines\mpv_engine.py", line 165, in 
+attach_window
+    logger.info(f"\u2713 MpvEngine: Attached to Windows HWND: {win_id}")
+Message: '\u2713 MpvEngine: Attached to Windows HWND: 1770776'
+Arguments: ()
+--- Logging error ---
+Traceback (most recent call last):
+  File "C:\Users\dieguito\AppData\Local\Programs\Python\Python311\Lib\logging\__init__.py", line 1113, in 
+emit
+    stream.write(msg + self.terminator)
+  File "C:\Users\dieguito\AppData\Local\Programs\Python\Python311\Lib\encodings\cp1252.py", line 19, in 
+encode
+    return codecs.charmap_encode(input,self.errors,encoding_table)[0]
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+UnicodeEncodeError: 'charmap' codec can't encode character '\u2713' in position 28: character maps to 
+<undefined>
+Call stack:
+  File "C:\Users\dieguito\Documents\dev\multi_lyrics\main.py", line 955, in <module>
+    sys.exit(app.exec())
+  File "C:\Users\dieguito\Documents\dev\multi_lyrics\video\video.py", line 391, in _attach_engine_to_window
+    logger.info("\u2713 Engine attached to window (visibility controlled by show_window())")
+Message: '\u2713 Engine attached to window (visibility controlled by show_window())'
+Arguments: ()
+--- Logging error ---
+Traceback (most recent call last):
+  File "C:\Users\dieguito\AppData\Local\Programs\Python\Python311\Lib\logging\__init__.py", line 1113, in 
+emit
+    stream.write(msg + self.terminator)
+  File "C:\Users\dieguito\AppData\Local\Programs\Python\Python311\Lib\encodings\cp1252.py", line 19, in 
+encode
+    return codecs.charmap_encode(input,self.errors,encoding_table)[0]
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+UnicodeEncodeError: 'charmap' codec can't encode character '\U0001f504' in position 26: character maps to 
+<undefined>
+Call stack:
+  File "C:\Users\dieguito\Documents\dev\multi_lyrics\main.py", line 955, in <module>
+    sys.exit(app.exec())
+  File "C:\Users\dieguito\Documents\dev\multi_lyrics\ui\widgets\controls_widget.py", line 158, in 
+_on_play_toggle
+    self._emit_play()
+  File "C:\Users\dieguito\Documents\dev\multi_lyrics\ui\widgets\controls_widget.py", line 145, in 
+_emit_play
+    self.play_clicked.emit()
+  File "C:\Users\dieguito\Documents\dev\multi_lyrics\main.py", line 306, in on_play_clicked
+    self.sync.start_sync()
+  File "C:\Users\dieguito\Documents\dev\multi_lyrics\core\sync.py", line 295, in start_sync
+    logger.info("\U0001f504 Elastic sync enabled (1 Hz correction loop)")
+Message: '\U0001f504 Elastic sync enabled (1 Hz correction loop)'
+Arguments: ()
+--- Logging error ---
+Traceback (most recent call last):
+  File "C:\Users\dieguito\AppData\Local\Programs\Python\Python311\Lib\logging\__init__.py", line 1113, in 
+emit
+    stream.write(msg + self.terminator)
+  File "C:\Users\dieguito\AppData\Local\Programs\Python\Python311\Lib\encodings\cp1252.py", line 19, in 
+encode
+    return codecs.charmap_encode(input,self.errors,encoding_table)[0]
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+UnicodeEncodeError: 'charmap' codec can't encode characters in position 28-29: character maps to 
+<undefined>
+Call stack:
+  File "C:\Users\dieguito\Documents\dev\multi_lyrics\main.py", line 955, in <module>
+    sys.exit(app.exec())
+  File "C:\Users\dieguito\Documents\dev\multi_lyrics\ui\widgets\controls_widget.py", line 158, in 
+_on_play_toggle
+    self._emit_play()
+  File "C:\Users\dieguito\Documents\dev\multi_lyrics\ui\widgets\controls_widget.py", line 145, in 
+_emit_play
+    self.play_clicked.emit()
+  File "C:\Users\dieguito\Documents\dev\multi_lyrics\main.py", line 309, in on_play_clicked
+    self.audio_player.play()
+  File "C:\Users\dieguito\Documents\dev\multi_lyrics\core\engine.py", line 416, in play
+    self._disable_gc_if_needed()
+  File "C:\Users\dieguito\Documents\dev\multi_lyrics\core\engine.py", line 148, in _disable_gc_if_needed
+    logger.info("\U0001f5d1\ufe0f  GC disabled during playback (prevents audio glitches on legacy 
+hardware)")
+Message: '\U0001f5d1\ufe0f  GC disabled during playback (prevents audio glitches on legacy hardware)'
+Arguments: ()
+--- Logging error ---
+Traceback (most recent call last):
+  File "C:\Users\dieguito\AppData\Local\Programs\Python\Python311\Lib\logging\__init__.py", line 1113, in 
+emit
+    stream.write(msg + self.terminator)
+  File "C:\Users\dieguito\AppData\Local\Programs\Python\Python311\Lib\encodings\cp1252.py", line 19, in 
+encode
+    return codecs.charmap_encode(input,self.errors,encoding_table)[0]
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+UnicodeEncodeError: 'charmap' codec can't encode character '\U0001f50a' in position 28: character maps to 
+<undefined>
+Call stack:
+  File "C:\Users\dieguito\Documents\dev\multi_lyrics\main.py", line 955, in <module>
+    sys.exit(app.exec())
+  File "C:\Users\dieguito\Documents\dev\multi_lyrics\ui\widgets\controls_widget.py", line 158, in 
+_on_play_toggle
+    self._emit_play()
+  File "C:\Users\dieguito\Documents\dev\multi_lyrics\ui\widgets\controls_widget.py", line 145, in 
+_emit_play
+    self.play_clicked.emit()
+  File "C:\Users\dieguito\Documents\dev\multi_lyrics\main.py", line 309, in on_play_clicked
+    self.audio_player.play()
+  File "C:\Users\dieguito\Documents\dev\multi_lyrics\core\engine.py", line 446, in play
+    logger.info(f"\U0001f50a Audio stream initialized: {self.samplerate}Hz, blocksize={self.blocksize}, 
+latency=high")
+Message: '\U0001f50a Audio stream initialized: 44100Hz, blocksize=2048, latency=high'
+Arguments: ()
+--- Logging error ---
+Traceback (most recent call last):
+  File "C:\Users\dieguito\AppData\Local\Programs\Python\Python311\Lib\logging\__init__.py", line 1113, in 
+emit
+    stream.write(msg + self.terminator)
+  File "C:\Users\dieguito\AppData\Local\Programs\Python\Python311\Lib\encodings\cp1252.py", line 19, in 
+encode
+    return codecs.charmap_encode(input,self.errors,encoding_table)[0]
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+UnicodeEncodeError: 'charmap' codec can't encode character '\u2192' in position 93: character maps to 
+<undefined>
+Call stack:
+  File "C:\Users\dieguito\Documents\dev\multi_lyrics\main.py", line 955, in <module>
+    sys.exit(app.exec())
+  File "C:\Users\dieguito\Documents\dev\multi_lyrics\ui\widgets\controls_widget.py", line 158, in 
+_on_play_toggle
+    self._emit_play()
+  File "C:\Users\dieguito\Documents\dev\multi_lyrics\ui\widgets\controls_widget.py", line 145, in 
+_emit_play
+    self.play_clicked.emit()
+  File "C:\Users\dieguito\Documents\dev\multi_lyrics\main.py", line 314, in on_play_clicked
+    self.video_player.background.start(
+  File "C:\Users\dieguito\Documents\dev\multi_lyrics\video\backgrounds\video_lyrics_background.py", line 
+61, in start
+    logger.info(
+Message: '[FULL] audio=0.232s offset=+0.000s \u2192 video_start=0.232s'
+Arguments: ()
+--- Logging error ---
+Traceback (most recent call last):
+  File "C:\Users\dieguito\AppData\Local\Programs\Python\Python311\Lib\logging\__init__.py", line 1113, in 
+emit
+    stream.write(msg + self.terminator)
+  File "C:\Users\dieguito\AppData\Local\Programs\Python\Python311\Lib\encodings\cp1252.py", line 19, in 
+encode
+    return codecs.charmap_encode(input,self.errors,encoding_table)[0]
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+UnicodeEncodeError: 'charmap' codec can't encode characters in position 28-29: character maps to 
+<undefined>
+Call stack:
+  File "C:\Users\dieguito\Documents\dev\multi_lyrics\env\Lib\site-packages\sounddevice.py", line 936, in 
+finished_callback_wrapper
+    return finished_callback()
+  File "C:\Users\dieguito\Documents\dev\multi_lyrics\core\engine.py", line 461, in _on_stream_finished
+    self._restore_gc_if_needed()
+  File "C:\Users\dieguito\Documents\dev\multi_lyrics\core\engine.py", line 154, in _restore_gc_if_needed
+    logger.info("\U0001f5d1\ufe0f  GC re-enabled after playback stopped")
+Message: '\U0001f5d1\ufe0f  GC re-enabled after playback stopped'
+Arguments: ()

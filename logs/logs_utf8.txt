@@ -1,0 +1,47 @@
+﻿.\env\Scripts\python.exe : C:\Users\dieguito\Documents\dev\multi_lyrics\main.py:942: DeprecationWarning: 
+Enum value 'Qt::ApplicationAttribute.AA_UseHighDpiPixmaps' is marked as deprecated, please check the 
+documentation for more information.
+En línea: 1 Carácter: 32
++ ... THONIOENCODING='utf-8'; .\env\Scripts\python.exe main.py 2>&1 | Out-F ...
++                             ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: (C:\Users\diegui...re information.:String) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+ 
+  app.setAttribute(Qt.AA_UseHighDpiPixmaps)
+[32mINFO[0m [ui.widgets.timeline_view] TimelineView initialized - waiting for multi selection
+qt.core.qmetaobject.connectslotsbyname: QMetaObject::connectSlotsByName: No matching signal for 
+on_multi_selected()
+qt.core.qmetaobject.connectslotsbyname: QMetaObject::connectSlotsByName: No matching signal for 
+on_play_clicked()
+qt.core.qmetaobject.connectslotsbyname: QMetaObject::connectSlotsByName: No matching signal for 
+on_edit_mode_toggled()
+qt.core.qmetaobject.connectslotsbyname: QMetaObject::connectSlotsByName: No matching signal for 
+on_zoom_mode_changed(QString)
+qt.core.qmetaobject.connectslotsbyname: QMetaObject::connectSlotsByName: No matching signal for 
+on_timeline_zoom_mode_changed(PyObject)
+qt.core.qmetaobject.connectslotsbyname: QMetaObject::connectSlotsByName: No matching signal for 
+on_extraction_process()
+[32mINFO[0m [core.audio_profiles] ­ƒûÑ´©Å  Detected OS: windows
+[32mINFO[0m [core.audio_profiles] ­ƒÆ╗ Detected hardware: ~2018 CPU, 32 GB RAM, 6 cores
+[32mINFO[0m [core.audio_profiles] ­ƒÄø´©Å  Mid-range hardware: Using balanced
+[32mINFO[0m [core.audio_profiles] Ô£à Loaded profile: Balanced Performance (Windows)
+[32mINFO[0m [core.audio_profiles] ­ƒÄ» Auto-selected profile: Balanced Performance (Windows) (CPU ~2018, 32GB RAM, 6 cores)
+[32mINFO[0m [__main__] ­ƒÄø´©Å  Using audio profile: Balanced Performance (Windows)
+[32mINFO[0m [__main__]    Description: Configuraci├│n equilibrada con WASAPI shared mode
+[32mINFO[0m [__main__]    Settings: blocksize=2048, gc_policy=disable_during_playback
+[32mINFO[0m [core.config_manager] ­ƒôï ConfigManager initialized: config\settings.json
+[32mINFO[0m [__main__] ­ƒÄ¼ Active video mode: full
+[32mINFO[0m [__main__] ­ƒÄø´©Å  Latency monitoring: ENABLED (audio callback)
+[32mINFO[0m [video.video] ­ƒ¬ƒ VisualController created - isVisible: False, isHidden: True
+[32mINFO[0m [video.video] ­ƒÄ¼ Engine preference: auto
+[32mINFO[0m [video.video] Attempting to initialize MpvEngine...
+[32mINFO[0m [video.engines.mpv_engine] ­ƒÄ¼ MpvEngine initialized (system=Windows, legacy=False)
+[32mINFO[0m [video.video] Ô£à MpvEngine initialized successfully
+[32mINFO[0m [video.video] Ô£à VisualEngine initialized - Window visible: False
+[32mINFO[0m [video.video] ­ƒ¬ƒ Layout set - Window visible: False
+[33mWARNING[0m [core.engine] ÔÜá´©Å  Cannot seek: no tracks loaded (samplerate not detected)
+[32mINFO[0m [core.engine] ­ƒÄÁ Auto-detected sample rate: 44100 Hz from first track
+[32mINFO[0m [core.engine] ­ƒÆ¥ Pre-load size: 0.39 GB | Available RAM: 15.50 GB
+[32mINFO[0m [ui.widgets.timeline_view] Audio loaded: 13,201,408 samples @ 44100Hz (299.35s)
+[32mINFO[0m [video.video] Ô£à Background set: VideoLyricsBackground
+[32mINFO[0m [__main__] ­ƒÄ¼ Video loaded: video.mp4 (mode: full)

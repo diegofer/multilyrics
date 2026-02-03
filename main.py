@@ -393,14 +393,35 @@ class MainWindow(QMainWindow):
         """Show or hide video window based on button state.
 
         Single click shows, double click hides.
-        VLC player remains attached to window handle throughout.
+        Video behavior:
+        - Full mode: video paused until user clicks play
+        - Loop mode: video starts automatically and loops indefinitely
         """
         if checked:
             logger.debug("Mostrando ventana de video")
             self.video_player.show_window()
+
+            # Auto-start loop mode video when window is shown
+            config = ConfigManager.get_instance()
+            video_mode = config.get("video.mode", "full")
+            if video_mode == "loop" and self.video_player.background:
+                # Start loop playback (independent of audio)
+                self.video_player.background.start(
+                    self.video_player.engine,
+                    audio_time=0.0,  # Ignored in loop mode
+                    offset=0.0       # Ignored in loop mode
+                )
+                logger.debug("🔄 Loop video started automatically")
         else:
             logger.debug("Ocultando ventana de video")
             self.video_player.hide_window()
+
+            # Stop loop video when window is hidden
+            config = ConfigManager.get_instance()
+            video_mode = config.get("video.mode", "full")
+            if video_mode == "loop" and self.video_player.background:
+                self.video_player.background.stop(self.video_player.engine)
+                logger.debug("🔄 Loop video stopped")
 
     def _on_video_window_closed(self):
         """Handler cuando la ventana de video se cierra con el botón X.
@@ -851,13 +872,21 @@ class MainWindow(QMainWindow):
         )
         self.video_player.set_background(background)
 
-        # Load media if background requires it
+        # LAZY LOADING: Only load media if engine is already initialized
+        # If engine not initialized (first song load), video will load when user clicks show_video_btn
         if self.background_manager.is_video_required(video_mode):
-            if video_path and video_path.exists():
-                self.video_player.engine.load(str(video_path))
-                logger.info(f"🎬 Video loaded: {video_path.name} (mode: {video_mode})")
+            if self.video_player.engine is not None:
+                # Engine already initialized (user previously showed video)
+                if video_path and video_path.exists():
+                    self.video_player.engine.load(str(video_path))
+                    logger.info(f"🎬 Video loaded: {video_path.name} (mode: {video_mode})")
+                else:
+                    logger.warning(f"⚠️ Video mode '{video_mode}' requires video but none found")
             else:
-                logger.warning(f"⚠️ Video mode '{video_mode}' requires video but none found")
+                # Engine not initialized yet - video will load when show_window() is called
+                logger.debug(f"📹 Video will load when window is shown (engine not initialized yet)")
+                # Store video path for lazy loading
+                self.video_player._pending_video_path = video_path if video_path and video_path.exists() else None
         else:
             logger.debug(f"📹 Video mode '{video_mode}' does not require media")
 

@@ -35,13 +35,14 @@ class SyncController(QObject):
         self.alpha = 0.1  # coeficiente de suavizado EMA
 
         # Umbrales de sincronización (ms) - Fase 3: Elastic correction
-        self.DEAD_ZONE = 40          # < 40ms: No correction (imperceptible)
-        self.ELASTIC_THRESHOLD = 150 # 40-150ms: Playback rate adjustment
-        self.HARD_THRESHOLD = 300    # > 150ms: Hard seek
+        # TUNED FOR MPV: More permissive thresholds for smoother sync
+        self.DEAD_ZONE = 50          # < 50ms: No correction (imperceptible)
+        self.ELASTIC_THRESHOLD = 200 # 50-200ms: Playback rate adjustment
+        self.HARD_THRESHOLD = 400    # > 400ms: Hard seek (increased to avoid jumps)
 
         # Elastic correction parameters
-        self.ELASTIC_RATE_MIN = 0.95  # 5% slower
-        self.ELASTIC_RATE_MAX = 1.05  # 5% faster
+        self.ELASTIC_RATE_MIN = 0.97  # 3% slower (reduced for smoother adjustment)
+        self.ELASTIC_RATE_MAX = 1.03  # 3% faster (reduced for smoother adjustment)
         self.RATE_RESET_DELAY = 2000  # ms to hold rate before resetting to 1.0
 
         # Estado video
@@ -72,9 +73,10 @@ class SyncController(QObject):
         self._diag_timer.timeout.connect(self._log_sync_stats)
         self._diag_enabled = False  # Enable manually for debugging
 
-        # Correction timer (1 Hz - elastic sync)
+        # Correction timer (4 Hz - elastic sync)
+        # TUNED FOR MPV: Faster correction rate for responsive sync
         self._correction_timer = QTimer(self)
-        self._correction_timer.setInterval(1000)  # 1 second
+        self._correction_timer.setInterval(250)  # 250ms = 4 Hz (was 1 Hz)
         self._correction_timer.timeout.connect(self._apply_elastic_correction)
 
         # Correction state tracking
@@ -194,13 +196,17 @@ class SyncController(QObject):
             # Calculate target rate based on drift
             # drift > 0: video behind → speed up (rate > 1.0)
             # drift < 0: video ahead → slow down (rate < 1.0)
-            rate_adjustment = drift_ms / 1000.0  # Convert to rate delta
-            target_rate = 1.0 + (rate_adjustment * 0.05)  # Scale to 5% max
+
+            # TUNED FOR MPV: Gentler rate adjustment curve
+            # Use logarithmic scaling for smoother corrections
+            rate_adjustment = drift_ms / 2000.0  # Reduced from /1000 to /2000 (50% gentler)
+            target_rate = 1.0 + (rate_adjustment * 0.03)  # Reduced from 0.05 to 0.03
             target_rate = max(self.ELASTIC_RATE_MIN,
                             min(self.ELASTIC_RATE_MAX, target_rate))
 
             # Only adjust if significant change (avoid jitter)
-            if abs(target_rate - self._current_rate) > 0.02:
+            # TUNED FOR MPV: Smaller threshold for more responsive adjustments
+            if abs(target_rate - self._current_rate) > 0.01:  # Reduced from 0.02 to 0.01
                 correction = {
                     'type': 'elastic',
                     'drift_ms': drift_ms,
