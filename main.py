@@ -52,8 +52,8 @@ from ui.widgets.track_widget import TrackWidget
 from utils.helpers import (clear_layout, get_logarithmic_volume, get_mp4,
                            get_tracks)
 from utils.lyrics_loader import LyricsLoader
-from video.video import VisualController
 from video.background_manager import BackgroundManager
+from video.video import VisualController
 
 
 class MainWindow(QMainWindow):
@@ -316,6 +316,8 @@ class MainWindow(QMainWindow):
                 audio_time,
                 self.video_offset
             )
+            # Start position reporting timer after video starts
+            self.video_player.start_position_reporting()
             logger.debug(f"📹 Video started with offset {self.video_offset:.2f}s")
         else:
             logger.debug("📹 No background set - video playback skipped")
@@ -326,9 +328,11 @@ class MainWindow(QMainWindow):
     def on_pause_clicked(self) -> None:
         self.audio_player.pause()
 
-        # Pause video via background
+        # Pause video via background and stop position timer
         if self.video_player.background:
             self.video_player.background.pause(self.video_player.engine)
+            self.video_player.stop_position_reporting()
+            logger.debug("📹 Video paused, position timer stopped")
 
         # Stop position polling timer after pause
         self.sync.stop_sync()
@@ -411,6 +415,8 @@ class MainWindow(QMainWindow):
                     audio_time=0.0,  # Ignored in loop mode
                     offset=0.0       # Ignored in loop mode
                 )
+                # Start position timer for loop mode too
+                self.video_player.start_position_reporting()
                 logger.debug("🔄 Loop video started automatically")
         else:
             logger.debug("Ocultando ventana de video")
@@ -421,6 +427,7 @@ class MainWindow(QMainWindow):
             video_mode = config.get("video.mode", "full")
             if video_mode == "loop" and self.video_player.background:
                 self.video_player.background.stop(self.video_player.engine)
+                self.video_player.stop_position_reporting()
                 logger.debug("🔄 Loop video stopped")
 
     def _on_video_window_closed(self):

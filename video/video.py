@@ -21,12 +21,11 @@ from PySide6.QtWidgets import QApplication, QVBoxLayout, QWidget
 
 from core.constants import app_state
 from utils.logger import get_logger
-
+from video.backgrounds.base import VisualBackground
 # Import new architecture components
 from video.engines.base import VisualEngine
 from video.engines.mpv_engine import MpvEngine
 from video.engines.vlc_engine import VlcEngine
-from video.backgrounds.base import VisualBackground
 
 logger = get_logger(__name__)
 
@@ -83,6 +82,7 @@ class VisualController(QWidget):
 
         # Engine badge for visual identification
         from PySide6.QtWidgets import QLabel
+
         from core.config_manager import ConfigManager
         from video.engines.mpv_engine import MpvEngine
 
@@ -108,6 +108,13 @@ class VisualController(QWidget):
 
         # Active background (set externally via set_background())
         self.background: Optional[VisualBackground] = None
+
+        # Position reporting timer (50ms = 20 Hz)
+        # CRITICAL: Reports video position to background for sync monitoring
+        self._position_timer = QTimer(self)
+        self._position_timer.setInterval(50)  # 50ms = 20 Hz
+        self._position_timer.timeout.connect(self._report_position)
+        logger.debug("📊 Position timer created (50ms, inactive)")
 
         # Layout required for QWidget
         layout = QVBoxLayout(self)
@@ -176,13 +183,18 @@ class VisualController(QWidget):
         Args:
             background: VisualBackground instance to activate
         """
-        # Stop previous background
+        # Stop previous background and position timer
         if self.background and self.engine:
             try:
                 self.background.stop(self.engine)
                 logger.debug(f"Stopped previous background: {type(self.background).__name__}")
             except Exception as e:
                 logger.warning(f"Error stopping previous background: {e}")
+
+        # Stop position timer when switching backgrounds
+        if self._position_timer.isActive():
+            self._position_timer.stop()
+            logger.debug("📊 Position timer stopped (background switch)")
 
         # Activate new background
         self.background = background
@@ -395,6 +407,51 @@ class VisualController(QWidget):
 
 
 
+    def _report_position(self) -> None:
+        """
+        Report video position to background for sync monitoring.
+
+        Called every 50ms (20 Hz) by position timer.
+        Delegates to background.update() which reports to SyncController.
+
+        CRITICAL: This method bridges the gap between video playback and sync control.
+        It enables VideoLyricsBackground to receive periodic position updates and
+        report them to SyncController for drift detection (PLL control).
+        """
+        if not self.background or not self.engine:
+            return
+
+        # Only report if engine is actually playing
+        # NOTE: is_playing() now validates get_time() >= 0 to prevent
+        # reporting invalid -1.0 times during codec loading
+        if not self.engine.is_playing():
+            return
+
+        try:
+            # Background.update() expects audio_time, but VideoLyricsBackground
+            # ignores it and gets video time from engine directly
+            audio_time = 0.0  # Unused by VideoLyricsBackground
+            self.background.update(self.engine, audio_time)
+        except Exception as e:
+            logger.error(f"Error reporting position: {e}", exc_info=True)
+
+    def start_position_reporting(self) -> None:
+        """
+        Start the position reporting timer.
+
+        Called when playback begins (engine.is_playing() == True).
+        """
+        if not self._position_timer.isActive():
+            self._position_timer.start()
+        else:
+            logger.debug("📊 Position timer already active")
+
+    def stop_position_reporting(self) -> None:
+        """Stop the position reporting timer."""
+        if self._position_timer.isActive():
+            self._position_timer.stop()
+            logger.debug("📊 Position timer stopped")
+
     def _on_video_end(self) -> None:
         """
         Handle video end event from engine.
@@ -402,6 +459,9 @@ class VisualController(QWidget):
         Delegates to active background for mode-specific handling.
         """
         logger.info("[ENGINE_EVENT] Video ended")
+
+        # Stop position timer on video end
+        self.stop_position_reporting()
 
         if self.background and self.engine:
             self.background.on_video_end(self.engine)
@@ -422,6 +482,11 @@ class VisualController(QWidget):
             Window close only hides window.
         """
         logger.info("🧹 VisualController cleanup - releasing resources")
+
+        # Stop position timer
+        if self._position_timer.isActive():
+            self._position_timer.stop()
+            logger.debug("📊 Position timer stopped (cleanup)")
 
         # Release engine resources
         if self.engine:
@@ -450,6 +515,7 @@ class VisualController(QWidget):
 
         # Ignore close event to prevent destruction
         event.ignore()
+
     def resizeEvent(self, event) -> None:
         """Reposition badge in top-right corner on window resize."""
         super().resizeEvent(event)

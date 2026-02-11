@@ -1,5 +1,5 @@
-from PySide6.QtCore import QObject, Signal, Slot, QTimer
 import numpy as np
+from PySide6.QtCore import QObject, QTimer, Signal, Slot
 
 from core.clock import AudioClock
 from utils.error_handler import safe_operation
@@ -73,16 +73,23 @@ class SyncController(QObject):
         self._diag_timer.timeout.connect(self._log_sync_stats)
         self._diag_enabled = False  # Enable manually for debugging
 
-        # Correction timer (4 Hz - elastic sync)
-        # TUNED FOR MPV: Faster correction rate for responsive sync
+        # Correction timer (1 Hz - elastic sync with PLL)
+        # OPTIMIZED: 1Hz reduces pipeline thrashing, PLL handles smooth convergence
         self._correction_timer = QTimer(self)
-        self._correction_timer.setInterval(250)  # 250ms = 4 Hz (was 1 Hz)
+        self._correction_timer.setInterval(1000)  # 1000ms = 1 Hz (PLL control)
         self._correction_timer.timeout.connect(self._apply_elastic_correction)
 
         # Correction state tracking
         self._last_correction_time = 0.0
         self._last_correction_type = None
         self._current_rate = 1.0
+
+        # PLL (Phase-Locked Loop) control state
+        self._smoothed_drift = 0.0    # Exponentially filtered drift (ms)
+        self._integral = 0.0          # Integral term accumulator (ms·s)
+        self.alpha_drift = 0.2        # Drift filter coefficient (0.1-0.3 recommended)
+        self.kp = 0.05                # Proportional gain (0.03-0.08 recommended)
+        self.ki = 0.01                # Integral gain (eliminates steady-state error)
 
     # ----------------------------------------------------------
     #  PROPIEDAD PARA LEER EL TIEMPO ACTUAL DEL AUDIO SUAVIZADO
@@ -138,8 +145,10 @@ class SyncController(QObject):
     @Slot(float)
     def on_video_position_updated(self, video_time: float):
         """
-        Conectar al evento de posición del reproductor de video.
-        Actualiza la posición conocida del video.
+        Update canonical video position for drift detection.
+
+        Called by VideoLyricsBackground.update() every ~50ms with current
+        video playback position. Used by PLL to calculate drift from audio.
         """
         self._video_time = video_time
 
@@ -155,12 +164,18 @@ class SyncController(QObject):
 
     def _apply_elastic_correction(self):
         """
-        Aplicar corrección elástica periódica (llamado cada ~1 segundo).
+        Aplicar corrección elástica con control PLL (Phase-Locked Loop).
+        Llamado cada ~1 segundo para correcciones suaves y estables.
 
-        Estrategia de corrección:
-        - Dead zone (0-40ms): Sin corrección (imperceptible)
-        - Elastic zone (40-150ms): Ajuste de playback rate (95-105%)
-        - Hard zone (>150ms): Seek directo
+        Estrategia PLL:
+        - Dead zone (0-50ms): Sin corrección (imperceptible)
+        - Elastic zone (50-200ms): Control PI (proporcional + integral)
+        - Hard zone (>400ms): Seek directo + reset PLL
+
+        Mejoras sobre control proporcional puro:
+        1. Filtro exponencial en drift (elimina ruido de medición)
+        2. Término integral (elimina offset constante)
+        3. Frecuencia reducida (1Hz) → menos thrashing en pipeline
         """
         if not self.is_syncing:
             return
@@ -177,7 +192,13 @@ class SyncController(QObject):
         video_ms = int(self._video_time * 1000)
         drift_ms = audio_ms - video_ms  # positivo = video atrasado
 
-        abs_drift = abs(drift_ms)
+        # === STEP 1: Exponential filter on drift (anti-jitter) ===
+        self._smoothed_drift = (
+            self.alpha_drift * drift_ms +
+            (1 - self.alpha_drift) * self._smoothed_drift
+        )
+
+        abs_drift = abs(self._smoothed_drift)
         correction = None
 
         # Zone 1: Dead zone (no correction needed)
@@ -186,44 +207,59 @@ class SyncController(QObject):
             if abs(self._current_rate - 1.0) > 0.01:
                 correction = {
                     'type': 'rate_reset',
-                    'drift_ms': drift_ms,
+                    'drift_ms': int(self._smoothed_drift),
                     'new_rate': 1.0
                 }
                 self._current_rate = 1.0
+                # Keep integral to maintain memory of drift trend
 
-        # Zone 2: Elastic correction (playback rate adjustment)
+        # Zone 2: Elastic correction with PI control
         elif abs_drift < self.ELASTIC_THRESHOLD:
-            # Calculate target rate based on drift
-            # drift > 0: video behind → speed up (rate > 1.0)
-            # drift < 0: video ahead → slow down (rate < 1.0)
+            # === STEP 2: Update integral term (accumulate error over time) ===
+            dt = 1.0  # seconds (correction interval)
+            self._integral += self._smoothed_drift * dt
 
-            # TUNED FOR MPV: Gentler rate adjustment curve
-            # Use logarithmic scaling for smoother corrections
-            rate_adjustment = drift_ms / 2000.0  # Reduced from /1000 to /2000 (50% gentler)
-            target_rate = 1.0 + (rate_adjustment * 0.03)  # Reduced from 0.05 to 0.03
+            # Anti-windup: clamp integral to prevent runaway
+            max_integral = 500.0  # ms·s (prevents overshoot)
+            self._integral = max(-max_integral, min(max_integral, self._integral))
+
+            # === STEP 3: PI control law ===
+            # speed_correction = Kp * error + Ki * integral
+            # Converts ms of error → fractional speed adjustment
+            speed_correction = (
+                self.kp * (self._smoothed_drift / 1000.0) +  # P term (immediate response)
+                self.ki * (self._integral / 1000.0)          # I term (eliminates offset)
+            )
+
+            target_rate = 1.0 + speed_correction
+
+            # Clamp to safe rate limits
             target_rate = max(self.ELASTIC_RATE_MIN,
                             min(self.ELASTIC_RATE_MAX, target_rate))
 
-            # Only adjust if significant change (avoid jitter)
-            # TUNED FOR MPV: Smaller threshold for more responsive adjustments
-            if abs(target_rate - self._current_rate) > 0.01:  # Reduced from 0.02 to 0.01
+            # Only emit if significant change (avoid redundant updates)
+            if abs(target_rate - self._current_rate) > 0.005:  # 0.5% threshold
                 correction = {
                     'type': 'elastic',
-                    'drift_ms': drift_ms,
+                    'drift_ms': int(self._smoothed_drift),
                     'new_rate': target_rate,
                     'current_rate': self._current_rate
                 }
                 self._current_rate = target_rate
 
-        # Zone 3: Hard correction (seek)
+        # Zone 3: Hard correction (seek) - reset PLL state
         elif abs_drift >= self.HARD_THRESHOLD:
             correction = {
                 'type': 'hard',
-                'drift_ms': drift_ms,
+                'drift_ms': int(self._smoothed_drift),
                 'new_time_ms': audio_ms,
                 'reset_rate': True
             }
             self._current_rate = 1.0
+            # === STEP 4: Reset PLL state after discontinuity ===
+            self._integral = 0.0
+            self._smoothed_drift = 0.0
+            logger.info("🔄 [PLL] Reset after hard seek")
 
         # Emit correction if needed
         if correction:
@@ -231,9 +267,9 @@ class SyncController(QObject):
             self._last_correction_type = correction['type']
             self.videoCorrectionNeeded.emit(correction)
             logger.debug(
-                f"📐 [ELASTIC_SYNC] drift={drift_ms:+d}ms "
-                f"type={correction['type']} "
-                f"rate={self._current_rate:.3f}"
+                f"📐 [PLL_SYNC] drift={int(self._smoothed_drift):+d}ms "
+                f"type={correction['type']} rate={self._current_rate:.3f} "
+                f"integral={self._integral:.1f}"
             )
 
     # ----------------------------------------------------------
@@ -314,6 +350,9 @@ class SyncController(QObject):
         # Reset correction state
         self._current_rate = 1.0
         self._last_correction_type = None
+        # Reset PLL state
+        self._smoothed_drift = 0.0
+        self._integral = 0.0
 
     def reset(self):
         """Reinicia el reloj y estado de sincronización."""
@@ -322,6 +361,10 @@ class SyncController(QObject):
         self._video_time = 0.0
         self.is_syncing = False
         self._last_frames_processed = 0
+        # Reset PLL state
+        self._smoothed_drift = 0.0
+        self._integral = 0.0
+        self._current_rate = 1.0
         if self._position_timer.isActive():
             self._position_timer.stop()
 

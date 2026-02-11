@@ -12,7 +12,7 @@ from pathlib import Path
 from typing import Optional
 
 from utils.logger import get_logger
-from video.engines.base import VisualEngine, PlaybackState
+from video.engines.base import PlaybackState, VisualEngine
 
 logger = get_logger(__name__)
 
@@ -92,8 +92,10 @@ class MpvEngine(VisualEngine):
                 keep_open='yes',  # Don't close after playback
                 idle='yes',  # Keep player alive when no file loaded
 
-                # Performance
-                video_sync='display-resample',  # Smooth playback
+                # Performance - CRITICAL for smooth sync
+                video_sync='display-resample',  # Smooth playback with rate adjustment
+                interpolation='yes',  # Motion interpolation for fluid rate changes
+                tscale='oversample',  # High-quality temporal scaling
 
                 # Logging (suppress output)
                 terminal='no',  # Suppress terminal output
@@ -375,6 +377,11 @@ class MpvEngine(VisualEngine):
 
         Returns:
             True if playing, False if paused/stopped
+
+        Note:
+            CRITICAL: Also checks if video is actually loaded (get_time() >= 0).
+            MPV may report not-paused before video is fully prepared.
+            Without this check, get_time() returns -1.0, causing drift > 400ms -> hard seeks.
         """
         if not self.player:
             return False
@@ -382,7 +389,17 @@ class MpvEngine(VisualEngine):
         try:
             # In mpv: not paused = playing
             paused = self.player['pause']
-            return not paused if paused is not None else False
+            is_not_paused = not paused if paused is not None else False
+
+            # CRITICAL: Also check if video is actually loaded
+            # MPV may report not-paused before codec/loading complete
+            # If get_time() < 0, video is not ready yet
+            if is_not_paused:
+                video_time = self.get_time()
+                if video_time < 0:
+                    return False  # Video not ready despite not being paused
+
+            return is_not_paused
         except Exception:
             return False
 

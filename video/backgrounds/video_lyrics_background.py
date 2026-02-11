@@ -11,8 +11,8 @@ from utils.logger import get_logger
 from video.backgrounds.base import VisualBackground
 
 if TYPE_CHECKING:
-    from video.engines.base import VisualEngine
     from core.sync_controller import SyncController
+    from video.engines.base import VisualEngine
 
 logger = get_logger(__name__)
 
@@ -100,17 +100,27 @@ class VideoLyricsBackground(VisualBackground):
         """
         Report video position to SyncController for drift detection.
 
-        Args:
-            engine: VisualEngine to query
-            audio_time: Current audio position (unused, sync uses video position)
+        Called periodically (50ms) by VisualController.position_timer.
+        Reads current video position and reports to SyncController for PLL control.
 
-        Extracted from VideoLyrics._report_position() L703-717
+        Args:
+            engine: VisualEngine to query for position
+            audio_time: Current audio position (unused, sync gets it independently)
         """
         if not engine.is_playing():
             return
 
         if self.sync_controller:
             video_seconds = engine.get_time()
+
+            # CRITICAL: Skip invalid positions
+            # MPV returns -1.0 during codec loading/initialization.
+            # Reporting -1.0 would cause drift = audio_time - (-1.0) > 400ms,
+            # triggering hard seeks every 1 second (visible video jumps).
+            # Note: is_playing() now also validates get_time() >= 0 for defense in depth.
+            if video_seconds < 0:
+                return
+
             self.sync_controller.on_video_position_updated(video_seconds)
 
     def on_video_end(self, engine: 'VisualEngine') -> None:
